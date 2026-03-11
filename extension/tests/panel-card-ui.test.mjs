@@ -86,6 +86,7 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(smartfillScript, /function renderSmartFillMenuMarkup\(primaryFieldKey\)/);
   assert.match(smartfillScript, /getSmartFillMenuFieldKeys\(primaryFieldKey,\s*visibleFieldKeys\)/);
   assert.match(smartfillScript, /fillCurrentTarget\(fieldKey\)[\s\S]*?onFieldFilled\(fieldKey\)/);
+  assert.match(smartfillScript, /function fillTarget\(target,\s*fieldKey\)/);
   assert.match(smartfillScript, /if \(!fieldKey\) \{\s*hideSmartButton\(\);\s*return;\s*\}/);
   assert.match(smartfillScript, /if \(role === "smart-fill-trigger"\) \{[\s\S]*?fillCurrentTarget\(activeSmartFieldKey\)/);
   assert.match(smartfillScript, /smartButton\.addEventListener\("mouseenter", function \(\) \{\s*setSmartButtonExpanded\(true\);/);
@@ -97,6 +98,7 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(orchestratorScript, /message\.type === "clear-smart-fill-override"/);
   assert.match(orchestratorScript, /setManualFieldOverride/);
   assert.match(orchestratorScript, /panelController\.loadVisibleFieldKeys\(\)\.then/);
+  assert.match(orchestratorScript, /smartFillController\.fillTarget\(target,\s*message\.fieldKey\)/);
   assert.match(orchestratorScript, /clearManualFieldOverride/);
   assert.match(orchestratorScript, /syncTarget/);
   assert.doesNotMatch(smartfillScript, /let smartCollapseTimer = null/);

@@ -114,7 +114,7 @@
       if (!target) return;
       smartFillApi.setManualFieldOverride(target, message.fieldKey);
       panelController.loadVisibleFieldKeys().then(function () {
-        smartFillController.syncTarget(target);
+        smartFillController.fillTarget(target, message.fieldKey);
       });
       return;
     }

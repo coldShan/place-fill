@@ -108,6 +108,17 @@
       showSmartButton(target, smartFillApi.inferFieldKeyForSmartFill(target));
     }
 
+    function fillTarget(target, fieldKey) {
+      const editableTarget = editableTargetApi.findEditableTarget(target);
+      const value = getFieldValue(fieldKey);
+      if (!editableTarget || !fieldKey || typeof value !== "string") return;
+      activeSmartTarget = editableTarget;
+      activeSmartFieldKey = fieldKey;
+      editableTargetApi.fillEditableTarget(editableTarget, value);
+      onFieldFilled(fieldKey);
+      showSmartButton(editableTarget, smartFillApi.inferFieldKeyForSmartFill(editableTarget));
+    }
+
     function syncTarget(target) {
       const editableTarget = editableTargetApi.findEditableTarget(target);
       if (!editableTarget) {
@@ -185,6 +196,7 @@
     }
 
     return {
+      fillTarget,
       hide: hideSmartButton,
       mount,
       refreshPosition,
