@@ -8,12 +8,12 @@
     copy: "assets/icons/lucide/copy.svg",
     "credit-card": "assets/icons/lucide/credit-card.svg",
     download: "assets/icons/lucide/download.svg",
+    github: "assets/icons/lucide/github.svg",
     "id-card": "assets/icons/lucide/id-card.svg",
     landmark: "assets/icons/lucide/landmark.svg",
     "list-filter": "assets/icons/lucide/list-filter.svg",
     mail: "assets/icons/lucide/mail.svg",
     "map-pinned": "assets/icons/lucide/map-pinned.svg",
-    "panel-right-close": "assets/icons/lucide/panel-right-close.svg",
     phone: "assets/icons/lucide/phone.svg",
     "refresh-cw": "assets/icons/lucide/refresh-cw.svg",
     settings: "assets/icons/lucide/settings.svg",
@@ -26,11 +26,12 @@
   const PRIMARY_LOGO_ICON = "id-card";
   const ACTION_ICONS = {
     back: "arrow-left",
-    collapse: "panel-right-close",
     copyAll: "copy",
     copied: "badge-check",
+    github: "github",
     regen: "refresh-cw",
-    settings: "settings"
+    settings: "settings",
+    updateCheck: "refresh-cw"
   };
   const SETTINGS_CARD_ICONS = {
     exportOverrides: "download",

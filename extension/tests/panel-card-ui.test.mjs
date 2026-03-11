@@ -29,12 +29,13 @@ test("dock and smart-fill buttons use icon markup instead of visible text labels
   assert.doesNotMatch(panelScript, /展开测试数据面板">测试数据<\/button>/);
 });
 
-test("panel toolbar keeps settings on the left and three icon-only actions on the right", () => {
-  assert.match(panelScript, /<header class="ctdp-toolbar">[\s\S]*?ctdp-toolbar-group-left[\s\S]*?data-role="open-settings"[\s\S]*?ctdp-toolbar-group-right[\s\S]*?data-role="regen"[\s\S]*?data-role="copy-all"[\s\S]*?data-role="collapse"/);
+test("panel toolbar keeps settings on the left and github plus two actions on the right", () => {
+  assert.match(panelScript, /<header class="ctdp-toolbar">[\s\S]*?ctdp-toolbar-group-left[\s\S]*?data-role="open-settings"[\s\S]*?ctdp-toolbar-group-right[\s\S]*?data-role="regen"[\s\S]*?data-role="copy-all"[\s\S]*?data-role="open-repository"/);
   assert.match(panelScript, /data-role="open-settings" aria-label="打开设置" title="打开设置"/);
+  assert.match(panelScript, /data-role="open-repository" aria-label="打开 GitHub 仓库" title="打开 GitHub 仓库"/);
   assert.match(panelScript, /data-role="regen" aria-label="重新生成全部" title="重新生成全部"/);
   assert.match(panelScript, /data-role="copy-all" aria-label="复制整组数据" title="复制整组数据"/);
-  assert.match(panelScript, /data-role="collapse" aria-label="收起面板" title="收起面板"/);
+  assert.doesNotMatch(panelScript, /data-role="collapse" aria-label="收起面板" title="收起面板"/);
   assert.doesNotMatch(panelScript, /ctdp-btn-text/);
 });
 
@@ -48,13 +49,17 @@ test("single-card copy only syncs copied state instead of rerendering the full g
   assert.match(panelScript, /async function copyField\(key\)\s*\{[\s\S]*?syncCopiedCardState\(\);[\s\S]*?\}/);
 });
 
-test("panel footer no longer renders status text or refresh timestamp", () => {
+test("panel footer renders version info and update trigger while keeping fallback copy hidden by default", () => {
   assert.doesNotMatch(panelScript, /ctdp-status-text/);
   assert.doesNotMatch(panelScript, /ctdp-status-time/);
   assert.doesNotMatch(panelScript, /data-role="status"/);
   assert.doesNotMatch(panelScript, /data-role="status-time"/);
   assert.doesNotMatch(panelScript, /<footer class="ctdp-footer">[\s\S]*?data-role="copy-all"/);
-  assert.match(panelScript, /<footer class="ctdp-footer" data-role="footer" hidden>/);
+  assert.match(panelScript, /<footer class="ctdp-footer" data-role="footer">/);
+  assert.match(panelScript, /data-role="panel-version"/);
+  assert.match(panelScript, /data-role="version-status"/);
+  assert.match(panelScript, /data-role="check-update" aria-label="检查更新" title="检查更新"/);
+  assert.doesNotMatch(panelScript, /data-role="footer" hidden/);
 });
 
 test("panel footer adds a settings entry and the panel includes a dedicated settings view", () => {

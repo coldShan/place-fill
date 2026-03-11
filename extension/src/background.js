@@ -7,6 +7,9 @@ const smartFillApi = globalThis.ChromeTestDataSmartFill;
 const MENU_ROOT_ID = "ctdp-manual-annotation-root";
 const MENU_FIELD_PREFIX = "ctdp-manual-annotation:";
 const MENU_CLEAR_ID = "ctdp-manual-annotation:clear";
+const REPOSITORY_URL = "https://github.com/coldShan/place-fill";
+const RELEASES_URL = REPOSITORY_URL + "/releases";
+const LATEST_RELEASE_API_URL = "https://api.github.com/repos/coldShan/place-fill/releases/latest";
 
 function getUrlHostname(url) {
   if (!url) return "";
@@ -58,6 +61,57 @@ function sendTabMessage(tabId, info, message) {
   });
 }
 
+function normalizeVersion(version) {
+  return String(version || "")
+    .trim()
+    .replace(/^v/i, "");
+}
+
+function compareVersions(left, right) {
+  const leftParts = normalizeVersion(left)
+    .split(".")
+    .map(function (part) {
+      return Number.parseInt(part, 10) || 0;
+    });
+  const rightParts = normalizeVersion(right)
+    .split(".")
+    .map(function (part) {
+      return Number.parseInt(part, 10) || 0;
+    });
+  const maxLength = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < maxLength; index += 1) {
+    const leftPart = leftParts[index] || 0;
+    const rightPart = rightParts[index] || 0;
+    if (leftPart > rightPart) return 1;
+    if (leftPart < rightPart) return -1;
+  }
+  return 0;
+}
+
+function openExtensionPage(url) {
+  if (!url || !chrome.tabs || typeof chrome.tabs.create !== "function") return;
+  chrome.tabs.create({ url: url });
+}
+
+async function checkExtensionUpdate() {
+  const currentVersion = normalizeVersion(chrome.runtime.getManifest().version);
+  const response = await fetch(LATEST_RELEASE_API_URL, {
+    headers: {
+      Accept: "application/vnd.github+json"
+    }
+  });
+  if (!response.ok) throw new Error("检查更新失败");
+  const payload = await response.json();
+  const latestVersion = normalizeVersion(payload && (payload.tag_name || payload.name));
+  if (!latestVersion) throw new Error("未找到可用版本信息");
+  return {
+    currentVersion,
+    hasUpdate: compareVersions(latestVersion, currentVersion) > 0,
+    latestVersion,
+    releaseUrl: payload && payload.html_url ? payload.html_url : RELEASES_URL
+  };
+}
+
 async function syncVisibleFieldKeyForContext(fieldKey, info, tab) {
   if (!fieldVisibilityApi || !fieldKey) return;
   const hostname = resolveContextHostname(info, tab);
@@ -99,6 +153,36 @@ chrome.contextMenus.onClicked.addListener(function (info, tab) {
         fieldKey
       });
     });
+});
+
+chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
+  if (!message || typeof message.type !== "string") return;
+  if (message.type === "open-extension-repository-page") {
+    openExtensionPage(REPOSITORY_URL);
+    sendResponse({ ok: true });
+    return;
+  }
+  if (message.type === "open-extension-release-page") {
+    openExtensionPage(message.url || RELEASES_URL);
+    sendResponse({ ok: true });
+    return;
+  }
+  if (message.type === "check-extension-update") {
+    checkExtensionUpdate()
+      .then(function (result) {
+        sendResponse(result);
+      })
+      .catch(function (error) {
+        sendResponse({
+          currentVersion: normalizeVersion(chrome.runtime.getManifest().version),
+          error: error && error.message ? error.message : "检查更新失败",
+          hasUpdate: false,
+          latestVersion: "",
+          releaseUrl: RELEASES_URL
+        });
+      });
+    return true;
+  }
 });
 
 buildContextMenus();

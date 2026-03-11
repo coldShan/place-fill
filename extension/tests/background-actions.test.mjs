@@ -21,4 +21,9 @@ test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /if \(chrome\.storage && chrome\.storage\.onChanged\)/);
   assert.match(script, /apply-smart-fill-override/);
   assert.match(script, /clear-smart-fill-override/);
+  assert.match(script, /check-extension-update/);
+  assert.match(script, /open-extension-release-page/);
+  assert.match(script, /open-extension-repository-page/);
+  assert.match(script, /https:\/\/api\.github\.com\/repos\/coldShan\/place-fill\/releases\/latest/);
+  assert.match(script, /chrome\.tabs\.create\(\{\s*url:/);
 });

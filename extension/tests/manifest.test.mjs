@@ -34,6 +34,8 @@ test("manifest enables all-sites editable injection with context menu permission
     "src/content-script-smartfill.js",
     "src/content-script.js"
   ]);
+  assert.equal(Array.isArray(manifest.host_permissions), true);
+  assert.equal(manifest.host_permissions.includes("https://api.github.com/repos/coldShan/place-fill/*"), true);
 });
 
 test("manifest declares local extension icons for toolbar and management pages", () => {

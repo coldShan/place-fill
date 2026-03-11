@@ -17,6 +17,8 @@
 
     const fieldKeys = fieldMetaApi.getFieldKeys();
     const panelState = panelStateApi.createPanelState();
+    const runtimeApi = typeof chrome !== "undefined" ? chrome.runtime : null;
+    const extensionVersion = runtimeApi && typeof runtimeApi.getManifest === "function" ? String(runtimeApi.getManifest().version || "") : "";
     let root = null;
     let fieldGrid = null;
     let mainView = null;
@@ -27,6 +29,7 @@
     let flashNode = null;
     let settingsStatus = null;
     let importInput = null;
+    let versionStatus = null;
     let visibilityList = null;
 
     const state = {
@@ -79,14 +82,12 @@
     function hideFallback() {
       if (!fallbackBox || !fallbackText) return;
       fallbackBox.hidden = true;
-      if (footer) footer.hidden = true;
       fallbackText.value = "";
     }
 
     function showFallback(text) {
       if (!fallbackBox || !fallbackText) return;
       fallbackText.value = text;
-      if (footer) footer.hidden = false;
       fallbackBox.hidden = false;
       fallbackText.focus();
       fallbackText.select();
@@ -264,6 +265,58 @@
       settingsStatus.setAttribute("data-tone", tone || "muted");
     }
 
+    function setVersionStatus(text, tone) {
+      if (!versionStatus) return;
+      versionStatus.textContent = text || "";
+      versionStatus.setAttribute("data-tone", tone || "muted");
+    }
+
+    function sendRuntimeMessage(message) {
+      return new Promise(function (resolve) {
+        if (!runtimeApi || typeof runtimeApi.sendMessage !== "function") {
+          resolve({ error: "扩展后台不可用" });
+          return;
+        }
+        runtimeApi.sendMessage(message, function (response) {
+          if (runtimeApi.lastError) {
+            resolve({ error: runtimeApi.lastError.message || "请求失败" });
+            return;
+          }
+          resolve(response || {});
+        });
+      });
+    }
+
+    async function openRepositoryPage() {
+      const response = await sendRuntimeMessage({ type: "open-extension-repository-page" });
+      if (response && response.error) setVersionStatus(response.error, "error");
+    }
+
+    async function openReleasePage(url) {
+      const response = await sendRuntimeMessage({
+        type: "open-extension-release-page",
+        url: url || ""
+      });
+      if (response && response.error) setVersionStatus(response.error, "error");
+    }
+
+    async function checkForUpdates() {
+      setVersionStatus("正在检查更新", "muted");
+      const response = await sendRuntimeMessage({ type: "check-extension-update" });
+      if (!response || response.error) {
+        setVersionStatus(response && response.error ? response.error : "检查更新失败", "error");
+        return;
+      }
+      if (!response.hasUpdate) {
+        setVersionStatus("当前已是最新版本", "success");
+        return;
+      }
+      setVersionStatus("发现 v" + response.latestVersion, "warning");
+      if (win.confirm("发现新版本 v" + response.latestVersion + "，是否前往 Release 页面？")) {
+        await openReleasePage(response.releaseUrl);
+      }
+    }
+
     function downloadJsonFile(fileName, payload) {
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -350,8 +403,8 @@
         '        <button class="ctdp-btn ctdp-btn-strong" type="button" data-role="copy-all" aria-label="复制整组数据" title="复制整组数据">' +
           renderButtonIcon(iconAssetsApi.ACTION_ICONS.copyAll, "复制整组数据", "ctdp-btn-icon") +
           "</button>",
-        '        <button class="ctdp-btn ctdp-btn-ghost" type="button" data-role="collapse" aria-label="收起面板" title="收起面板">' +
-          renderButtonIcon(iconAssetsApi.ACTION_ICONS.collapse, "收起面板", "ctdp-btn-icon") +
+        '        <button class="ctdp-btn ctdp-btn-primary" type="button" data-role="open-repository" aria-label="打开 GitHub 仓库" title="打开 GitHub 仓库">' +
+          renderButtonIcon(iconAssetsApi.ACTION_ICONS.github, "打开 GitHub 仓库", "ctdp-btn-icon") +
           "</button>",
         "      </div>",
         "    </header>",
@@ -400,7 +453,16 @@
         "    </div>",
         '    <p class="ctdp-settings-status" data-role="settings-status" data-tone="muted">填充项选择按当前站点保存，脱敏导出不会保留原始页面地址。</p>',
         "  </div>",
-        '  <footer class="ctdp-footer" data-role="footer" hidden>',
+        '  <footer class="ctdp-footer" data-role="footer">',
+        '    <div class="ctdp-footer-meta">',
+        '      <div class="ctdp-footer-copy">',
+        '        <span class="ctdp-footer-version" data-role="panel-version">v' + extensionVersion + "</span>",
+        '        <span class="ctdp-footer-status" data-role="version-status" data-tone="muted">点击检查更新</span>',
+        "      </div>",
+        '      <button class="ctdp-btn ctdp-footer-btn" type="button" data-role="check-update" aria-label="检查更新" title="检查更新">' +
+          renderButtonIcon(iconAssetsApi.ACTION_ICONS.updateCheck, "检查更新", "ctdp-btn-icon") +
+          "</button>",
+        "    </div>",
         '    <label class="ctdp-fallback" data-role="fallback-box" hidden>',
         '      <span>自动复制失败时，按 <strong>Ctrl/Cmd + C</strong> 手动复制：</span>',
         '      <textarea data-role="fallback-text" spellcheck="false" readonly></textarea>',
@@ -421,6 +483,7 @@
       flashNode = root.querySelector('[data-role="flash"]');
       settingsStatus = root.querySelector('[data-role="settings-status"]');
       importInput = root.querySelector('[data-role="import-file"]');
+      versionStatus = root.querySelector('[data-role="version-status"]');
       visibilityList = root.querySelector('[data-role="field-visibility-list"]');
 
       root.addEventListener("click", function (event) {
@@ -440,9 +503,12 @@
           copyField(trigger.getAttribute("data-key"));
           return;
         }
-        if (role === "collapse") {
-          panelState.toggleCollapsed();
-          updatePanelState();
+        if (role === "open-repository") {
+          openRepositoryPage();
+          return;
+        }
+        if (role === "check-update") {
+          checkForUpdates();
           return;
         }
         if (role === "open-settings") {
