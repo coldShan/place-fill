@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const stylesheet = readFileSync(join(here, "../src/sidepanel.css"), "utf8");
+const stylesheet = readFileSync(join(here, "../extension/src/sidepanel.css"), "utf8");
 
 test("smart fill keeps a single circular trigger and expands icon-only items below it", () => {
   assert.match(stylesheet, /\.ctdp-smartfill\s*\{[\s\S]*?position:\s*fixed;/);

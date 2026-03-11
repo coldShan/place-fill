@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 
 async function loadPackageReleaseModule() {
   try {
-    return await import("../scripts/package-release.mjs");
+    return await import("../extension/scripts/package-release.mjs");
   } catch {
     return null;
   }
@@ -53,4 +53,9 @@ test("packageRelease targets the releases directory with a versioned zip filenam
     extensionDir,
     outputPath: join(releasesDir, "place-fill-v1.2.3.zip")
   });
+});
+
+test("repository keeps tests outside the packaged extension directory", () => {
+  assert.equal(existsSync(join(process.cwd(), "tests")), true);
+  assert.equal(existsSync(join(process.cwd(), "extension", "tests")), false);
 });

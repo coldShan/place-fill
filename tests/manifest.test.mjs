@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const manifest = JSON.parse(readFileSync(join(here, "../manifest.json"), "utf8"));
+const manifest = JSON.parse(readFileSync(join(here, "../extension/manifest.json"), "utf8"));
 
 test("manifest uses place-fill as the extension name and action title", () => {
   assert.equal(manifest.name, "place-fill");
@@ -48,7 +48,7 @@ test("manifest declares local extension icons for toolbar and management pages",
   assert.deepEqual(manifest.action.default_icon, manifest.icons);
 
   for (const file of Object.values(manifest.icons)) {
-    assert.equal(existsSync(join(here, "..", file)), true);
+    assert.equal(existsSync(join(here, "..", "extension", file)), true);
   }
 });
 

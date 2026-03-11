@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
-import { localizeIcons, createLucideIconUrl, collectIconSpecs } from "../scripts/localize-icons.mjs";
+import { localizeIcons, createLucideIconUrl, collectIconSpecs } from "../extension/scripts/localize-icons.mjs";
 
 test("collectIconSpecs derives unique used icon specs from icon asset paths", () => {
   const specs = collectIconSpecs({

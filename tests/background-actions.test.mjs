@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const script = readFileSync(join(here, "../src/background.js"), "utf8");
+const script = readFileSync(join(here, "../extension/src/background.js"), "utf8");
 
 test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /chrome\.action\.onClicked\.addListener/);

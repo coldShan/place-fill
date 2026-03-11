@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const stylesheet = readFileSync(join(here, "../src/sidepanel.css"), "utf8");
+const stylesheet = readFileSync(join(here, "../extension/src/sidepanel.css"), "utf8");
 
 test("card copied feedback only animates activation, not deactivation transitions", () => {
   assert.match(stylesheet, /\.ctdp-card\s*\{[^}]*transition:\s*transform 160ms ease;/);

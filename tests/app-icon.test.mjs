@@ -5,9 +5,9 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const iconSourcePath = join(here, "../assets/app-icons/icon-source.svg");
-const lucideDir = join(here, "../assets/icons/lucide");
-const iconAssetsPath = join(here, "../src/icon-assets.js");
+const iconSourcePath = join(here, "../extension/assets/app-icons/icon-source.svg");
+const lucideDir = join(here, "../extension/assets/icons/lucide");
+const iconAssetsPath = join(here, "../extension/src/icon-assets.js");
 
 test("extension logo source exists and uses a tight framing for toolbar visibility", () => {
   assert.equal(existsSync(iconSourcePath), true);

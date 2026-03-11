@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const stylesheet = readFileSync(join(here, "../src/sidepanel.css"), "utf8");
+const stylesheet = readFileSync(join(here, "../extension/src/sidepanel.css"), "utf8");
 
 test("collapsed dock is anchored to the viewport edge while panel keeps a right gutter", () => {
   assert.match(stylesheet, /\.ctdp-root\s*\{[\s\S]*?\bright:\s*0;/);

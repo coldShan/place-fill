@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import generatorsPkg from "../src/generators.js";
-import fieldMetaPkg from "../src/field-meta.js";
+import generatorsPkg from "../extension/src/generators.js";
+import fieldMetaPkg from "../extension/src/field-meta.js";
 
 const {
   CREDIT_CODE_ALPHABET,

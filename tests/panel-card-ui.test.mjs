@@ -5,9 +5,9 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const orchestratorScript = readFileSync(join(here, "../src/content-script.js"), "utf8");
-const panelScript = readFileSync(join(here, "../src/content-script-panel.js"), "utf8");
-const smartfillScript = readFileSync(join(here, "../src/content-script-smartfill.js"), "utf8");
+const orchestratorScript = readFileSync(join(here, "../extension/src/content-script.js"), "utf8");
+const panelScript = readFileSync(join(here, "../extension/src/content-script-panel.js"), "utf8");
+const smartfillScript = readFileSync(join(here, "../extension/src/content-script-smartfill.js"), "utf8");
 
 test("panel cards are whole-card copy targets with a single copied-state marker", () => {
   assert.match(panelScript, /copiedFieldKey:\s*null/);

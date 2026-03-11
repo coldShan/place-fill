@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import statePkg from "../src/panel-state.js";
+import statePkg from "../extension/src/panel-state.js";
 
 const { createPanelState } = statePkg;
 

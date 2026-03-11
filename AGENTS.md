@@ -49,7 +49,7 @@ node --check extension/src/*.js
 - Tests:
 
 ```bash
-node --test extension/tests/*.test.mjs
+node --test tests/*.test.mjs
 ```
 
 ## Git Notes

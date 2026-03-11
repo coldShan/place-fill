@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import smartFillPkg from "../src/smart-fill.js";
-import fieldMetaPkg from "../src/field-meta.js";
+import smartFillPkg from "../extension/src/smart-fill.js";
+import fieldMetaPkg from "../extension/src/field-meta.js";
 
 const {
   clearManualFieldOverride,

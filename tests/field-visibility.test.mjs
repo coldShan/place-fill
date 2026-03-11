@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fieldVisibilityPkg from "../src/field-visibility.js";
+import fieldVisibilityPkg from "../extension/src/field-visibility.js";
 
 const {
   filterVisibleFieldKeys,

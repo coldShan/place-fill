@@ -32,6 +32,7 @@
 ## 资源指引
 
 - 扩展源码目录：`extension/`
+- 仓库级测试目录：`tests/`
 - 本地联调页面：`mock-form/index.html`
 - 发布产物目录：`releases/`
 - README 预览图资源：`assets/img1.png`、`assets/img2.png`
@@ -48,5 +49,5 @@
 
 ## 发布
 
-- 发布 zip 只包含 `extension/` 目录内容，产物文件名会自动带上 `manifest.json` 里的版本号，例如 `releases/place-fill-v0.3.3.zip`：
+- 发布 zip 只包含 `extension/` 目录内容，产物文件名会自动带上 `manifest.json` 里的版本号，例如 `releases/place-fill-v0.3.4.zip`：
   `node extension/scripts/package-release.mjs`

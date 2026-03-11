@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import editablePkg from "../src/editable-target.js";
+import editablePkg from "../extension/src/editable-target.js";
 
 const { fillEditableTarget, findEditableTarget } = editablePkg;
 

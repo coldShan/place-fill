@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const stylesheet = readFileSync(join(here, "../src/sidepanel.css"), "utf8");
+const stylesheet = readFileSync(join(here, "../extension/src/sidepanel.css"), "utf8");
 
 test("icon system keeps dock icon static while preserving other motion hooks", () => {
   assert.match(stylesheet, /\.ctdp-icon\s*\{/);
