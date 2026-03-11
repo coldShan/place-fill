@@ -63,31 +63,71 @@
     return null;
   }
 
+  function getLocationHostname(env) {
+    if (env && typeof env.hostname === "string") return String(env.hostname || "").trim().toLowerCase();
+    const locationLike = env && env.location;
+    if (locationLike && typeof locationLike.hostname === "string") return String(locationLike.hostname || "").trim().toLowerCase();
+    try {
+      if (typeof location !== "undefined" && typeof location.hostname === "string") {
+        return String(location.hostname || "").trim().toLowerCase();
+      }
+    } catch (_) {}
+    return "";
+  }
+
+  function normalizeVisibleFieldKeyMap(rawValue) {
+    if (!rawValue || typeof rawValue !== "object" || Array.isArray(rawValue)) return {};
+    return Object.fromEntries(
+      Object.entries(rawValue)
+        .map(function ([hostname, fieldKeys]) {
+          return [String(hostname || "").trim().toLowerCase(), normalizeVisibleFieldKeys(fieldKeys, { fallbackToDefault: false })];
+        })
+        .filter(function ([hostname]) {
+          return Boolean(hostname);
+        })
+    );
+  }
+
   function readVisibleFieldKeys(env) {
     const storageArea = getStorageArea(env);
+    const hostname = getLocationHostname(env);
+    if (!hostname) return Promise.resolve(getDefaultVisibleFieldKeys());
     if (!storageArea || typeof storageArea.get !== "function") {
       return Promise.resolve(getDefaultVisibleFieldKeys());
     }
 
     return new Promise(function (resolve) {
       storageArea.get([STORAGE_KEY], function (result) {
-        resolve(normalizeVisibleFieldKeys(result && result[STORAGE_KEY]));
+        const visibleFieldKeyMap = normalizeVisibleFieldKeyMap(result && result[STORAGE_KEY]);
+        resolve(
+          Object.prototype.hasOwnProperty.call(visibleFieldKeyMap, hostname)
+            ? visibleFieldKeyMap[hostname]
+            : getDefaultVisibleFieldKeys()
+        );
       });
     });
   }
 
   function writeVisibleFieldKeys(fieldKeys, env) {
     const storageArea = getStorageArea(env);
+    const hostname = getLocationHostname(env);
     const normalizedFieldKeys = normalizeVisibleFieldKeys(fieldKeys, { fallbackToDefault: false });
+    if (!hostname) {
+      return Promise.resolve(normalizedFieldKeys);
+    }
     if (!storageArea || typeof storageArea.set !== "function") {
       return Promise.resolve(normalizedFieldKeys);
     }
 
     return new Promise(function (resolve) {
-      storageArea.set({ [STORAGE_KEY]: normalizedFieldKeys }, function () {
-        resolve(normalizedFieldKeys);
+      storageArea.get([STORAGE_KEY], function (result) {
+        const visibleFieldKeyMap = normalizeVisibleFieldKeyMap(result && result[STORAGE_KEY]);
+        visibleFieldKeyMap[hostname] = normalizedFieldKeys;
+        storageArea.set({ [STORAGE_KEY]: visibleFieldKeyMap }, function () {
+          resolve(normalizedFieldKeys);
+        });
       });
-    }); 
+    });
   }
 
   const api = {

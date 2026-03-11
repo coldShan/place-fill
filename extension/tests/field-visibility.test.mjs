@@ -44,20 +44,25 @@ test("field visibility defaults to the first six core fill items", () => {
 test("field visibility falls back to defaults when storage is empty or invalid", async () => {
   assert.deepEqual(
     await readVisibleFieldKeys({
+      location: { hostname: "alpha.example.com" },
       storageArea: createStorageArea()
     }),
     getDefaultVisibleFieldKeys()
   );
   assert.deepEqual(
     await readVisibleFieldKeys({
+      location: { hostname: "alpha.example.com" },
       storageArea: createStorageArea({
-        "ctdp.visibleFieldKeys.v1": ["unknown", "address", "unknown"]
+        "ctdp.visibleFieldKeys.v1": {
+          "alpha.example.com": ["unknown", "address", "unknown"]
+        }
       })
     }),
     ["address"]
   );
   assert.deepEqual(
     await readVisibleFieldKeys({
+      location: { hostname: "alpha.example.com" },
       storageArea: createStorageArea({
         "ctdp.visibleFieldKeys.v1": "broken"
       })
@@ -68,11 +73,13 @@ test("field visibility falls back to defaults when storage is empty or invalid",
 
 test("field visibility persists normalized selections in field metadata order", async () => {
   const storageArea = createStorageArea();
-  const env = { storageArea };
-  const visibleFieldKeys = await writeVisibleFieldKeys(["mobile", "companyName", "companyName", "address"], env);
+  const alphaEnv = { location: { hostname: "alpha.example.com" }, storageArea };
+  const betaEnv = { location: { hostname: "beta.example.com" }, storageArea };
+  const visibleFieldKeys = await writeVisibleFieldKeys(["mobile", "companyName", "companyName", "address"], alphaEnv);
 
   assert.deepEqual(visibleFieldKeys, ["companyName", "mobile", "address"]);
-  assert.deepEqual(await readVisibleFieldKeys(env), ["companyName", "mobile", "address"]);
+  assert.deepEqual(await readVisibleFieldKeys(alphaEnv), ["companyName", "mobile", "address"]);
+  assert.deepEqual(await readVisibleFieldKeys(betaEnv), getDefaultVisibleFieldKeys());
 });
 
 test("field visibility helpers filter and check supported visible field keys", () => {

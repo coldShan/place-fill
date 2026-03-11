@@ -7,9 +7,25 @@ const smartFillApi = globalThis.ChromeTestDataSmartFill;
 const MENU_ROOT_ID = "ctdp-manual-annotation-root";
 const MENU_FIELD_PREFIX = "ctdp-manual-annotation:";
 const MENU_CLEAR_ID = "ctdp-manual-annotation:clear";
+
+function getUrlHostname(url) {
+  if (!url) return "";
+  try {
+    return String(new URL(url).hostname || "").trim().toLowerCase();
+  } catch (_) {
+    return "";
+  }
+}
+
+function resolveContextHostname(info, tab) {
+  const contextHostname = getUrlHostname(info && (info.frameUrl || info.pageUrl));
+  if (contextHostname) return contextHostname;
+  if (tab && tab.url) return String(new URL(tab.url).hostname || "").trim().toLowerCase();
+  return "";
+}
+
 async function buildContextMenus() {
   if (!chrome.contextMenus || !smartFillApi || !fieldVisibilityApi) return;
-  const visibleFieldKeys = await fieldVisibilityApi.readVisibleFieldKeys();
   chrome.contextMenus.removeAll(function () {
     chrome.contextMenus.create({
       id: MENU_ROOT_ID,
@@ -17,7 +33,7 @@ async function buildContextMenus() {
       contexts: ["editable"]
     });
 
-    smartFillApi.getSupportedFieldKeys(visibleFieldKeys).forEach(function (fieldKey) {
+    smartFillApi.getSupportedFieldKeys().forEach(function (fieldKey) {
       chrome.contextMenus.create({
         id: MENU_FIELD_PREFIX + fieldKey,
         parentId: MENU_ROOT_ID,
@@ -40,6 +56,15 @@ function sendTabMessage(tabId, info, message) {
   chrome.tabs.sendMessage(tabId, message, { frameId: info.frameId }, function () {
     void chrome.runtime.lastError;
   });
+}
+
+async function syncVisibleFieldKeyForContext(fieldKey, info, tab) {
+  if (!fieldVisibilityApi || !fieldKey) return;
+  const hostname = resolveContextHostname(info, tab);
+  if (!hostname) return;
+  const visibleFieldKeys = await fieldVisibilityApi.readVisibleFieldKeys({ hostname });
+  if (fieldVisibilityApi.isFieldVisible(fieldKey, visibleFieldKeys)) return;
+  await fieldVisibilityApi.writeVisibleFieldKeys(visibleFieldKeys.concat(fieldKey), { hostname });
 }
 
 chrome.action.onClicked.addListener(function (tab) {
@@ -65,10 +90,15 @@ chrome.contextMenus.onClicked.addListener(function (info, tab) {
     return;
   }
   if (typeof info.menuItemId !== "string" || !info.menuItemId.startsWith(MENU_FIELD_PREFIX)) return;
-  sendTabMessage(tab.id, info, {
-    type: "apply-smart-fill-override",
-    fieldKey: info.menuItemId.slice(MENU_FIELD_PREFIX.length)
-  });
+  const fieldKey = info.menuItemId.slice(MENU_FIELD_PREFIX.length);
+  syncVisibleFieldKeyForContext(fieldKey, info, tab)
+    .catch(function () {})
+    .finally(function () {
+      sendTabMessage(tab.id, info, {
+        type: "apply-smart-fill-override",
+        fieldKey
+      });
+    });
 });
 
 buildContextMenus();

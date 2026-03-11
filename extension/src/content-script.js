@@ -113,7 +113,9 @@
       const target = smartFillController.resolveManualOverrideTarget();
       if (!target) return;
       smartFillApi.setManualFieldOverride(target, message.fieldKey);
-      smartFillController.syncTarget(target);
+      panelController.loadVisibleFieldKeys().then(function () {
+        smartFillController.syncTarget(target);
+      });
       return;
     }
     if (message.type === "clear-smart-fill-override") {

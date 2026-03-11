@@ -13,8 +13,11 @@ test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /chrome\.contextMenus\.create/);
   assert.match(script, /contexts:\s*\["editable"\]/);
   assert.match(script, /chrome\.contextMenus\.onClicked\.addListener/);
+  assert.match(script, /new URL\(tab\.url\)\.hostname/);
   assert.match(script, /frameId:\s*info\.frameId/);
   assert.match(script, /readVisibleFieldKeys/);
+  assert.match(script, /writeVisibleFieldKeys/);
+  assert.match(script, /getSupportedFieldKeys\(\)/);
   assert.match(script, /if \(chrome\.storage && chrome\.storage\.onChanged\)/);
   assert.match(script, /apply-smart-fill-override/);
   assert.match(script, /clear-smart-fill-override/);

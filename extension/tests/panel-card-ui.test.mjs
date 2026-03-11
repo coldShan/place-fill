@@ -72,6 +72,7 @@ test("panel renders and copies only the currently visible field keys", () => {
   assert.match(panelScript, /visibleFieldKeys:\s*fieldVisibilityApi\.getDefaultVisibleFieldKeys\(\)/);
   assert.match(panelScript, /state\.visibleFieldKeys\s*\.map\(function \(key\)/);
   assert.match(panelScript, /fieldVisibilityApi\.writeVisibleFieldKeys/);
+  assert.match(panelScript, /loadVisibleFieldKeys/);
   assert.match(panelScript, /onVisibleFieldKeysChanged\(state\.visibleFieldKeys\)/);
 });
 
@@ -95,6 +96,7 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(orchestratorScript, /message\.type === "apply-smart-fill-override"/);
   assert.match(orchestratorScript, /message\.type === "clear-smart-fill-override"/);
   assert.match(orchestratorScript, /setManualFieldOverride/);
+  assert.match(orchestratorScript, /panelController\.loadVisibleFieldKeys\(\)\.then/);
   assert.match(orchestratorScript, /clearManualFieldOverride/);
   assert.match(orchestratorScript, /syncTarget/);
   assert.doesNotMatch(smartfillScript, /let smartCollapseTimer = null/);

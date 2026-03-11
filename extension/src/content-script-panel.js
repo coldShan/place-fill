@@ -359,7 +359,7 @@
           renderButtonIcon(iconAssetsApi.ACTION_ICONS.settings, "填充项选择", "ctdp-settings-card-icon") +
         '          <span class="ctdp-settings-card-title">填充项选择</span>' +
         "        </span>" +
-        '        <span class="ctdp-settings-card-note">只有勾选的项目会在面板、智能填充和手动标注中展示</span>' +
+        '        <span class="ctdp-settings-card-note">当前站点只有勾选的项目会出现在面板和智能填充中，右键标注始终提供全量字段</span>' +
         '        <div class="ctdp-field-visibility-list" data-role="field-visibility-list"></div>' +
         "      </section>",
         '      <button class="ctdp-settings-card" type="button" data-role="export-overrides">' +
@@ -381,10 +381,10 @@
           renderButtonIcon(iconAssetsApi.ACTION_ICONS.collapse, "脱敏导出", "ctdp-settings-card-icon") +
         '          <span class="ctdp-settings-card-title">脱敏导出</span>' +
         "        </span>" +
-        '        <span class="ctdp-settings-card-note">只保留输入框指纹，可在当前环境回导</span>' +
+        '        <span class="ctdp-settings-card-note">只保留输入框指纹，可在当前站点回导</span>' +
         "      </button>",
         "    </div>",
-        '    <p class="ctdp-settings-status" data-role="settings-status" data-tone="muted">脱敏导出不会保留原始页面地址。</p>',
+        '    <p class="ctdp-settings-status" data-role="settings-status" data-tone="muted">填充项选择按当前站点保存，脱敏导出不会保留原始页面地址。</p>',
         "  </div>",
         '  <footer class="ctdp-footer" data-role="footer">',
         '    <div class="ctdp-footer-actions">',
@@ -529,6 +529,7 @@
       expand,
       getFieldValue,
       getVisibleFieldKeys,
+      loadVisibleFieldKeys,
       mount,
       syncImportedOverrideState,
       toggleVisible
