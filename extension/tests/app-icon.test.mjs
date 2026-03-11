@@ -21,6 +21,9 @@ test("extension logo source exists and uses a tight framing for toolbar visibili
 test("smart fill field icons keep required lucide assets in sync", () => {
   assert.equal(existsSync(join(lucideDir, "building-2.svg")), true);
   assert.equal(existsSync(join(lucideDir, "landmark.svg")), true);
+  assert.equal(existsSync(join(lucideDir, "mail.svg")), true);
+  assert.equal(existsSync(join(lucideDir, "phone.svg")), true);
+  assert.equal(existsSync(join(lucideDir, "map-pinned.svg")), true);
   assert.equal(existsSync(join(lucideDir, "settings.svg")), true);
   assert.equal(existsSync(join(lucideDir, "arrow-left.svg")), true);
 });
@@ -31,6 +34,9 @@ test("icon asset map uses standalone lucide files instead of inline svg markup",
   assert.doesNotMatch(iconAssetsSource, /<svg/);
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/landmark\.svg/);
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/building-2\.svg/);
+  assert.match(iconAssetsSource, /assets\/icons\/lucide\/mail\.svg/);
+  assert.match(iconAssetsSource, /assets\/icons\/lucide\/phone\.svg/);
+  assert.match(iconAssetsSource, /assets\/icons\/lucide\/map-pinned\.svg/);
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/settings\.svg/);
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/arrow-left\.svg/);
   assert.match(iconAssetsSource, /getURL/);

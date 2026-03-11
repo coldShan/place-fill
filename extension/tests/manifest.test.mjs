@@ -22,11 +22,14 @@ test("manifest enables all-sites editable injection with context menu permission
   assert.equal(manifest.content_scripts[0].matches.includes("<all_urls>"), true);
   assert.equal(manifest.content_scripts[0].all_frames, true);
   assert.deepEqual(manifest.content_scripts[0].js, [
+    "src/field-meta.js",
     "src/generators.js",
     "src/panel-state.js",
     "src/editable-target.js",
     "src/icon-assets.js",
     "src/smart-fill.js",
+    "src/content-script-panel.js",
+    "src/content-script-smartfill.js",
     "src/content-script.js"
   ]);
 });

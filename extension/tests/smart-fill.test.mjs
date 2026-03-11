@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import smartFillPkg from "../src/smart-fill.js";
+import fieldMetaPkg from "../src/field-meta.js";
 
 const {
   clearManualFieldOverride,
@@ -14,6 +15,7 @@ const {
   inferFieldKeyForSmartFill,
   setManualFieldOverride
 } = smartFillPkg;
+const { getFieldDefinitions, getFieldKeys } = fieldMetaPkg;
 
 function createElement(props) {
   return {
@@ -72,6 +74,9 @@ function createEnv(overrides) {
 
 test("smart fill infers phone, id card, name, bank card and credit code from common attributes", () => {
   assert.equal(inferFieldKeyForSmartFill(createElement({ name: "mobilePhone" })), "mobile");
+  assert.equal(inferFieldKeyForSmartFill(createElement({ name: "emailAddress" })), "email");
+  assert.equal(inferFieldKeyForSmartFill(createElement({ placeholder: "请输入固定电话" })), "landline");
+  assert.equal(inferFieldKeyForSmartFill(createElement({ ariaLabel: "开户地址" })), "address");
   assert.equal(inferFieldKeyForSmartFill(createElement({ placeholder: "请输入身份证号" })), "idNumber");
   assert.equal(inferFieldKeyForSmartFill(createElement({ placeholder: "请输入公司名称" })), "companyName");
   assert.equal(inferFieldKeyForSmartFill(createElement({ ariaLabel: "企业名称联系人姓名" })), "fullName");
@@ -93,11 +98,12 @@ test("smart fill infers pinyin aliases and initials for supported fields", () =>
   assert.equal(inferFieldKeyForSmartFill(createElement({ id: "zjhm" })), "idNumber");
   assert.equal(inferFieldKeyForSmartFill(createElement({ name: "yhkh" })), "bankCard");
   assert.equal(inferFieldKeyForSmartFill(createElement({ id: "sjh" })), "mobile");
+  assert.equal(inferFieldKeyForSmartFill(createElement({ name: "gddh" })), "landline");
+  assert.equal(inferFieldKeyForSmartFill(createElement({ id: "dizhi" })), "address");
   assert.equal(inferFieldKeyForSmartFill(createElement({ name: "tyshxydm" })), "creditCode");
 });
 
 test("smart fill returns null for unsupported or ambiguous fields", () => {
-  assert.equal(inferFieldKeyForSmartFill(createElement({ name: "email" })), null);
   assert.equal(inferFieldKeyForSmartFill(createElement({ placeholder: "请输入备注" })), null);
   assert.equal(inferFieldKeyForSmartFill(createElement({ tagName: "TEXTAREA", name: "description" })), null);
 });
@@ -105,39 +111,51 @@ test("smart fill returns null for unsupported or ambiguous fields", () => {
 test("smart fill button label only uses the matched field name", () => {
   assert.equal(formatSmartFillButtonLabel("companyName"), "公司名称");
   assert.equal(formatSmartFillButtonLabel("mobile"), "手机号");
+  assert.equal(formatSmartFillButtonLabel("email"), "邮箱");
+  assert.equal(formatSmartFillButtonLabel("landline"), "固定电话");
+  assert.equal(formatSmartFillButtonLabel("address"), "地址");
   assert.equal(formatSmartFillButtonLabel("idNumber"), "身份证号");
   assert.equal(formatSmartFillButtonLabel("unknown"), "智能填充");
 });
 
 test("smart fill exposes field icon mapping for all supported field types", () => {
   assert.deepEqual(
-    {
-      creditCode: getFieldIconName("creditCode"),
-      companyName: getFieldIconName("companyName"),
-      fullName: getFieldIconName("fullName"),
-      idNumber: getFieldIconName("idNumber"),
-      bankCard: getFieldIconName("bankCard"),
-      mobile: getFieldIconName("mobile")
-    },
-    {
-      creditCode: "landmark",
-      companyName: "building-2",
-      fullName: "user-round",
-      idNumber: "id-card",
-      bankCard: "credit-card",
-      mobile: "smartphone"
-    }
+    Object.fromEntries(
+      getFieldDefinitions().map(function (definition) {
+        return [definition.key, getFieldIconName(definition.key)];
+      })
+    ),
+    Object.fromEntries(
+      getFieldDefinitions().map(function (definition) {
+        return [definition.key, definition.iconName];
+      })
+    )
   );
 });
 
 test("smart fill menu lists only the other field types in stable order", () => {
-  assert.deepEqual(getSmartFillMenuFieldKeys("mobile"), ["creditCode", "companyName", "fullName", "idNumber", "bankCard"]);
-  assert.deepEqual(getSmartFillMenuFieldKeys("idNumber"), ["creditCode", "companyName", "fullName", "bankCard", "mobile"]);
-  assert.deepEqual(getSmartFillMenuFieldKeys("companyName"), ["creditCode", "fullName", "idNumber", "bankCard", "mobile"]);
+  assert.deepEqual(
+    getSmartFillMenuFieldKeys("mobile"),
+    getFieldKeys().filter(function (fieldKey) {
+      return fieldKey !== "mobile";
+    })
+  );
+  assert.deepEqual(
+    getSmartFillMenuFieldKeys("idNumber"),
+    getFieldKeys().filter(function (fieldKey) {
+      return fieldKey !== "idNumber";
+    })
+  );
+  assert.deepEqual(
+    getSmartFillMenuFieldKeys("companyName"),
+    getFieldKeys().filter(function (fieldKey) {
+      return fieldKey !== "companyName";
+    })
+  );
 });
 
 test("smart fill exposes supported field keys for menu creation", () => {
-  assert.deepEqual(getSupportedFieldKeys(), ["creditCode", "companyName", "fullName", "idNumber", "bankCard", "mobile"]);
+  assert.deepEqual(getSupportedFieldKeys(), getFieldKeys());
 });
 
 test("manual smart fill override takes precedence over heuristic inference", () => {
@@ -275,7 +293,7 @@ test("invalid override import payloads fail fast", () => {
           type: "raw",
           version: 1,
           overrides: {
-            "https://example.com/apply/form::top::tag=input": "email"
+            "https://example.com/apply/form::top::tag=input": "unsupportedField"
           }
         },
         env

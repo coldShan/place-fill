@@ -1,6 +1,31 @@
 (function (rootScope) {
   "use strict";
 
+  function getFieldMetaApi() {
+    if (rootScope.ChromeTestDataFieldMeta) return rootScope.ChromeTestDataFieldMeta;
+    if (typeof require === "function") {
+      try {
+        return require("./field-meta.js");
+      } catch (_) {}
+    }
+    return {
+      getFieldIconName: function () {
+        return "";
+      },
+      getFieldKeys: function () {
+        return [];
+      },
+      getFieldLabel: function () {
+        return "";
+      },
+      isSupportedFieldKey: function () {
+        return false;
+      }
+    };
+  }
+
+  const fieldMetaApi = getFieldMetaApi();
+
   const FIELD_MATCHERS = [
     {
       fieldKey: "creditCode",
@@ -23,6 +48,21 @@
       patterns: [/手机号/u, /手机号码/u, /联系电话/u, /手机/u, /\bmobile\b/i, /\bphone\b/i, /\btel\b/i]
     },
     {
+      fieldKey: "email",
+      exact: ["email", "emailaddress", "mail", "mailbox", "youxiang", "yx"],
+      patterns: [/邮箱/u, /电子邮箱/u, /\be-?mail\b/i]
+    },
+    {
+      fieldKey: "landline",
+      exact: ["landline", "fixedphone", "fixedtelephone", "officephone", "gudingdianhua", "zuoji", "gddh"],
+      patterns: [/固定电话/u, /座机/u, /办公电话/u, /\blandline\b/i, /\bfixed\s*(?:phone|telephone|line)\b/i, /\boffice\s*phone\b/i]
+    },
+    {
+      fieldKey: "address",
+      exact: ["address", "detailaddress", "postaladdress", "shippingaddress", "contactaddress", "dizhi", "xxdz"],
+      patterns: [/地址/u, /开户地址/u, /\baddress\b/i]
+    },
+    {
       fieldKey: "fullName",
       exact: ["name", "fullname", "realname", "contactname", "username", "xingming", "xm"],
       patterns: [/姓名/u, /联系人/u, /真实姓名/u, /\bfull\s*name\b/i, /\breal\s*name\b/i, /\bname\b/i]
@@ -35,32 +75,23 @@
   ];
 
   const AUTOCOMPLETE_MAP = {
+    email: "email",
+    "street-address": "address",
+    "address-line1": "address",
+    "address-line2": "address",
     tel: "mobile",
+    "tel-area-code": "landline",
+    "tel-local": "landline",
+    "tel-local-prefix": "landline",
+    "tel-local-suffix": "landline",
     "tel-national": "mobile",
     name: "fullName",
     "cc-name": "fullName"
   };
-  const BUTTON_LABELS = {
-    creditCode: "统一社会信用代码",
-    companyName: "公司名称",
-    fullName: "姓名",
-    idNumber: "身份证号",
-    bankCard: "银行卡号",
-    mobile: "手机号"
-  };
-  const FIELD_ORDER = ["creditCode", "companyName", "fullName", "idNumber", "bankCard", "mobile"];
   const STORAGE_KEY = "ctdp.smartFillOverrides.v1";
   const EXPORT_FORMAT = "ctdp-smart-fill-overrides";
   const EXPORT_VERSION = 1;
   const SANITIZED_FRAME_SCOPE = "*";
-  const FIELD_ICONS = {
-    creditCode: "landmark",
-    companyName: "building-2",
-    fullName: "user-round",
-    idNumber: "id-card",
-    bankCard: "credit-card",
-    mobile: "smartphone"
-  };
 
   function normalizeText(value) {
     return String(value || "")
@@ -70,11 +101,11 @@
   }
 
   function getSupportedFieldKeys() {
-    return FIELD_ORDER.slice();
+    return fieldMetaApi.getFieldKeys();
   }
 
   function isSupportedFieldKey(fieldKey) {
-    return FIELD_ORDER.includes(fieldKey);
+    return fieldMetaApi.isSupportedFieldKey(fieldKey);
   }
 
   function getEnvLocation(env) {
@@ -444,16 +475,17 @@
   }
 
   function formatSmartFillButtonLabel(fieldKey) {
-    return BUTTON_LABELS[fieldKey] || "智能填充";
+    return fieldMetaApi.getFieldLabel(fieldKey) || "智能填充";
   }
 
   function getFieldIconName(fieldKey) {
-    return FIELD_ICONS[fieldKey] || "id-card";
+    return fieldMetaApi.getFieldIconName(fieldKey) || "id-card";
   }
 
   function getSmartFillMenuFieldKeys(primaryFieldKey) {
-    if (!FIELD_ORDER.includes(primaryFieldKey)) return FIELD_ORDER.slice();
-    return FIELD_ORDER.filter(function (fieldKey) {
+    const fieldKeys = getSupportedFieldKeys();
+    if (!fieldKeys.includes(primaryFieldKey)) return fieldKeys.slice();
+    return fieldKeys.filter(function (fieldKey) {
       return fieldKey !== primaryFieldKey;
     });
   }

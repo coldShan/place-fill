@@ -9,7 +9,7 @@ const script = readFileSync(join(here, "../src/background.js"), "utf8");
 
 test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /chrome\.action\.onClicked\.addListener/);
-  assert.match(script, /importScripts\("smart-fill\.js"\)/);
+  assert.match(script, /importScripts\("field-meta\.js",\s*"smart-fill\.js"\)/);
   assert.match(script, /chrome\.contextMenus\.create/);
   assert.match(script, /contexts:\s*\["editable"\]/);
   assert.match(script, /chrome\.contextMenus\.onClicked\.addListener/);

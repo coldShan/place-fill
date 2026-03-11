@@ -1,6 +1,26 @@
 (function (rootScope) {
   "use strict";
 
+  function getFieldMetaApi() {
+    if (rootScope.ChromeTestDataFieldMeta) return rootScope.ChromeTestDataFieldMeta;
+    if (typeof require === "function") {
+      try {
+        return require("./field-meta.js");
+      } catch (_) {}
+    }
+    return {
+      getFieldDefinitions: function () {
+        return [];
+      },
+      getFieldKeys: function () {
+        return [];
+      },
+      getFieldLabel: function () {
+        return "";
+      }
+    };
+  }
+
   const CREDIT_CODE_ALPHABET = "0123456789ABCDEFGHJKLMNPQRTUWXY";
   const CREDIT_CODE_WEIGHTS = [1, 3, 9, 27, 19, 26, 16, 17, 20, 29, 25, 13, 8, 24, 10, 30, 28];
   const ID_CARD_WEIGHTS = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
@@ -11,20 +31,25 @@
   const BANK_CARD_PREFIXES = ["622202", "622848", "621226", "621700", "955880", "622262"];
   const BANK_CARD_LENGTHS = [16, 19];
   const MOBILE_PREFIXES = ["130", "131", "132", "133", "135", "136", "137", "138", "139", "150", "151", "152", "155", "156", "157", "158", "159", "166", "167", "170", "171", "172", "173", "175", "176", "177", "178", "180", "181", "182", "183", "185", "186", "187", "188", "189", "191", "193", "195", "196", "198", "199"];
+  const EMAIL_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const EMAIL_DOMAINS = ["qq.com", "163.com", "gmail.com", "outlook.com"];
+  const LANDLINE_AREA_CODES = ["010", "020", "021", "022", "023", "024", "025", "027", "028", "029", "0571", "0755"];
+  const ADDRESS_ROADS = ["安宁", "朝阳", "长乐", "春和", "德馨", "锦程", "瑞景", "松涛", "文昌", "云栖"];
+  const ADDRESS_COMMUNITIES = ["澜庭", "锦苑", "景园", "兰庭", "清苑", "瑞府", "书苑", "星城", "雅苑", "悦府"];
   const COMPANY_REGION_PREFIXES = ["华东", "华南", "华北", "华中", "西南", "中科", "云栖", "青禾", "星海", "远望"];
   const COMPANY_BRAND_CHARS = ["安", "诚", "达", "峰", "光", "航", "华", "嘉", "科", "联", "铭", "诺", "启", "盛", "泰", "信", "远", "云", "智", "众"];
   const COMPANY_INDUSTRIES = ["科技", "信息", "数据", "网络", "电子", "软件", "商贸", "供应链", "生物", "咨询"];
   const COMPANY_SUFFIXES = ["有限公司", "有限责任公司", "集团有限公司", "科技有限公司"];
   const FAMILY_NAMES = ["赵", "钱", "孙", "李", "周", "吴", "郑", "王", "冯", "陈", "褚", "卫", "蒋", "沈", "韩", "杨", "朱", "秦", "许", "何", "吕", "张", "孔", "曹", "严", "华", "金", "魏", "陶", "姜"];
   const GIVEN_NAME_CHARS = ["安", "北", "晨", "岱", "恩", "帆", "歌", "禾", "嘉", "岚", "朗", "铭", "宁", "沛", "清", "然", "舒", "童", "唯", "熙", "言", "予", "舟", "知", "子", "远", "修", "祺", "衡", "悦"];
-  const GeneratedFieldLabels = {
-    creditCode: "统一社会信用代码",
-    companyName: "公司名称",
-    fullName: "姓名",
-    idNumber: "身份证号",
-    bankCard: "银行卡号",
-    mobile: "手机号"
-  };
+  const fieldMetaApi = getFieldMetaApi();
+  const GeneratedFieldLabels = Object.freeze(
+    Object.fromEntries(
+      fieldMetaApi.getFieldDefinitions().map(function (definition) {
+        return [definition.key, definition.label];
+      })
+    )
+  );
 
   function pick(list, rng) {
     return list[randomInt(list.length, rng)];
@@ -160,6 +185,31 @@
     return mobile;
   }
 
+  function generateEmailAddress(rng) {
+    const length = 5 + randomInt(7, rng);
+    let local = EMAIL_CHARS[randomInt(26, rng)];
+    while (local.length < length) local += EMAIL_CHARS[randomInt(EMAIL_CHARS.length, rng)];
+    return local + "@" + pick(EMAIL_DOMAINS, rng);
+  }
+
+  function generateLandlineNumber(rng) {
+    const areaCode = pick(LANDLINE_AREA_CODES, rng);
+    const localLength = 7 + randomInt(2, rng);
+    let localNumber = "";
+    while (localNumber.length < localLength) localNumber += String(randomInt(10, rng));
+    return areaCode + "-" + localNumber;
+  }
+
+  function generateAddress(rng) {
+    const road = pick(ADDRESS_ROADS, rng) + "路";
+    const community = pick(ADDRESS_COMMUNITIES, rng) + "小区";
+    const roadNo = String(1 + randomInt(300, rng));
+    const buildingNo = String(1 + randomInt(20, rng));
+    const unitNo = String(1 + randomInt(8, rng));
+    const roomNo = String(101 + randomInt(8908, rng));
+    return road + roadNo + "号" + community + buildingNo + "栋" + unitNo + "单元" + roomNo + "室";
+  }
+
   function generateFieldValue(fieldKey, rng) {
     if (fieldKey === "creditCode") return generateUnifiedSocialCreditCode(rng);
     if (fieldKey === "companyName") return generateCompanyName(rng);
@@ -167,24 +217,25 @@
     if (fieldKey === "idNumber") return generateChineseIdNumber(rng);
     if (fieldKey === "bankCard") return generateBankCardNumber(rng);
     if (fieldKey === "mobile") return generateMobileNumber(rng);
+    if (fieldKey === "email") return generateEmailAddress(rng);
+    if (fieldKey === "landline") return generateLandlineNumber(rng);
+    if (fieldKey === "address") return generateAddress(rng);
     return "";
   }
 
   function generateProfile(rng) {
-    return {
-      creditCode: generateFieldValue("creditCode", rng),
-      companyName: generateFieldValue("companyName", rng),
-      fullName: generateFieldValue("fullName", rng),
-      idNumber: generateFieldValue("idNumber", rng),
-      bankCard: generateFieldValue("bankCard", rng),
-      mobile: generateFieldValue("mobile", rng)
-    };
+    return Object.fromEntries(
+      fieldMetaApi.getFieldKeys().map(function (fieldKey) {
+        return [fieldKey, generateFieldValue(fieldKey, rng)];
+      })
+    );
   }
 
   function formatProfileForCopy(profile) {
-    return Object.keys(GeneratedFieldLabels)
+    return fieldMetaApi
+      .getFieldKeys()
       .map(function (key) {
-        return GeneratedFieldLabels[key] + ": " + (profile && profile[key] ? profile[key] : "");
+        return fieldMetaApi.getFieldLabel(key) + ": " + (profile && profile[key] ? profile[key] : "");
       })
       .join("\n");
   }
@@ -193,11 +244,14 @@
     CREDIT_CODE_ALPHABET,
     GeneratedFieldLabels,
     formatProfileForCopy,
+    generateAddress,
     generateBankCardNumber,
     generateCompanyName,
     generateChineseIdNumber,
     generateChineseName,
+    generateEmailAddress,
     generateFieldValue,
+    generateLandlineNumber,
     generateMobileNumber,
     generateProfile,
     generateUnifiedSocialCreditCode,

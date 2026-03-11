@@ -1,6 +1,6 @@
 "use strict";
 
-importScripts("smart-fill.js");
+importScripts("field-meta.js", "smart-fill.js");
 
 const smartFillApi = globalThis.ChromeTestDataSmartFill;
 const MENU_ROOT_ID = "ctdp-manual-annotation-root";
