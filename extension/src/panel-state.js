@@ -32,7 +32,15 @@
       return snapshot();
     }
 
+    function collapse() {
+      if (!state.visible) return snapshot();
+      state.visible = true;
+      state.collapsed = true;
+      return snapshot();
+    }
+
     return {
+      collapse,
       snapshot,
       toggleVisible,
       toggleCollapsed,

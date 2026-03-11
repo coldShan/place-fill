@@ -52,6 +52,10 @@
       updatePanelState();
     }
 
+    function isPanelInteractionTarget(target) {
+      return !!(root && target && typeof root.contains === "function" && root.contains(target));
+    }
+
     function setPanelView(view) {
       state.panelView = view === "settings" ? "settings" : "main";
       updatePanelView();
@@ -516,6 +520,22 @@
       updatePanelState();
     }
 
+    function collapse() {
+      if (!canRenderPanel) return;
+      panelState.collapse();
+      updatePanelState();
+    }
+
+    function handleDocumentFocusIn(target) {
+      if (isPanelInteractionTarget(target)) return;
+      collapse();
+    }
+
+    function handleDocumentPointerDown(target) {
+      if (isPanelInteractionTarget(target)) return;
+      collapse();
+    }
+
     function getFieldValue(fieldKey) {
       return typeof state.profile[fieldKey] === "string" ? state.profile[fieldKey] : "";
     }
@@ -531,10 +551,13 @@
     }
 
     return {
+      collapse,
       consumeFieldValue,
       expand,
       getFieldValue,
       getVisibleFieldKeys,
+      handleDocumentFocusIn,
+      handleDocumentPointerDown,
       loadVisibleFieldKeys,
       mount,
       syncImportedOverrideState,

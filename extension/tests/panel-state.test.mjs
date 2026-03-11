@@ -32,3 +32,13 @@ test("panel state collapses to a dock and can expand back", () => {
   assert.equal(snap.visible, true);
   assert.equal(snap.collapsed, false);
 });
+
+test("panel state can collapse directly when focus leaves the panel", () => {
+  const state = createPanelState();
+
+  state.toggleVisible();
+  const snap = state.collapse();
+
+  assert.equal(snap.visible, true);
+  assert.equal(snap.collapsed, true);
+});

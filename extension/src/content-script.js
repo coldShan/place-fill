@@ -72,6 +72,7 @@
   document.addEventListener(
     "focusin",
     function (event) {
+      panelController.handleDocumentFocusIn(event.target);
       smartFillController.syncTarget(event.target);
     },
     true
@@ -91,6 +92,14 @@
     "contextmenu",
     function (event) {
       smartFillController.setContextTarget(event.target);
+    },
+    true
+  );
+
+  document.addEventListener(
+    "pointerdown",
+    function (event) {
+      panelController.handleDocumentPointerDown(event.target);
     },
     true
   );

@@ -114,5 +114,7 @@ test("content script is reduced to orchestration across dedicated controllers", 
   assert.match(orchestratorScript, /panelController\.mount\(\)/);
   assert.match(orchestratorScript, /smartFillController\.mount\(\)/);
   assert.match(orchestratorScript, /panelController\.toggleVisible\(\)/);
+  assert.match(orchestratorScript, /document\.addEventListener\(\s*"focusin",[\s\S]*?panelController\.handleDocumentFocusIn\(event\.target\)/);
+  assert.match(orchestratorScript, /document\.addEventListener\(\s*"pointerdown",[\s\S]*?panelController\.handleDocumentPointerDown\(event\.target\)/);
   assert.match(orchestratorScript, /smartFillController\.resolveManualOverrideTarget\(\)/);
 });
