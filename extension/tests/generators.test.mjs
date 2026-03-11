@@ -129,6 +129,11 @@ test("generateProfile returns all fixed fields and formatProfileForCopy keeps st
       return `${GeneratedFieldLabels[definition.key]}: ${profile[definition.key]}`;
     })
   );
+
+  assert.deepEqual(formatProfileForCopy(profile, ["companyName", "mobile"]).split("\n"), [
+    `公司名称: ${profile.companyName}`,
+    `手机号: ${profile.mobile}`
+  ]);
 });
 
 test("generateFieldValue regenerates only the requested field shape", () => {

@@ -9,6 +9,7 @@
     const doc = opts.document;
     const win = opts.window;
     const getFieldValue = typeof opts.getFieldValue === "function" ? opts.getFieldValue : function () { return ""; };
+    const getVisibleFieldKeys = typeof opts.getVisibleFieldKeys === "function" ? opts.getVisibleFieldKeys : function () { return smartFillApi.getSupportedFieldKeys(); };
     const onFieldFilled = typeof opts.onFieldFilled === "function" ? opts.onFieldFilled : function () {};
 
     let smartButton = null;
@@ -29,13 +30,14 @@
     function renderSmartFillMenuMarkup(primaryFieldKey) {
       const triggerLabel = primaryFieldKey ? smartFillApi.formatSmartFillButtonLabel(primaryFieldKey) : "选择测试数据类型";
       const triggerIconName = primaryFieldKey ? smartFillApi.getFieldIconName(primaryFieldKey) : iconAssetsApi.PRIMARY_LOGO_ICON;
+      const visibleFieldKeys = getVisibleFieldKeys();
       return [
         '<button class="ctdp-smartfill-trigger" type="button" data-role="smart-fill-trigger" aria-label="' + triggerLabel + '" title="' + triggerLabel + '">',
         "  " + iconAssetsApi.renderIconMarkup(triggerIconName, "ctdp-smartfill-icon", triggerLabel),
         "</button>",
         '<div class="ctdp-smartfill-menu" data-role="smart-fill-menu">',
         smartFillApi
-          .getSmartFillMenuFieldKeys(primaryFieldKey)
+          .getSmartFillMenuFieldKeys(primaryFieldKey, visibleFieldKeys)
           .map(function (fieldKey) {
             return renderSmartFillMenuItemMarkup(fieldKey);
           })
@@ -82,7 +84,7 @@
 
     function showSmartButton(target, fieldKey) {
       if (!smartButton || !target) return;
-      if (!fieldKey) {
+      if (!fieldKey || !smartFillApi.getSupportedFieldKeys(getVisibleFieldKeys()).includes(fieldKey)) {
         hideSmartButton();
         return;
       }

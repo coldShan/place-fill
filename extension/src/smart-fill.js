@@ -100,8 +100,16 @@
       .replace(/[\s_\-:]+/g, "");
   }
 
-  function getSupportedFieldKeys() {
-    return fieldMetaApi.getFieldKeys();
+  function getSupportedFieldKeys(visibleFieldKeys) {
+    const requestedFieldKeys = Array.isArray(visibleFieldKeys) ? visibleFieldKeys : fieldMetaApi.getFieldKeys();
+    const requestedSet = new Set(
+      requestedFieldKeys.filter(function (fieldKey) {
+        return fieldMetaApi.isSupportedFieldKey(fieldKey);
+      })
+    );
+    return fieldMetaApi.getFieldKeys().filter(function (fieldKey) {
+      return requestedSet.has(fieldKey);
+    });
   }
 
   function isSupportedFieldKey(fieldKey) {
@@ -482,8 +490,8 @@
     return fieldMetaApi.getFieldIconName(fieldKey) || "id-card";
   }
 
-  function getSmartFillMenuFieldKeys(primaryFieldKey) {
-    const fieldKeys = getSupportedFieldKeys();
+  function getSmartFillMenuFieldKeys(primaryFieldKey, visibleFieldKeys) {
+    const fieldKeys = getSupportedFieldKeys(visibleFieldKeys);
     if (!fieldKeys.includes(primaryFieldKey)) return fieldKeys.slice();
     return fieldKeys.filter(function (fieldKey) {
       return fieldKey !== primaryFieldKey;

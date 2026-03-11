@@ -18,11 +18,13 @@ test("manifest enables all-sites editable injection with context menu permission
   assert.equal(typeof manifest.background.service_worker, "string");
   assert.equal(manifest.permissions.includes("contextMenus"), true);
   assert.equal(manifest.permissions.includes("clipboardWrite"), true);
+  assert.equal(manifest.permissions.includes("storage"), true);
   assert.equal(Array.isArray(manifest.content_scripts), true);
   assert.equal(manifest.content_scripts[0].matches.includes("<all_urls>"), true);
   assert.equal(manifest.content_scripts[0].all_frames, true);
   assert.deepEqual(manifest.content_scripts[0].js, [
     "src/field-meta.js",
+    "src/field-visibility.js",
     "src/generators.js",
     "src/panel-state.js",
     "src/editable-target.js",

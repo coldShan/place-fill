@@ -156,6 +156,8 @@ test("smart fill menu lists only the other field types in stable order", () => {
 
 test("smart fill exposes supported field keys for menu creation", () => {
   assert.deepEqual(getSupportedFieldKeys(), getFieldKeys());
+  assert.deepEqual(getSupportedFieldKeys(["companyName", "mobile", "unknown"]), ["companyName", "mobile"]);
+  assert.deepEqual(getSmartFillMenuFieldKeys("companyName", ["companyName", "mobile", "address"]), ["mobile", "address"]);
 });
 
 test("manual smart fill override takes precedence over heuristic inference", () => {

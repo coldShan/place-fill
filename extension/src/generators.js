@@ -231,9 +231,9 @@
     );
   }
 
-  function formatProfileForCopy(profile) {
-    return fieldMetaApi
-      .getFieldKeys()
+  function formatProfileForCopy(profile, fieldKeys) {
+    const orderedFieldKeys = Array.isArray(fieldKeys) ? fieldKeys.slice() : fieldMetaApi.getFieldKeys();
+    return orderedFieldKeys
       .map(function (key) {
         return fieldMetaApi.getFieldLabel(key) + ": " + (profile && profile[key] ? profile[key] : "");
       })

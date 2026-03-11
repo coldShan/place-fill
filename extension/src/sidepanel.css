@@ -520,12 +520,21 @@
     background-color 160ms ease;
 }
 
+.ctdp-settings-card-static {
+  cursor: default;
+}
+
 .ctdp-settings-card:hover,
 .ctdp-settings-card:focus-visible {
   outline: none;
   transform: translateY(-1px);
   border-color: rgba(255, 255, 255, 0.4);
   background: rgba(255, 251, 247, 0.24);
+}
+
+.ctdp-settings-card-static:hover,
+.ctdp-settings-card-static:focus-visible {
+  transform: none;
 }
 
 .ctdp-settings-card-head {
@@ -549,6 +558,40 @@
   color: var(--ctdp-muted);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.ctdp-field-visibility-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ctdp-field-visibility-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.ctdp-field-visibility-checkbox {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: rgba(72, 96, 88, 0.92);
+}
+
+.ctdp-field-visibility-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ctdp-field-visibility-label {
+  min-width: 0;
+  color: var(--ctdp-ink);
+  font-size: 13px;
+  letter-spacing: 0.01em;
 }
 
 .ctdp-settings-status {

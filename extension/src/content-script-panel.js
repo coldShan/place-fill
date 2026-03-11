@@ -7,11 +7,13 @@
     const panelStateApi = opts.panelStateApi;
     const iconAssetsApi = opts.iconAssetsApi;
     const fieldMetaApi = opts.fieldMetaApi;
+    const fieldVisibilityApi = opts.fieldVisibilityApi;
     const smartFillApi = opts.smartFillApi;
     const doc = opts.document;
     const win = opts.window;
     const canRenderPanel = opts.canRenderPanel !== false;
     const onOverridesImported = typeof opts.onOverridesImported === "function" ? opts.onOverridesImported : function () {};
+    const onVisibleFieldKeysChanged = typeof opts.onVisibleFieldKeysChanged === "function" ? opts.onVisibleFieldKeysChanged : function () {};
 
     const fieldKeys = fieldMetaApi.getFieldKeys();
     const panelState = panelStateApi.createPanelState();
@@ -24,11 +26,13 @@
     let flashNode = null;
     let settingsStatus = null;
     let importInput = null;
+    let visibilityList = null;
 
     const state = {
       copiedFieldKey: null,
       panelView: "main",
-      profile: generators.generateProfile()
+      profile: generators.generateProfile(),
+      visibleFieldKeys: fieldVisibilityApi.getDefaultVisibleFieldKeys()
     };
 
     function updatePanelState() {
@@ -108,6 +112,21 @@
       );
     }
 
+    function renderVisibilityToggleMarkup(fieldKey) {
+      const label = fieldMetaApi.getFieldLabel(fieldKey);
+      const iconName = fieldMetaApi.getFieldIconName(fieldKey);
+      const checked = fieldVisibilityApi.isFieldVisible(fieldKey, state.visibleFieldKeys);
+      return [
+        '<label class="ctdp-field-visibility-item">',
+        '  <input class="ctdp-field-visibility-checkbox" type="checkbox" data-role="field-visibility-toggle" data-key="' + fieldKey + '"' + (checked ? " checked" : "") + ">",
+        '  <span class="ctdp-field-visibility-copy">',
+        "    " + iconAssetsApi.renderIconMarkup(iconName, "ctdp-settings-card-icon", label),
+        '    <span class="ctdp-field-visibility-label">' + label + "</span>",
+        "  </span>",
+        "</label>"
+      ].join("");
+    }
+
     function cardTemplate(key, value) {
       const copied = state.copiedFieldKey === key;
       const label = fieldMetaApi.getFieldLabel(key);
@@ -130,9 +149,18 @@
 
     function renderCards() {
       if (!fieldGrid) return;
-      fieldGrid.innerHTML = fieldKeys
+      fieldGrid.innerHTML = state.visibleFieldKeys
         .map(function (key) {
           return cardTemplate(key, state.profile[key]);
+        })
+        .join("");
+    }
+
+    function renderVisibilityList() {
+      if (!visibilityList) return;
+      visibilityList.innerHTML = fieldKeys
+        .map(function (fieldKey) {
+          return renderVisibilityToggleMarkup(fieldKey);
         })
         .join("");
     }
@@ -172,6 +200,7 @@
     function render() {
       if (!fieldGrid) return;
       renderCards();
+      renderVisibilityList();
       updatePanelState();
       updatePanelView();
     }
@@ -192,9 +221,33 @@
     }
 
     async function copyAll() {
-      await copyText(generators.formatProfileForCopy(state.profile));
+      await copyText(generators.formatProfileForCopy(state.profile, state.visibleFieldKeys));
       state.copiedFieldKey = null;
       syncCopiedCardState();
+    }
+
+    function syncVisibleFieldKeys(nextVisibleFieldKeys) {
+      state.visibleFieldKeys = fieldVisibilityApi.filterVisibleFieldKeys(fieldKeys, nextVisibleFieldKeys);
+      if (!fieldVisibilityApi.isFieldVisible(state.copiedFieldKey, state.visibleFieldKeys)) {
+        state.copiedFieldKey = null;
+      }
+      render();
+      onVisibleFieldKeysChanged(state.visibleFieldKeys);
+    }
+
+    async function toggleFieldVisibility(fieldKey, checked) {
+      const requestedFieldKeys = checked
+        ? state.visibleFieldKeys.concat(fieldKey)
+        : state.visibleFieldKeys.filter(function (visibleFieldKey) {
+            return visibleFieldKey !== fieldKey;
+          });
+      const nextVisibleFieldKeys = await fieldVisibilityApi.writeVisibleFieldKeys(requestedFieldKeys);
+      syncVisibleFieldKeys(nextVisibleFieldKeys);
+      setSettingsStatus(nextVisibleFieldKeys.length ? "已更新填充项显示范围" : "当前未勾选任何填充项", nextVisibleFieldKeys.length ? "success" : "warning");
+    }
+
+    async function loadVisibleFieldKeys() {
+      syncVisibleFieldKeys(await fieldVisibilityApi.readVisibleFieldKeys());
     }
 
     function setSettingsStatus(text, tone) {
@@ -297,10 +350,18 @@
           "</button>",
         '      <div class="ctdp-settings-copy">',
         '        <p class="ctdp-settings-title">设置</p>',
-        '        <p class="ctdp-settings-subtitle">导入、导出用户标注</p>',
+        '        <p class="ctdp-settings-subtitle">选择展示字段，并导入、导出用户标注</p>',
         "      </div>",
         "    </header>",
         '    <div class="ctdp-settings-list">',
+        '      <section class="ctdp-settings-card ctdp-settings-card-static">',
+        '        <span class="ctdp-settings-card-head">' +
+          renderButtonIcon(iconAssetsApi.ACTION_ICONS.settings, "填充项选择", "ctdp-settings-card-icon") +
+        '          <span class="ctdp-settings-card-title">填充项选择</span>' +
+        "        </span>" +
+        '        <span class="ctdp-settings-card-note">只有勾选的项目会在面板、智能填充和手动标注中展示</span>' +
+        '        <div class="ctdp-field-visibility-list" data-role="field-visibility-list"></div>' +
+        "      </section>",
         '      <button class="ctdp-settings-card" type="button" data-role="export-overrides">' +
         '        <span class="ctdp-settings-card-head">' +
           renderButtonIcon(iconAssetsApi.ACTION_ICONS.copyAll, "导出标注数据", "ctdp-settings-card-icon") +
@@ -320,7 +381,7 @@
           renderButtonIcon(iconAssetsApi.ACTION_ICONS.collapse, "脱敏导出", "ctdp-settings-card-icon") +
         '          <span class="ctdp-settings-card-title">脱敏导出</span>' +
         "        </span>" +
-        '        <span class="ctdp-settings-card-note">只保留输入框指纹，可在当前站点回导</span>' +
+        '        <span class="ctdp-settings-card-note">只保留输入框指纹，可在当前环境回导</span>' +
         "      </button>",
         "    </div>",
         '    <p class="ctdp-settings-status" data-role="settings-status" data-tone="muted">脱敏导出不会保留原始页面地址。</p>',
@@ -350,6 +411,7 @@
       flashNode = root.querySelector('[data-role="flash"]');
       settingsStatus = root.querySelector('[data-role="settings-status"]');
       importInput = root.querySelector('[data-role="import-file"]');
+      visibilityList = root.querySelector('[data-role="field-visibility-list"]');
 
       root.addEventListener("click", function (event) {
         const trigger = event.target.closest("[data-role]");
@@ -398,6 +460,12 @@
         }
       });
 
+      root.addEventListener("change", function (event) {
+        const trigger = event.target.closest('[data-role="field-visibility-toggle"]');
+        if (!trigger) return;
+        toggleFieldVisibility(trigger.getAttribute("data-key"), trigger.checked);
+      });
+
       fieldGrid.addEventListener("animationend", function (event) {
         if (event.animationName === "ctdp-scan-refresh") fieldGrid.classList.remove("is-refreshing");
       });
@@ -427,6 +495,7 @@
       });
 
       render();
+      loadVisibleFieldKeys();
     }
 
     function toggleVisible() {
@@ -445,6 +514,10 @@
       return typeof state.profile[fieldKey] === "string" ? state.profile[fieldKey] : "";
     }
 
+    function getVisibleFieldKeys() {
+      return state.visibleFieldKeys.slice();
+    }
+
     function consumeFieldValue(fieldKey) {
       hideFallback();
       pulseFlash("copy");
@@ -455,6 +528,7 @@
       consumeFieldValue,
       expand,
       getFieldValue,
+      getVisibleFieldKeys,
       mount,
       syncImportedOverrideState,
       toggleVisible

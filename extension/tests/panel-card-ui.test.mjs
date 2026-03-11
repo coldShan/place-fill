@@ -39,7 +39,7 @@ test("panel toolbar keeps three icon-only action buttons aligned to the top righ
 
 test("single-card copy does not trigger panel-wide flash feedback", () => {
   assert.match(panelScript, /copyText\(state\.profile\[key\],\s*\{\s*flashTone:\s*null,\s*manualFlashTone:\s*null\s*\}\)/);
-  assert.match(panelScript, /copyText\(generators\.formatProfileForCopy\(state\.profile\)\)/);
+  assert.match(panelScript, /copyText\(generators\.formatProfileForCopy\(state\.profile,\s*state\.visibleFieldKeys\)\)/);
 });
 
 test("single-card copy only syncs copied state instead of rerendering the full grid", () => {
@@ -60,10 +60,19 @@ test("panel footer adds a settings entry and the panel includes a dedicated sett
   assert.match(panelScript, /data-role="open-settings" aria-label="打开设置" title="打开设置"/);
   assert.match(panelScript, /data-role="settings-view"/);
   assert.match(panelScript, /data-role="settings-back" aria-label="返回主面板" title="返回主面板"/);
+  assert.match(panelScript, /data-role="field-visibility-list"/);
+  assert.match(panelScript, /data-role="field-visibility-toggle"/);
   assert.match(panelScript, /data-role="export-overrides"/);
   assert.match(panelScript, /data-role="import-overrides"/);
   assert.match(panelScript, /data-role="export-sanitized-overrides"/);
   assert.match(panelScript, /data-role="import-file"/);
+});
+
+test("panel renders and copies only the currently visible field keys", () => {
+  assert.match(panelScript, /visibleFieldKeys:\s*fieldVisibilityApi\.getDefaultVisibleFieldKeys\(\)/);
+  assert.match(panelScript, /state\.visibleFieldKeys\s*\.map\(function \(key\)/);
+  assert.match(panelScript, /fieldVisibilityApi\.writeVisibleFieldKeys/);
+  assert.match(panelScript, /onVisibleFieldKeysChanged\(state\.visibleFieldKeys\)/);
 });
 
 test("manual copy fallback uses accurate failure wording instead of browser support wording", () => {
@@ -74,7 +83,7 @@ test("manual copy fallback uses accurate failure wording instead of browser supp
 test("smart fill menu supports right-click manual annotation and regenerates only the used field", () => {
   assert.match(panelScript, /function regenerateFieldValue\(fieldKey\)/);
   assert.match(smartfillScript, /function renderSmartFillMenuMarkup\(primaryFieldKey\)/);
-  assert.match(smartfillScript, /getSmartFillMenuFieldKeys\(primaryFieldKey\)/);
+  assert.match(smartfillScript, /getSmartFillMenuFieldKeys\(primaryFieldKey,\s*visibleFieldKeys\)/);
   assert.match(smartfillScript, /fillCurrentTarget\(fieldKey\)[\s\S]*?onFieldFilled\(fieldKey\)/);
   assert.match(smartfillScript, /if \(!fieldKey\) \{\s*hideSmartButton\(\);\s*return;\s*\}/);
   assert.match(smartfillScript, /if \(role === "smart-fill-trigger"\) \{[\s\S]*?fillCurrentTarget\(activeSmartFieldKey\)/);

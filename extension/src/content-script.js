@@ -6,6 +6,7 @@
   const editableTargetApi = globalThis.ChromeTestDataEditableTarget;
   const iconAssetsApi = globalThis.ChromeTestDataIconAssets;
   const fieldMetaApi = globalThis.ChromeTestDataFieldMeta;
+  const fieldVisibilityApi = globalThis.ChromeTestDataFieldVisibility;
   const smartFillApi = globalThis.ChromeTestDataSmartFill;
   const panelControllerApi = globalThis.ChromeTestDataContentScriptPanel;
   const smartFillControllerApi = globalThis.ChromeTestDataContentScriptSmartFill;
@@ -16,6 +17,7 @@
     !editableTargetApi ||
     !iconAssetsApi ||
     !fieldMetaApi ||
+    !fieldVisibilityApi ||
     !smartFillApi ||
     !panelControllerApi ||
     !smartFillControllerApi ||
@@ -31,11 +33,22 @@
     canRenderPanel,
     document,
     fieldMetaApi,
+    fieldVisibilityApi,
     generators,
     iconAssetsApi,
     onOverridesImported: function () {
+      if (!smartFillController) return;
       const target = editableTargetApi.findEditableTarget(document.activeElement) || smartFillController.resolveManualOverrideTarget();
       if (target) smartFillController.syncTarget(target);
+    },
+    onVisibleFieldKeysChanged: function () {
+      if (!smartFillController) return;
+      const target = editableTargetApi.findEditableTarget(document.activeElement) || smartFillController.resolveManualOverrideTarget();
+      if (target) {
+        smartFillController.syncTarget(target);
+        return;
+      }
+      smartFillController.hide();
     },
     panelStateApi,
     smartFillApi,
@@ -46,6 +59,7 @@
     document,
     editableTargetApi,
     getFieldValue: panelController.getFieldValue,
+    getVisibleFieldKeys: panelController.getVisibleFieldKeys,
     iconAssetsApi,
     onFieldFilled: panelController.consumeFieldValue,
     smartFillApi,

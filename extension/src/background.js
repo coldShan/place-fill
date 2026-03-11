@@ -1,14 +1,15 @@
 "use strict";
 
-importScripts("field-meta.js", "smart-fill.js");
+importScripts("field-meta.js", "field-visibility.js", "smart-fill.js");
 
+const fieldVisibilityApi = globalThis.ChromeTestDataFieldVisibility;
 const smartFillApi = globalThis.ChromeTestDataSmartFill;
 const MENU_ROOT_ID = "ctdp-manual-annotation-root";
 const MENU_FIELD_PREFIX = "ctdp-manual-annotation:";
 const MENU_CLEAR_ID = "ctdp-manual-annotation:clear";
-
-function buildContextMenus() {
-  if (!chrome.contextMenus || !smartFillApi) return;
+async function buildContextMenus() {
+  if (!chrome.contextMenus || !smartFillApi || !fieldVisibilityApi) return;
+  const visibleFieldKeys = await fieldVisibilityApi.readVisibleFieldKeys();
   chrome.contextMenus.removeAll(function () {
     chrome.contextMenus.create({
       id: MENU_ROOT_ID,
@@ -16,7 +17,7 @@ function buildContextMenus() {
       contexts: ["editable"]
     });
 
-    smartFillApi.getSupportedFieldKeys().forEach(function (fieldKey) {
+    smartFillApi.getSupportedFieldKeys(visibleFieldKeys).forEach(function (fieldKey) {
       chrome.contextMenus.create({
         id: MENU_FIELD_PREFIX + fieldKey,
         parentId: MENU_ROOT_ID,
@@ -50,6 +51,12 @@ chrome.action.onClicked.addListener(function (tab) {
 
 chrome.runtime.onInstalled.addListener(buildContextMenus);
 chrome.runtime.onStartup.addListener(buildContextMenus);
+if (chrome.storage && chrome.storage.onChanged) {
+  chrome.storage.onChanged.addListener(function (changes, areaName) {
+    if (areaName !== "local" || !changes || !Object.prototype.hasOwnProperty.call(changes, fieldVisibilityApi.STORAGE_KEY)) return;
+    buildContextMenus();
+  });
+}
 
 chrome.contextMenus.onClicked.addListener(function (info, tab) {
   if (!info || !tab || !tab.id) return;
