@@ -179,18 +179,18 @@
   position: absolute;
   top: 112px;
   right: 0;
-  width: 48px;
-  height: 56px;
+  width: 72px;
+  height: 72px;
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  border-radius: 16px 0 0 16px;
+  border: none;
+  border-radius: 0;
   color: var(--ctdp-ink);
-  background: rgba(250, 245, 239, 0.24);
-  backdrop-filter: blur(20px) saturate(170%);
-  -webkit-backdrop-filter: blur(20px) saturate(170%);
-  box-shadow: var(--ctdp-shadow);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
   cursor: pointer;
 }
 
@@ -719,6 +719,17 @@
   mask-size: contain;
 }
 
+.ctdp-icon-image {
+  background-image: var(--ctdp-icon-image);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.ctdp-icon-image::before {
+  display: none;
+}
+
 .ctdp-btn-icon {
   width: 15px;
   height: 15px;
@@ -726,9 +737,17 @@
 }
 
 .ctdp-dock-icon {
-  width: 21px;
-  height: 21px;
-  color: rgba(61, 42, 32, 0.86);
+  width: 42px;
+  height: 42px;
+  color: transparent;
+  filter: drop-shadow(0 4px 8px rgba(77, 53, 26, 0.16));
+  transition: filter 180ms ease;
+}
+
+.ctdp-dock:hover .ctdp-dock-icon {
+  filter:
+    drop-shadow(0 6px 12px rgba(77, 53, 26, 0.18))
+    drop-shadow(0 0 18px rgba(255, 241, 220, 0.34));
 }
 
 .ctdp-smartfill-icon {

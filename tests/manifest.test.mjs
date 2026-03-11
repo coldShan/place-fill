@@ -52,10 +52,14 @@ test("manifest declares local extension icons for toolbar and management pages",
   }
 });
 
-test("manifest exposes lucide svg assets to injected page ui", () => {
+test("manifest exposes lucide svg assets and app logo png assets to injected page ui", () => {
   assert.deepEqual(manifest.web_accessible_resources, [
     {
       resources: ["assets/icons/lucide/*.svg"],
+      matches: ["<all_urls>"]
+    },
+    {
+      resources: ["assets/app-icons/*.png"],
       matches: ["<all_urls>"]
     }
   ]);

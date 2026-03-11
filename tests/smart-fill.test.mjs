@@ -13,6 +13,7 @@ const {
   getSupportedFieldKeys,
   importManualFieldOverrides,
   inferFieldKeyForSmartFill,
+  migrateLegacyManualFieldOverrides,
   setManualFieldOverride
 } = smartFillPkg;
 const { getFieldDefinitions, getFieldKeys } = fieldMetaPkg;
@@ -63,7 +64,7 @@ function createEnv(overrides) {
       search: "?ignored=1",
       hash: "#ignored"
     },
-    localStorage: createStorage(overrides && overrides.storageValue),
+    localStorage: (overrides && overrides.localStorage) || createStorage(overrides && overrides.storageValue),
     document: {
       querySelectorAll() {
         return overrides && overrides.elements ? overrides.elements : [];
@@ -180,6 +181,84 @@ test("manual smart fill override is scoped to the current field fingerprint", ()
   assert.equal(inferFieldKeyForSmartFill(right, env), null);
 });
 
+test("manual smart fill override is shared within the same domain and first-level path", () => {
+  const element = createElement({ name: "contact", id: "shared-input" });
+  const sharedStorage = createStorage();
+  const envA = createEnv({ elements: [element], pathname: "/apply/form", localStorage: sharedStorage });
+  const envB = createEnv({ elements: [element], pathname: "/apply/step-two", localStorage: sharedStorage });
+
+  setManualFieldOverride(element, "fullName", envA);
+
+  assert.equal(inferFieldKeyForSmartFill(element, envB), "fullName");
+});
+
+test("manual smart fill override stays isolated across different first-level paths", () => {
+  const element = createElement({ name: "contact", id: "scoped-input" });
+  const sharedStorage = createStorage();
+  const envA = createEnv({ elements: [element], pathname: "/apply/form", localStorage: sharedStorage });
+  const envB = createEnv({ elements: [element], pathname: "/review/form", localStorage: sharedStorage });
+
+  setManualFieldOverride(element, "fullName", envA);
+
+  assert.equal(inferFieldKeyForSmartFill(element, envB), null);
+});
+
+test("legacy manual override migration folds full page paths into the first-level path and persists it", () => {
+  const storage = createStorage(
+    JSON.stringify({
+      "https://example.com/apply/form::top::tag=input&type=text&id=legacy&name=contact&autocomplete=&placeholder=&aria=&labels=":
+        "fullName"
+    })
+  );
+  const env = createEnv({ localStorage: storage });
+
+  const result = migrateLegacyManualFieldOverrides(env);
+
+  assert.deepEqual(result, { migratedCount: 1, updated: true });
+  assert.deepEqual(JSON.parse(storage.getItem("ctdp.smartFillOverrides.v1")), {
+    "https://example.com/apply::top::tag=input&type=text&id=legacy&name=contact&autocomplete=&placeholder=&aria=&labels=":
+      "fullName"
+  });
+});
+
+test("legacy manual override migration preserves an existing folded key when legacy keys collide", () => {
+  const storage = createStorage(
+    JSON.stringify({
+      "https://example.com/apply::top::tag=input&type=text&id=shared&name=contact&autocomplete=&placeholder=&aria=&labels=":
+        "companyName",
+      "https://example.com/apply/form-a::top::tag=input&type=text&id=shared&name=contact&autocomplete=&placeholder=&aria=&labels=":
+        "fullName"
+    })
+  );
+  const env = createEnv({ localStorage: storage });
+
+  const result = migrateLegacyManualFieldOverrides(env);
+
+  assert.deepEqual(result, { migratedCount: 1, updated: true });
+  assert.deepEqual(JSON.parse(storage.getItem("ctdp.smartFillOverrides.v1")), {
+    "https://example.com/apply::top::tag=input&type=text&id=shared&name=contact&autocomplete=&placeholder=&aria=&labels=":
+      "companyName"
+  });
+});
+
+test("legacy manual override migration is a no-op when storage already uses the current scope", () => {
+  const storage = createStorage(
+    JSON.stringify({
+      "https://example.com/apply::top::tag=input&type=text&id=current&name=contact&autocomplete=&placeholder=&aria=&labels=":
+        "fullName"
+    })
+  );
+  const env = createEnv({ localStorage: storage });
+
+  const result = migrateLegacyManualFieldOverrides(env);
+
+  assert.deepEqual(result, { migratedCount: 0, updated: false });
+  assert.deepEqual(JSON.parse(storage.getItem("ctdp.smartFillOverrides.v1")), {
+    "https://example.com/apply::top::tag=input&type=text&id=current&name=contact&autocomplete=&placeholder=&aria=&labels=":
+      "fullName"
+  });
+});
+
 test("clearing manual smart fill override falls back to heuristic inference", () => {
   const element = createElement({ name: "mobilePhone", id: "contact-input" });
   const env = createEnv({ elements: [element] });
@@ -210,7 +289,7 @@ test("raw override export keeps the full stored override map with metadata", () 
   assert.equal(exported.storageKey, "ctdp.smartFillOverrides.v1");
   assert.equal(Object.keys(exported.overrides).length, 1);
   assert.equal(Object.values(exported.overrides)[0], "companyName");
-  assert.match(Object.keys(exported.overrides)[0], /^https:\/\/example\.com\/apply\/form::top::tag=input/);
+  assert.match(Object.keys(exported.overrides)[0], /^https:\/\/example\.com\/apply::top::tag=input/);
 });
 
 test("sanitized override export strips page address and only keeps field fingerprint data", () => {
@@ -295,7 +374,7 @@ test("invalid override import payloads fail fast", () => {
           type: "raw",
           version: 1,
           overrides: {
-            "https://example.com/apply/form::top::tag=input": "unsupportedField"
+            "https://example.com/apply::top::tag=input": "unsupportedField"
           }
         },
         env

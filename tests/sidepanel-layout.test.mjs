@@ -10,8 +10,12 @@ const stylesheet = readFileSync(join(here, "../extension/src/sidepanel.css"), "u
 test("collapsed dock is anchored to the viewport edge while panel keeps a right gutter", () => {
   assert.match(stylesheet, /\.ctdp-root\s*\{[\s\S]*?\bright:\s*0;/);
   assert.match(stylesheet, /\.ctdp-panel\s*\{[\s\S]*?\bmargin-right:\s*18px;/);
-  assert.match(stylesheet, /\.ctdp-dock\s*\{[\s\S]*?\bwidth:\s*48px;/);
-  assert.match(stylesheet, /\.ctdp-dock\s*\{[\s\S]*?\bheight:\s*56px;/);
+  assert.match(stylesheet, /\.ctdp-dock\s*\{[\s\S]*?\bwidth:\s*72px;/);
+  assert.match(stylesheet, /\.ctdp-dock\s*\{[\s\S]*?\bheight:\s*72px;/);
+  assert.match(stylesheet, /\.ctdp-dock\s*\{[\s\S]*?\bborder:\s*none;/);
+  assert.match(stylesheet, /\.ctdp-dock\s*\{[\s\S]*?\bbackground:\s*transparent;/);
+  assert.match(stylesheet, /\.ctdp-dock\s*\{[\s\S]*?\bbox-shadow:\s*none;/);
+  assert.match(stylesheet, /\.ctdp-dock\s*\{[\s\S]*?\bbackdrop-filter:\s*none;/);
 });
 
 test("toolbar keeps a left settings slot and a right-aligned action cluster", () => {

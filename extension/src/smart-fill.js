@@ -168,16 +168,39 @@
     return frameParts.length ? frameParts.join("|") : "top";
   }
 
+  function getFirstPathSegment(pathname) {
+    return (
+      String(pathname || "")
+        .split("/")
+        .filter(Boolean)[0] || ""
+    );
+  }
+
+  function getScopedPathname(pathname) {
+    const firstSegment = getFirstPathSegment(pathname);
+    return firstSegment ? "/" + firstSegment : "";
+  }
+
   function getPageScope(env) {
     const currentLocation = getEnvLocation(env);
     if (!currentLocation) return "";
-    return String(currentLocation.origin || "") + String(currentLocation.pathname || "");
+    return String(currentLocation.origin || "") + getScopedPathname(currentLocation.pathname);
   }
 
   function getSiteScope(env) {
     const currentLocation = getEnvLocation(env);
     if (!currentLocation) return "";
     return String(currentLocation.origin || "");
+  }
+
+  function foldPageScopeToFirstLevelPath(pageScope) {
+    if (!pageScope) return "";
+    try {
+      const parsedUrl = new URL(String(pageScope));
+      return String(parsedUrl.origin || "") + getScopedPathname(parsedUrl.pathname);
+    } catch (_) {
+      return String(pageScope || "");
+    }
   }
 
   function isEditableCandidate(node) {
@@ -443,6 +466,44 @@
     return importSanitizedOverrides(payload, env);
   }
 
+  // Temporary migration helper for recent releases only.
+  // Remove it after legacy full-path override keys have naturally aged out.
+  function migrateLegacyManualFieldOverrides(env) {
+    const overrides = getNormalizedOverrideMap(env);
+    const nextMap = {};
+    const migratedEntries = [];
+
+    Object.entries(overrides).forEach(function ([key, fieldKey]) {
+      const parsed = parseStorageKey(key);
+      if (!parsed) return;
+      const foldedPageScope = foldPageScopeToFirstLevelPath(parsed.pageScope);
+      const nextKey = buildStorageKey(foldedPageScope, parsed.frameScope, parsed.fieldFingerprint);
+
+      if (nextKey === key) {
+        nextMap[key] = fieldKey;
+        return;
+      }
+
+      migratedEntries.push([nextKey, fieldKey]);
+    });
+
+    if (!migratedEntries.length) {
+      return { migratedCount: 0, updated: false };
+    }
+
+    migratedEntries.forEach(function ([nextKey, fieldKey]) {
+      if (!Object.prototype.hasOwnProperty.call(nextMap, nextKey)) {
+        nextMap[nextKey] = fieldKey;
+      }
+    });
+
+    if (!writeOverrideMap(nextMap, env)) {
+      throw new Error("Failed to persist migrated overrides");
+    }
+
+    return { migratedCount: migratedEntries.length, updated: true };
+  }
+
   function inferByAutocomplete(element) {
     const autocomplete = normalizeText(element && element.getAttribute && element.getAttribute("autocomplete"));
     return AUTOCOMPLETE_MAP[autocomplete] || null;
@@ -508,6 +569,7 @@
     getSupportedFieldKeys,
     importManualFieldOverrides,
     inferFieldKeyForSmartFill,
+    migrateLegacyManualFieldOverrides,
     setManualFieldOverride
   };
 

@@ -2,6 +2,7 @@
   "use strict";
 
   const ICON_PATHS = {
+    "app-logo": "assets/app-icons/icon-128.png",
     "arrow-left": "assets/icons/lucide/arrow-left.svg",
     "badge-check": "assets/icons/lucide/badge-check.svg",
     "building-2": "assets/icons/lucide/building-2.svg",
@@ -23,7 +24,7 @@
     "user-round": "assets/icons/lucide/user-round.svg"
   };
 
-  const PRIMARY_LOGO_ICON = "id-card";
+  const PRIMARY_LOGO_ICON = "app-logo";
   const ACTION_ICONS = {
     back: "arrow-left",
     copyAll: "copy",
@@ -58,6 +59,10 @@
     return ICON_PATHS[name] || ICON_PATHS[PRIMARY_LOGO_ICON];
   }
 
+  function isMaskIconAsset(name) {
+    return /\.svg$/i.test(getIconAssetPath(name));
+  }
+
   function getIconAssetUrl(name, env) {
     const assetPath = getIconAssetPath(name);
     const runtime = getRuntimeApi(env);
@@ -69,13 +74,17 @@
     const iconName = ICON_PATHS[name] ? name : PRIMARY_LOGO_ICON;
     const classes = ["ctdp-icon"];
     const url = getIconAssetUrl(iconName, env);
+    const styleProp = isMaskIconAsset(iconName) ? "--ctdp-icon-url" : "--ctdp-icon-image";
     if (className) classes.push(className);
+    if (!isMaskIconAsset(iconName)) classes.push("ctdp-icon-image");
     return [
       '<span class="',
       classes.join(" "),
       '" data-icon="',
       escapeAttribute(iconName),
-      '" style="--ctdp-icon-url:url(',
+      '" style="',
+      styleProp,
+      ':url(',
       escapeAttribute(url),
       ')"',
       label ? ' role="img" aria-label="' + escapeAttribute(label) + '"' : ' aria-hidden="true"',

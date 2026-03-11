@@ -11,8 +11,13 @@ test("icon system keeps dock icon static while preserving other motion hooks", (
   assert.match(stylesheet, /\.ctdp-icon\s*\{/);
   assert.match(stylesheet, /\.ctdp-dock-icon\s*\{/);
   assert.match(stylesheet, /\.ctdp-smartfill-icon\s*\{/);
+  assert.match(stylesheet, /\.ctdp-dock-icon\s*\{[\s\S]*?\bwidth:\s*42px;/);
+  assert.match(stylesheet, /\.ctdp-dock-icon\s*\{[\s\S]*?\bheight:\s*42px;/);
+  assert.match(stylesheet, /\.ctdp-dock-icon\s*\{[\s\S]*?\bfilter:\s*drop-shadow\(/);
+  assert.match(stylesheet, /\.ctdp-dock-icon\s*\{[\s\S]*?\btransition:[\s\S]*?\bfilter 180ms ease/);
   assert.match(stylesheet, /@keyframes ctdp-copied-pulse/);
   assert.doesNotMatch(stylesheet, /\.ctdp-dock-icon\s*\{[\s\S]*?\banimation:/);
-  assert.doesNotMatch(stylesheet, /\.ctdp-dock:hover\s+\.ctdp-dock-icon\s*\{[\s\S]*?\btransform:/);
+  assert.doesNotMatch(stylesheet, /\.ctdp-dock:hover\s+\.ctdp-dock-icon\s*\{[^}]*\btransform:/);
+  assert.match(stylesheet, /\.ctdp-dock:hover\s+\.ctdp-dock-icon\s*\{[\s\S]*?\bfilter:\s*drop-shadow\(/);
   assert.doesNotMatch(stylesheet, /@keyframes ctdp-icon-orbit/);
 });

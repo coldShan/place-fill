@@ -27,6 +27,10 @@
     {
       "resources": ["assets/icons/lucide/*.svg"],
       "matches": ["<all_urls>"]
+    },
+    {
+      "resources": ["assets/app-icons/*.png"],
+      "matches": ["<all_urls>"]
     }
   ],
   "content_scripts": [
