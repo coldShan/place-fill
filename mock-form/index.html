@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>测试表单页</title>
+    <style>
+      :root {
+        --bg: #f6f2ea;
+        --panel: rgba(255, 250, 240, 0.92);
+        --ink: #171412;
+        --muted: #655a52;
+        --line: rgba(23, 20, 18, 0.14);
+        --accent: #cf5f31;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--ink);
+        background:
+          linear-gradient(135deg, rgba(207, 95, 49, 0.14), transparent 35%),
+          var(--bg);
+        font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      }
+
+      .shell {
+        width: min(920px, calc(100% - 32px));
+        margin: 32px auto;
+        padding: 26px;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: var(--panel);
+        box-shadow: 0 22px 48px rgba(53, 36, 20, 0.12);
+
+        h1 {
+          margin: 0;
+          font-family: "Baskerville", "Palatino Linotype", "Noto Serif SC", serif;
+          font-size: 36px;
+        }
+
+        p {
+          color: var(--muted);
+          line-height: 1.6;
+        }
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+        margin-top: 24px;
+      }
+
+      .field {
+        display: grid;
+        gap: 8px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: #fffdfa;
+
+        label {
+          font-size: 12px;
+          letter-spacing: 0.08em;
+          color: var(--muted);
+        }
+
+        input,
+        textarea {
+          width: 100%;
+          padding: 12px 14px;
+          border: 1px solid rgba(23, 20, 18, 0.12);
+          border-radius: 14px;
+          background: #fff;
+          color: var(--ink);
+          font: inherit;
+        }
+
+        textarea {
+          min-height: 150px;
+          resize: vertical;
+        }
+      }
+
+      .hint {
+        margin-top: 20px;
+        padding: 16px 18px;
+        border-left: 4px solid var(--accent);
+        border-radius: 14px;
+        background: rgba(207, 95, 49, 0.08);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <h1>测试表单页</h1>
+      <p>打开扩展侧边栏后，可将单项数据直接粘贴到下方输入框，也可以把“复制整组数据”粘贴到备注区做联调记录。</p>
+
+      <section class="grid">
+        <div class="field">
+          <label for="creditCode">统一社会信用代码</label>
+          <input id="creditCode" placeholder="粘贴这里" />
+        </div>
+        <div class="field">
+          <label for="fullName">姓名</label>
+          <input id="fullName" placeholder="粘贴这里" />
+        </div>
+        <div class="field">
+          <label for="idNumber">身份证号</label>
+          <input id="idNumber" placeholder="粘贴这里" />
+        </div>
+        <div class="field">
+          <label for="bankCard">银行卡号</label>
+          <input id="bankCard" placeholder="粘贴这里" />
+        </div>
+        <div class="field">
+          <label for="mobile">手机号</label>
+          <input id="mobile" placeholder="粘贴这里" />
+        </div>
+        <div class="field">
+          <label for="remark">整组复制粘贴区</label>
+          <textarea id="remark" placeholder="把整组测试数据粘贴到这里"></textarea>
+        </div>
+      </section>
+
+      <div class="hint">
+        这个页面不依赖插件权限。它只是一个本地表单靶场，用于验证扩展生成、复制和粘贴是否顺畅。
+      </div>
+    </main>
+  </body>
+</html>
