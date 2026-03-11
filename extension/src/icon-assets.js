@@ -7,8 +7,10 @@
     "building-2": "assets/icons/lucide/building-2.svg",
     copy: "assets/icons/lucide/copy.svg",
     "credit-card": "assets/icons/lucide/credit-card.svg",
+    download: "assets/icons/lucide/download.svg",
     "id-card": "assets/icons/lucide/id-card.svg",
     landmark: "assets/icons/lucide/landmark.svg",
+    "list-filter": "assets/icons/lucide/list-filter.svg",
     mail: "assets/icons/lucide/mail.svg",
     "map-pinned": "assets/icons/lucide/map-pinned.svg",
     "panel-right-close": "assets/icons/lucide/panel-right-close.svg",
@@ -16,6 +18,8 @@
     "refresh-cw": "assets/icons/lucide/refresh-cw.svg",
     settings: "assets/icons/lucide/settings.svg",
     smartphone: "assets/icons/lucide/smartphone.svg",
+    shield: "assets/icons/lucide/shield.svg",
+    upload: "assets/icons/lucide/upload.svg",
     "user-round": "assets/icons/lucide/user-round.svg"
   };
 
@@ -27,6 +31,12 @@
     copied: "badge-check",
     regen: "refresh-cw",
     settings: "settings"
+  };
+  const SETTINGS_CARD_ICONS = {
+    exportOverrides: "download",
+    exportSanitizedOverrides: "shield",
+    importOverrides: "upload",
+    visibleFields: "list-filter"
   };
 
   function escapeAttribute(value) {
@@ -76,6 +86,7 @@
     ACTION_ICONS,
     ICON_PATHS,
     PRIMARY_LOGO_ICON,
+    SETTINGS_CARD_ICONS,
     getIconAssetPath,
     getIconAssetUrl,
     renderIconMarkup

@@ -21,6 +21,7 @@
     let fieldGrid = null;
     let mainView = null;
     let settingsView = null;
+    let footer = null;
     let fallbackBox = null;
     let fallbackText = null;
     let flashNode = null;
@@ -74,12 +75,14 @@
     function hideFallback() {
       if (!fallbackBox || !fallbackText) return;
       fallbackBox.hidden = true;
+      if (footer) footer.hidden = true;
       fallbackText.value = "";
     }
 
     function showFallback(text) {
       if (!fallbackBox || !fallbackText) return;
       fallbackText.value = text;
+      if (footer) footer.hidden = false;
       fallbackBox.hidden = false;
       fallbackText.focus();
       fallbackText.select();
@@ -331,15 +334,22 @@
         '  <div class="ctdp-flash" data-role="flash" aria-hidden="true"></div>',
         '  <div class="ctdp-view ctdp-main-view" data-role="main-view">',
         '    <header class="ctdp-toolbar">',
-        '      <button class="ctdp-btn ctdp-btn-primary" type="button" data-role="regen" aria-label="重新生成全部" title="重新生成全部">' +
+        '      <div class="ctdp-toolbar-group ctdp-toolbar-group-left">',
+        '        <button class="ctdp-btn ctdp-footer-btn" type="button" data-role="open-settings" aria-label="打开设置" title="打开设置">' +
+          renderButtonIcon(iconAssetsApi.ACTION_ICONS.settings, "打开设置", "ctdp-btn-icon") +
+          "</button>",
+        "      </div>",
+        '      <div class="ctdp-toolbar-group ctdp-toolbar-group-right">',
+        '        <button class="ctdp-btn ctdp-btn-primary" type="button" data-role="regen" aria-label="重新生成全部" title="重新生成全部">' +
           renderButtonIcon(iconAssetsApi.ACTION_ICONS.regen, "重新生成全部", "ctdp-btn-icon") +
           "</button>",
-        '      <button class="ctdp-btn ctdp-btn-strong" type="button" data-role="copy-all" aria-label="复制整组数据" title="复制整组数据">' +
+        '        <button class="ctdp-btn ctdp-btn-strong" type="button" data-role="copy-all" aria-label="复制整组数据" title="复制整组数据">' +
           renderButtonIcon(iconAssetsApi.ACTION_ICONS.copyAll, "复制整组数据", "ctdp-btn-icon") +
           "</button>",
-        '      <button class="ctdp-btn ctdp-btn-ghost" type="button" data-role="collapse" aria-label="收起面板" title="收起面板">' +
+        '        <button class="ctdp-btn ctdp-btn-ghost" type="button" data-role="collapse" aria-label="收起面板" title="收起面板">' +
           renderButtonIcon(iconAssetsApi.ACTION_ICONS.collapse, "收起面板", "ctdp-btn-icon") +
           "</button>",
+        "      </div>",
         "    </header>",
         '    <main class="ctdp-grid" data-role="field-grid"></main>',
         "  </div>",
@@ -356,7 +366,7 @@
         '    <div class="ctdp-settings-list">',
         '      <section class="ctdp-settings-card ctdp-settings-card-static">',
         '        <span class="ctdp-settings-card-head">' +
-          renderButtonIcon(iconAssetsApi.ACTION_ICONS.settings, "填充项选择", "ctdp-settings-card-icon") +
+          renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.visibleFields, "填充项选择", "ctdp-settings-card-icon") +
         '          <span class="ctdp-settings-card-title">填充项选择</span>' +
         "        </span>" +
         '        <span class="ctdp-settings-card-note">当前站点只有勾选的项目会出现在面板和智能填充中，右键标注始终提供全量字段</span>' +
@@ -364,21 +374,21 @@
         "      </section>",
         '      <button class="ctdp-settings-card" type="button" data-role="export-overrides">' +
         '        <span class="ctdp-settings-card-head">' +
-          renderButtonIcon(iconAssetsApi.ACTION_ICONS.copyAll, "导出标注数据", "ctdp-settings-card-icon") +
+          renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.exportOverrides, "导出标注数据", "ctdp-settings-card-icon") +
         '          <span class="ctdp-settings-card-title">导出标注数据</span>' +
         "        </span>" +
         '        <span class="ctdp-settings-card-note">下载完整 JSON 备份</span>' +
         "      </button>",
         '      <button class="ctdp-settings-card" type="button" data-role="import-overrides">' +
         '        <span class="ctdp-settings-card-head">' +
-          renderButtonIcon(iconAssetsApi.ACTION_ICONS.settings, "导入标注数据", "ctdp-settings-card-icon") +
+          renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.importOverrides, "导入标注数据", "ctdp-settings-card-icon") +
         '          <span class="ctdp-settings-card-title">导入标注数据</span>' +
         "        </span>" +
         '        <span class="ctdp-settings-card-note">合并并覆盖同键标注</span>' +
         "      </button>",
         '      <button class="ctdp-settings-card" type="button" data-role="export-sanitized-overrides">' +
         '        <span class="ctdp-settings-card-head">' +
-          renderButtonIcon(iconAssetsApi.ACTION_ICONS.collapse, "脱敏导出", "ctdp-settings-card-icon") +
+          renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.exportSanitizedOverrides, "脱敏导出", "ctdp-settings-card-icon") +
         '          <span class="ctdp-settings-card-title">脱敏导出</span>' +
         "        </span>" +
         '        <span class="ctdp-settings-card-note">只保留输入框指纹，可在当前站点回导</span>' +
@@ -386,12 +396,7 @@
         "    </div>",
         '    <p class="ctdp-settings-status" data-role="settings-status" data-tone="muted">填充项选择按当前站点保存，脱敏导出不会保留原始页面地址。</p>',
         "  </div>",
-        '  <footer class="ctdp-footer" data-role="footer">',
-        '    <div class="ctdp-footer-actions">',
-        '      <button class="ctdp-btn ctdp-footer-btn" type="button" data-role="open-settings" aria-label="打开设置" title="打开设置">' +
-          renderButtonIcon(iconAssetsApi.ACTION_ICONS.settings, "打开设置", "ctdp-btn-icon") +
-          "</button>",
-        "    </div>",
+        '  <footer class="ctdp-footer" data-role="footer" hidden>',
         '    <label class="ctdp-fallback" data-role="fallback-box" hidden>',
         '      <span>自动复制失败时，按 <strong>Ctrl/Cmd + C</strong> 手动复制：</span>',
         '      <textarea data-role="fallback-text" spellcheck="false" readonly></textarea>',
@@ -406,6 +411,7 @@
       mainView = root.querySelector('[data-role="main-view"]');
       settingsView = root.querySelector('[data-role="settings-view"]');
       fieldGrid = root.querySelector('[data-role="field-grid"]');
+      footer = root.querySelector('[data-role="footer"]');
       fallbackBox = root.querySelector('[data-role="fallback-box"]');
       fallbackText = root.querySelector('[data-role="fallback-text"]');
       flashNode = root.querySelector('[data-role="flash"]');

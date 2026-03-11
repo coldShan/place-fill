@@ -29,8 +29,9 @@ test("dock and smart-fill buttons use icon markup instead of visible text labels
   assert.doesNotMatch(panelScript, /展开测试数据面板">测试数据<\/button>/);
 });
 
-test("panel toolbar keeps three icon-only action buttons aligned to the top right", () => {
-  assert.match(panelScript, /<header class="ctdp-toolbar">[\s\S]*?data-role="regen"[\s\S]*?data-role="copy-all"[\s\S]*?data-role="collapse"/);
+test("panel toolbar keeps settings on the left and three icon-only actions on the right", () => {
+  assert.match(panelScript, /<header class="ctdp-toolbar">[\s\S]*?ctdp-toolbar-group-left[\s\S]*?data-role="open-settings"[\s\S]*?ctdp-toolbar-group-right[\s\S]*?data-role="regen"[\s\S]*?data-role="copy-all"[\s\S]*?data-role="collapse"/);
+  assert.match(panelScript, /data-role="open-settings" aria-label="打开设置" title="打开设置"/);
   assert.match(panelScript, /data-role="regen" aria-label="重新生成全部" title="重新生成全部"/);
   assert.match(panelScript, /data-role="copy-all" aria-label="复制整组数据" title="复制整组数据"/);
   assert.match(panelScript, /data-role="collapse" aria-label="收起面板" title="收起面板"/);
@@ -53,11 +54,12 @@ test("panel footer no longer renders status text or refresh timestamp", () => {
   assert.doesNotMatch(panelScript, /data-role="status"/);
   assert.doesNotMatch(panelScript, /data-role="status-time"/);
   assert.doesNotMatch(panelScript, /<footer class="ctdp-footer">[\s\S]*?data-role="copy-all"/);
+  assert.match(panelScript, /<footer class="ctdp-footer" data-role="footer" hidden>/);
 });
 
 test("panel footer adds a settings entry and the panel includes a dedicated settings view", () => {
-  assert.match(panelScript, /<footer class="ctdp-footer"[\s\S]*?data-role="open-settings"/);
-  assert.match(panelScript, /data-role="open-settings" aria-label="打开设置" title="打开设置"/);
+  assert.match(panelScript, /<header class="ctdp-toolbar"[\s\S]*?data-role="open-settings"/);
+  assert.doesNotMatch(panelScript, /<footer class="ctdp-footer"[\s\S]*?data-role="open-settings"/);
   assert.match(panelScript, /data-role="settings-view"/);
   assert.match(panelScript, /data-role="settings-back" aria-label="返回主面板" title="返回主面板"/);
   assert.match(panelScript, /data-role="field-visibility-list"/);

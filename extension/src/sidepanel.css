@@ -236,9 +236,18 @@
 
 .ctdp-toolbar {
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
   padding: 12px;
+}
+
+.ctdp-toolbar-group {
+  display: flex;
+  align-items: center;
+}
+
+.ctdp-toolbar-group-right {
+  gap: 10px;
 }
 
 .ctdp-btn {
@@ -625,9 +634,8 @@
   padding: 12px 16px 16px;
 }
 
-.ctdp-footer-actions {
-  display: flex;
-  justify-content: flex-end;
+.ctdp-footer[hidden] {
+  display: none;
 }
 
 .ctdp-footer-btn,

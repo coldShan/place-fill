@@ -14,9 +14,10 @@ test("collapsed dock is anchored to the viewport edge while panel keeps a right 
   assert.match(stylesheet, /\.ctdp-dock\s*\{[\s\S]*?\bheight:\s*56px;/);
 });
 
-test("toolbar actions are compact icon-only buttons aligned to the right edge", () => {
-  assert.match(stylesheet, /\.ctdp-toolbar\s*\{[\s\S]*?justify-content:\s*flex-end;/);
+test("toolbar keeps a left settings slot and a right-aligned action cluster", () => {
+  assert.match(stylesheet, /\.ctdp-toolbar\s*\{[\s\S]*?justify-content:\s*space-between;/);
   assert.match(stylesheet, /\.ctdp-toolbar\s*\{[\s\S]*?padding:\s*12px;/);
+  assert.match(stylesheet, /\.ctdp-toolbar-group-right\s*\{[\s\S]*?gap:\s*10px;/);
   assert.match(stylesheet, /\.ctdp-btn-primary,\s*\.ctdp-btn-strong,\s*\.ctdp-btn-ghost\s*\{[\s\S]*?width:\s*42px;/);
   assert.match(stylesheet, /\.ctdp-btn-primary,\s*\.ctdp-btn-strong,\s*\.ctdp-btn-ghost\s*\{[\s\S]*?height:\s*42px;/);
   assert.doesNotMatch(stylesheet, /\.ctdp-btn-text\s*\{/);
@@ -24,7 +25,7 @@ test("toolbar actions are compact icon-only buttons aligned to the right edge", 
 
 test("settings entry and back button stay compact within the shared glass panel system", () => {
   assert.match(stylesheet, /\.ctdp-footer\s*\{[\s\S]*?padding:\s*12px 16px 16px;/);
-  assert.match(stylesheet, /\.ctdp-footer-actions\s*\{[\s\S]*?justify-content:\s*flex-end;/);
+  assert.match(stylesheet, /\.ctdp-footer\[hidden\]\s*\{[\s\S]*?display:\s*none;/);
   assert.match(stylesheet, /\.ctdp-footer-btn,\s*\.ctdp-settings-back\s*\{[\s\S]*?width:\s*42px;/);
   assert.match(stylesheet, /\.ctdp-footer-btn,\s*\.ctdp-settings-back\s*\{[\s\S]*?height:\s*42px;/);
   assert.match(stylesheet, /\.ctdp-settings-view\s*\{[\s\S]*?display:\s*grid;/);
