@@ -1,55 +1,62 @@
 # place-fill
 
-这是一个用于表单联调、回归测试和演示录屏的 Chrome 扩展，插件名为 `place-fill`。
+<p align="center">
+  <img src="assets/logo.png" alt="place-fill logo" width="240">
+</p>
 
-## 功能说明
+<p align="center">
+  <strong>为表单联调、回归测试和录屏演示准备的 Chrome 填充插件</strong>
+</p>
 
-- 生成统一社会信用代码、公司名称、姓名、身份证号、银行卡号、手机号、邮箱、固定电话、地址
+<p align="center">
+  一侧生成测试数据，一侧智能识别输入框，减少重复录入和人工切换。
+</p>
+
+<p align="center">
+  <img src="assets/img1.png" alt="place-fill panel preview" width="47%">
+  <img src="assets/img2.png" alt="place-fill smart fill preview" width="47%">
+</p>
+
+## 插件功能
+
+### 生成常用测试数据
+
+- 支持统一社会信用代码、公司名称、姓名、身份证号、银行卡号、手机号、邮箱、固定电话、地址
 - 支持单项复制、整组复制和一键重新生成全部数据
-- 在页面右侧注入可收起、可展开的悬浮测试数据面板
-- 主面板右上角提供 GitHub 仓库入口，面板失焦时会自动收起
-- 字段卡片、吸附标签和智能填充按钮统一使用本地化图标
-- 扩展工具栏、扩展管理页与吸附入口使用同一套本地 PNG logo
-- 聚焦可识别字段时，在输入区域旁显示对应字段的悬浮按钮并支持智能填充
-- 支持在当前聚焦输入框上通过右键菜单手动标注字段类型，并可恢复自动识别
-- 人工标注按域名 + 一级子路径隔离，兼顾同业务区复用与跨区隔离
-- 支持在主面板底部通过设置入口导出、导入和脱敏导出用户标注数据
-- 主面板底部显示当前版本，并支持手动检查 GitHub Release 更新
-- 支持在设置面板按域名开关当前站点的智能识别与右键标注，默认启用，其余功能不受影响
-- 支持在设置面板按站点勾选要展示的填充项，默认展示统一社会信用代码、公司名称、姓名、身份证号、银行卡号、手机号
-- 右键手动标注始终提供全量字段，选择未启用字段时会自动加入当前站点的展示配置
-- 支持邮箱、固定电话、地址、手机号、身份证号、姓名、银行卡号、统一社会信用代码等常见字段场景
-- 包含 hover、copy、高亮脉冲与吸附滑入等轻量交互动效
+- 地址字段按中文业务表单常见格式生成，适合本地联调和演示录屏
 
-## 插件导入说明
+### 悬浮面板与快捷操作
 
-1. 打开 Chrome，进入 `chrome://extensions`
-2. 打开右上角“开发者模式”
-3. 点击“加载已解压的扩展程序”
-4. 选择下载的 `place-fill` 插件解压后的文件夹（即包含 `manifest.json` 的目录）
-5. 导入后会显示插件名 `place-fill`
+- 页面右侧注入可展开、可收起的悬浮面板
+- 面板失焦后会自动收起，减少对页面操作的遮挡
+- 字段卡片、吸附入口和工具栏统一使用本地图标与本地 logo 资源
 
-如果要配合本地示例页联调，可以直接在浏览器打开 `mock-form/index.html`。
+### 智能识别与填充
 
-## 资源指引
+- 聚焦可识别输入框时，会在输入区域旁显示智能填充按钮
+- 支持邮箱、手机号、身份证号、银行卡号、姓名、公司名称、统一社会信用代码等常见字段识别
+- 支持右键手动标注字段类型，并在当前站点范围内复用标注结果
 
-- 扩展源码目录：`extension/`
-- 仓库级测试目录：`tests/`
-- 本地联调页面：`mock-form/index.html`
-- 发布产物目录：`releases/`
-- README 预览图资源：`assets/img1.png`、`assets/img2.png`
-- Lucide 本地图标目录：`extension/assets/icons/lucide/`
-- 插件 Logo 资源目录：`extension/assets/app-icons/`
+### 设置与站点控制
 
-## 图标资源
+- 可按当前站点勾选展示哪些填充项
+- 可按当前站点单独开启或关闭智能识别与右键标注
+- 支持导出、导入和脱敏导出人工标注数据
 
-- 同步当前实际用到但尚未本地化的 Lucide 图标：
-  `node extension/scripts/localize-icons.mjs`
-  会同时移除 `assets/icons/lucide` 下未被当前代码使用的多余 `.svg` 文件。
-- 强制用官方源覆盖当前已存在的本地图标：
-  `node extension/scripts/localize-icons.mjs --force`
+## 浏览器导入方法
 
-## 发布
+### Chrome / Edge
 
-- 发布 zip 只包含 `extension/` 目录内容，产物文件名会自动带上 `manifest.json` 里的版本号，例如 `releases/place-fill-v0.3.6.zip`：
-  `node extension/scripts/package-release.mjs`
+1. 前往 [GitHub Releases](https://github.com/coldShan/place-fill/releases) 下载最新版本的 `place-fill-vx.x.x.zip`
+2. 将下载的 zip 文件解压到本地任意目录
+3. 打开浏览器扩展管理页：`chrome://extensions` 或 `edge://extensions`
+4. 打开右上角的“开发者模式”
+5. 点击“加载已解压的扩展程序”
+6. 选择刚刚解压后的发布包目录
+7. 导入完成后，工具栏中会出现 `place-fill` 图标
+
+### 使用提示
+
+- 选择的目录内应直接包含 `manifest.json`
+- Release 压缩包解压后就是插件本体文件，不包含额外的 `extension` 外层目录
+- 如果修改了插件代码，需要回到扩展管理页点击“重新加载”
