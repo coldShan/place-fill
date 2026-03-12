@@ -48,6 +48,7 @@
   const panelController = panelControllerApi.createContentScriptPanelController({
     canRenderPanel,
     document,
+    editableTargetApi,
     fieldMetaApi,
     fieldVisibilityApi,
     generators,

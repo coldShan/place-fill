@@ -10,6 +10,7 @@
     const fieldVisibilityApi = opts.fieldVisibilityApi;
     const siteFeatureToggleApi = opts.siteFeatureToggleApi;
     const smartFillApi = opts.smartFillApi;
+    const editableTargetApi = opts.editableTargetApi;
     const doc = opts.document;
     const win = opts.window;
     const canRenderPanel = opts.canRenderPanel !== false;
@@ -37,6 +38,9 @@
     let visibilityList = null;
     let siteFeatureStatus = null;
     let siteFeatureToggle = null;
+    let dockBtn = null;
+    let autoFillAborted = false;
+    let autoFillRunning = false;
 
     const state = {
       copiedFieldKey: null,
@@ -262,6 +266,78 @@
       syncCopiedCardState();
     }
 
+    function setAutoFillButtonState(running) {
+      if (!root) return;
+      var btn = root.querySelector('[data-role="auto-fill"]');
+      if (btn) btn.setAttribute("data-running", String(running));
+    }
+
+    function collectAutoFillTargets() {
+      if (!editableTargetApi || !smartFillApi) return [];
+      var candidates = doc.querySelectorAll('input, textarea, [contenteditable="true"], [contenteditable=""]');
+      var targets = [];
+      var seen = new Set();
+      candidates.forEach(function (node) {
+        var editable = editableTargetApi.findEditableTarget(node);
+        if (!editable || seen.has(editable)) return;
+        seen.add(editable);
+        var fieldKey = smartFillApi.inferFieldKeyForSmartFill(editable);
+        if (!fieldKey) return;
+        if (!fieldVisibilityApi.isFieldVisible(fieldKey, state.visibleFieldKeys)) return;
+        targets.push({ target: editable, fieldKey: fieldKey });
+      });
+      return targets;
+    }
+
+    function delay(ms) {
+      return new Promise(function (resolve) { win.setTimeout(resolve, ms); });
+    }
+
+    async function autoFillPage() {
+      if (autoFillRunning) {
+        autoFillAborted = true;
+        return;
+      }
+      var targets = collectAutoFillTargets();
+      if (targets.length === 0) return;
+
+      autoFillRunning = true;
+      autoFillAborted = false;
+      setAutoFillButtonState(true);
+
+      for (var i = 0; i < targets.length; i++) {
+        if (autoFillAborted) break;
+        var entry = targets[i];
+        var value = getFieldValue(entry.fieldKey);
+        if (!value) continue;
+
+        entry.target.scrollIntoView({ behavior: "smooth", block: "center" });
+        await delay(120);
+        if (autoFillAborted) break;
+
+        editableTargetApi.fillEditableTarget(entry.target, value);
+        hideFallback();
+        pulseFlash("copy");
+        regenerateFieldValue(entry.fieldKey);
+
+        if (i < targets.length - 1) await delay(200);
+      }
+
+      var wasAborted = autoFillAborted;
+      autoFillRunning = false;
+      autoFillAborted = false;
+      setAutoFillButtonState(false);
+      if (!wasAborted) {
+        pulseFlash("regen");
+        if (dockBtn) {
+          dockBtn.setAttribute("data-autofill-done", "true");
+          win.setTimeout(function () {
+            if (dockBtn) dockBtn.removeAttribute("data-autofill-done");
+          }, 4000);
+        }
+      }
+    }
+
     function syncVisibleFieldKeys(nextVisibleFieldKeys) {
       state.visibleFieldKeys = fieldVisibilityApi.filterVisibleFieldKeys(fieldKeys, nextVisibleFieldKeys);
       if (!fieldVisibilityApi.isFieldVisible(state.copiedFieldKey, state.visibleFieldKeys)) {
@@ -467,6 +543,9 @@
           "</button>",
         "      </div>",
         '      <div class="ctdp-toolbar-group ctdp-toolbar-group-right">',
+        '        <button class="ctdp-btn ctdp-btn-primary" type="button" data-role="auto-fill" aria-label="自动填充页面" title="自动填充页面">' +
+          renderButtonIcon(iconAssetsApi.ACTION_ICONS.autoFill, "自动填充页面", "ctdp-btn-icon") +
+          "</button>",
         '        <button class="ctdp-btn ctdp-btn-primary" type="button" data-role="regen" aria-label="重新生成全部" title="重新生成全部">' +
           renderButtonIcon(iconAssetsApi.ACTION_ICONS.regen, "重新生成全部", "ctdp-btn-icon") +
           "</button>",
@@ -560,12 +639,17 @@
       visibilityList = root.querySelector('[data-role="field-visibility-list"]');
       siteFeatureStatus = root.querySelector('[data-role="site-feature-status"]');
       siteFeatureToggle = root.querySelector('[data-role="site-feature-toggle"]');
+      dockBtn = root.querySelector('[data-role="expand"]');
 
       root.addEventListener("click", function (event) {
         const trigger = event.target.closest("[data-role]");
         if (!trigger) return;
         const role = trigger.getAttribute("data-role");
 
+        if (role === "auto-fill") {
+          autoFillPage();
+          return;
+        }
         if (role === "regen") {
           regenerateProfile();
           return;

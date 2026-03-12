@@ -21,7 +21,8 @@
     smartphone: "assets/icons/lucide/smartphone.svg",
     shield: "assets/icons/lucide/shield.svg",
     upload: "assets/icons/lucide/upload.svg",
-    "user-round": "assets/icons/lucide/user-round.svg"
+    "user-round": "assets/icons/lucide/user-round.svg",
+    "wand-sparkles": "assets/icons/lucide/wand-sparkles.svg"
   };
 
   const PRIMARY_LOGO_ICON = "app-logo";
@@ -30,6 +31,7 @@
     copyAll: "copy",
     copied: "badge-check",
     github: "github",
+    autoFill: "wand-sparkles",
     regen: "refresh-cw",
     settings: "settings",
     updateCheck: "refresh-cw"
