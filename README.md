@@ -51,5 +51,5 @@
 
 ## 发布
 
-- 发布 zip 只包含 `extension/` 目录内容，产物文件名会自动带上 `manifest.json` 里的版本号，例如 `releases/place-fill-v0.3.5.zip`：
+- 发布 zip 只包含 `extension/` 目录内容，产物文件名会自动带上 `manifest.json` 里的版本号，例如 `releases/place-fill-v0.3.6.zip`：
   `node extension/scripts/package-release.mjs`
