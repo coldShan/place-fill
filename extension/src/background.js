@@ -1,8 +1,9 @@
 "use strict";
 
-importScripts("field-meta.js", "field-visibility.js", "smart-fill.js");
+importScripts("field-meta.js", "field-visibility.js", "site-feature-toggle.js", "smart-fill.js");
 
 const fieldVisibilityApi = globalThis.ChromeTestDataFieldVisibility;
+const siteFeatureToggleApi = globalThis.ChromeTestDataSiteFeatureToggle;
 const smartFillApi = globalThis.ChromeTestDataSmartFill;
 const MENU_ROOT_ID = "ctdp-manual-annotation-root";
 const MENU_FIELD_PREFIX = "ctdp-manual-annotation:";
@@ -10,6 +11,7 @@ const MENU_CLEAR_ID = "ctdp-manual-annotation:clear";
 const REPOSITORY_URL = "https://github.com/coldShan/place-fill";
 const RELEASES_URL = REPOSITORY_URL + "/releases";
 const LATEST_RELEASE_API_URL = "https://api.github.com/repos/coldShan/place-fill/releases/latest";
+let siteFeatureEnabledMap = {};
 
 function getUrlHostname(url) {
   if (!url) return "";
@@ -121,6 +123,52 @@ async function syncVisibleFieldKeyForContext(fieldKey, info, tab) {
   await fieldVisibilityApi.writeVisibleFieldKeys(visibleFieldKeys.concat(fieldKey), { hostname });
 }
 
+function isSiteFeatureEnabledForHostname(hostname) {
+  if (!siteFeatureToggleApi || !hostname) return true;
+  if (!Object.prototype.hasOwnProperty.call(siteFeatureEnabledMap, hostname)) {
+    return siteFeatureToggleApi.getDefaultSiteFeatureEnabled();
+  }
+  return siteFeatureToggleApi.isSiteFeatureEnabled(siteFeatureEnabledMap[hostname]);
+}
+
+async function readSiteFeatureEnabledMap() {
+  if (!siteFeatureToggleApi) return {};
+  siteFeatureEnabledMap = await siteFeatureToggleApi.readSiteFeatureEnabledMap();
+  return siteFeatureEnabledMap;
+}
+
+function updateRootMenuVisibility(visible) {
+  if (!chrome.contextMenus || typeof chrome.contextMenus.update !== "function") return;
+  chrome.contextMenus.update(MENU_ROOT_ID, { visible: visible }, function () {
+    void chrome.runtime.lastError;
+    if (typeof chrome.contextMenus.refresh === "function") chrome.contextMenus.refresh();
+  });
+}
+
+function syncRootMenuVisibilityForHostname(hostname) {
+  updateRootMenuVisibility(isSiteFeatureEnabledForHostname(hostname));
+}
+
+function syncRootMenuVisibilityForUrl(url) {
+  syncRootMenuVisibilityForHostname(getUrlHostname(url));
+}
+
+function syncRootMenuVisibilityForTabId(tabId) {
+  if (!chrome.tabs || typeof chrome.tabs.get !== "function" || !tabId) return;
+  chrome.tabs.get(tabId, function (tab) {
+    void chrome.runtime.lastError;
+    syncRootMenuVisibilityForUrl(tab && tab.url);
+  });
+}
+
+function syncRootMenuVisibilityForActiveTab() {
+  if (!chrome.tabs || typeof chrome.tabs.query !== "function") return;
+  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    void chrome.runtime.lastError;
+    syncRootMenuVisibilityForUrl(tabs && tabs[0] && tabs[0].url);
+  });
+}
+
 chrome.action.onClicked.addListener(function (tab) {
   if (!tab || !tab.id) return;
   chrome.tabs.sendMessage(tab.id, { type: "toggle-test-data-panel" }, function () {
@@ -129,16 +177,46 @@ chrome.action.onClicked.addListener(function (tab) {
 });
 
 chrome.runtime.onInstalled.addListener(buildContextMenus);
+chrome.runtime.onInstalled.addListener(function () {
+  readSiteFeatureEnabledMap().catch(function () {});
+});
 chrome.runtime.onStartup.addListener(buildContextMenus);
+chrome.runtime.onStartup.addListener(function () {
+  readSiteFeatureEnabledMap().catch(function () {});
+});
 if (chrome.storage && chrome.storage.onChanged) {
   chrome.storage.onChanged.addListener(function (changes, areaName) {
-    if (areaName !== "local" || !changes || !Object.prototype.hasOwnProperty.call(changes, fieldVisibilityApi.STORAGE_KEY)) return;
-    buildContextMenus();
+    if (areaName !== "local" || !changes) return;
+    if (siteFeatureToggleApi && Object.prototype.hasOwnProperty.call(changes, siteFeatureToggleApi.STORAGE_KEY)) {
+      siteFeatureEnabledMap = siteFeatureToggleApi.normalizeSiteFeatureEnabledMap(changes[siteFeatureToggleApi.STORAGE_KEY].newValue);
+      syncRootMenuVisibilityForActiveTab();
+    }
+  });
+}
+
+if (chrome.contextMenus && chrome.contextMenus.onShown) {
+  chrome.contextMenus.onShown.addListener(function (info, tab) {
+    syncRootMenuVisibilityForHostname(resolveContextHostname(info, tab));
+  });
+}
+
+if (chrome.tabs && chrome.tabs.onActivated) {
+  chrome.tabs.onActivated.addListener(function (activeInfo) {
+    syncRootMenuVisibilityForTabId(activeInfo && activeInfo.tabId);
+  });
+}
+
+if (chrome.tabs && chrome.tabs.onUpdated) {
+  chrome.tabs.onUpdated.addListener(function (_tabId, changeInfo, tab) {
+    if (!changeInfo || (!Object.prototype.hasOwnProperty.call(changeInfo, "status") && !Object.prototype.hasOwnProperty.call(changeInfo, "url"))) return;
+    syncRootMenuVisibilityForUrl((tab && tab.url) || changeInfo.url);
   });
 }
 
 chrome.contextMenus.onClicked.addListener(function (info, tab) {
   if (!info || !tab || !tab.id) return;
+  const hostname = resolveContextHostname(info, tab);
+  if (!isSiteFeatureEnabledForHostname(hostname)) return;
   if (info.menuItemId === MENU_CLEAR_ID) {
     sendTabMessage(tab.id, info, { type: "clear-smart-fill-override" });
     return;
@@ -159,6 +237,11 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
   if (!message || typeof message.type !== "string") return;
   if (message.type === "open-extension-repository-page") {
     openExtensionPage(REPOSITORY_URL);
+    sendResponse({ ok: true });
+    return;
+  }
+  if (message.type === "sync-site-feature-context-menu") {
+    updateRootMenuVisibility(message.enabled !== false);
     sendResponse({ ok: true });
     return;
   }
@@ -185,4 +268,6 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
   }
 });
 
+readSiteFeatureEnabledMap().catch(function () {});
 buildContextMenus();
+syncRootMenuVisibilityForActiveTab();

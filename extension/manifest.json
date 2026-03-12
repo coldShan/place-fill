@@ -37,7 +37,7 @@
     {
       "matches": ["<all_urls>"],
       "all_frames": true,
-      "js": ["src/field-meta.js", "src/field-visibility.js", "src/generators.js", "src/panel-state.js", "src/editable-target.js", "src/icon-assets.js", "src/smart-fill.js", "src/content-script-panel.js", "src/content-script-smartfill.js", "src/content-script.js"],
+      "js": ["src/field-meta.js", "src/field-visibility.js", "src/site-feature-toggle.js", "src/generators.js", "src/panel-state.js", "src/editable-target.js", "src/icon-assets.js", "src/smart-fill.js", "src/content-script-panel.js", "src/content-script-smartfill.js", "src/content-script.js"],
       "css": ["src/sidepanel.css"],
       "run_at": "document_idle"
     }

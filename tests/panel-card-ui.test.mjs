@@ -67,6 +67,7 @@ test("panel footer adds a settings entry and the panel includes a dedicated sett
   assert.doesNotMatch(panelScript, /<footer class="ctdp-footer"[\s\S]*?data-role="open-settings"/);
   assert.match(panelScript, /data-role="settings-view"/);
   assert.match(panelScript, /data-role="settings-back" aria-label="返回主面板" title="返回主面板"/);
+  assert.match(panelScript, /data-role="site-feature-toggle"/);
   assert.match(panelScript, /data-role="field-visibility-list"/);
   assert.match(panelScript, /data-role="field-visibility-toggle"/);
   assert.match(panelScript, /data-role="export-overrides"/);
@@ -90,7 +91,12 @@ test("manual copy fallback uses accurate failure wording instead of browser supp
 
 test("smart fill menu supports right-click manual annotation and regenerates only the used field", () => {
   assert.match(panelScript, /function regenerateFieldValue\(fieldKey\)/);
+  assert.match(panelScript, /siteFeatureEnabled:\s*siteFeatureToggleApi\.getDefaultSiteFeatureEnabled\(\)/);
+  assert.match(panelScript, /readSiteFeatureEnabled/);
+  assert.match(panelScript, /writeSiteFeatureEnabled/);
   assert.match(smartfillScript, /function renderSmartFillMenuMarkup\(primaryFieldKey\)/);
+  assert.match(smartfillScript, /const isEnabled = typeof opts\.isEnabled === "function"/);
+  assert.match(smartfillScript, /if \(!isEnabled\(\)\) \{\s*hideSmartButton\(\);\s*return;\s*\}/);
   assert.match(smartfillScript, /getSmartFillMenuFieldKeys\(primaryFieldKey,\s*visibleFieldKeys\)/);
   assert.match(smartfillScript, /fillCurrentTarget\(fieldKey\)[\s\S]*?onFieldFilled\(fieldKey\)/);
   assert.match(smartfillScript, /function fillTarget\(target,\s*fieldKey\)/);
@@ -101,8 +107,11 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(smartfillScript, /smartButton\.addEventListener\("focusin", function \(\) \{\s*setSmartButtonExpanded\(true\);/);
   assert.match(smartfillScript, /smartButton\.addEventListener\("focusout", function \(\) \{\s*setSmartButtonExpanded\(false\);/);
   assert.match(orchestratorScript, /document\.addEventListener\(\s*"contextmenu"/);
+  assert.match(orchestratorScript, /sync-site-feature-context-menu/);
   assert.match(orchestratorScript, /message\.type === "apply-smart-fill-override"/);
   assert.match(orchestratorScript, /message\.type === "clear-smart-fill-override"/);
+  assert.match(orchestratorScript, /onSiteFeatureEnabledChanged/);
+  assert.match(orchestratorScript, /isEnabled:\s*panelController\.isSiteFeatureEnabled/);
   assert.match(orchestratorScript, /setManualFieldOverride/);
   assert.match(orchestratorScript, /panelController\.loadVisibleFieldKeys\(\)\.then/);
   assert.match(orchestratorScript, /smartFillController\.fillTarget\(target,\s*message\.fieldKey\)/);

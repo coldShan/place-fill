@@ -25,6 +25,7 @@ test("manifest enables all-sites editable injection with context menu permission
   assert.deepEqual(manifest.content_scripts[0].js, [
     "src/field-meta.js",
     "src/field-visibility.js",
+    "src/site-feature-toggle.js",
     "src/generators.js",
     "src/panel-state.js",
     "src/editable-target.js",

@@ -7,6 +7,7 @@
   const iconAssetsApi = globalThis.ChromeTestDataIconAssets;
   const fieldMetaApi = globalThis.ChromeTestDataFieldMeta;
   const fieldVisibilityApi = globalThis.ChromeTestDataFieldVisibility;
+  const siteFeatureToggleApi = globalThis.ChromeTestDataSiteFeatureToggle;
   const smartFillApi = globalThis.ChromeTestDataSmartFill;
   const panelControllerApi = globalThis.ChromeTestDataContentScriptPanel;
   const smartFillControllerApi = globalThis.ChromeTestDataContentScriptSmartFill;
@@ -18,6 +19,7 @@
     !iconAssetsApi ||
     !fieldMetaApi ||
     !fieldVisibilityApi ||
+    !siteFeatureToggleApi ||
     !smartFillApi ||
     !panelControllerApi ||
     !smartFillControllerApi ||
@@ -27,7 +29,21 @@
   }
 
   const canRenderPanel = window.top === window;
+  const runtimeApi = typeof chrome !== "undefined" ? chrome.runtime : null;
   let smartFillController = null;
+
+  function syncSiteFeatureContextMenu(enabled) {
+    if (!runtimeApi || typeof runtimeApi.sendMessage !== "function") return;
+    runtimeApi.sendMessage(
+      {
+        type: "sync-site-feature-context-menu",
+        enabled: enabled !== false
+      },
+      function () {
+        void runtimeApi.lastError;
+      }
+    );
+  }
 
   const panelController = panelControllerApi.createContentScriptPanelController({
     canRenderPanel,
@@ -41,6 +57,20 @@
       const target = editableTargetApi.findEditableTarget(document.activeElement) || smartFillController.resolveManualOverrideTarget();
       if (target) smartFillController.syncTarget(target);
     },
+    onSiteFeatureEnabledChanged: function (enabled) {
+      syncSiteFeatureContextMenu(enabled);
+      if (!smartFillController) return;
+      if (!enabled) {
+        smartFillController.hide();
+        return;
+      }
+      const target = editableTargetApi.findEditableTarget(document.activeElement) || smartFillController.resolveManualOverrideTarget();
+      if (target) {
+        smartFillController.syncTarget(target);
+        return;
+      }
+      smartFillController.hide();
+    },
     onVisibleFieldKeysChanged: function () {
       if (!smartFillController) return;
       const target = editableTargetApi.findEditableTarget(document.activeElement) || smartFillController.resolveManualOverrideTarget();
@@ -51,6 +81,7 @@
       smartFillController.hide();
     },
     panelStateApi,
+    siteFeatureToggleApi,
     smartFillApi,
     window
   });
@@ -61,6 +92,7 @@
     getFieldValue: panelController.getFieldValue,
     getVisibleFieldKeys: panelController.getVisibleFieldKeys,
     iconAssetsApi,
+    isEnabled: panelController.isSiteFeatureEnabled,
     onFieldFilled: panelController.consumeFieldValue,
     smartFillApi,
     window
@@ -91,6 +123,7 @@
   document.addEventListener(
     "contextmenu",
     function (event) {
+      syncSiteFeatureContextMenu(panelController.isSiteFeatureEnabled());
       smartFillController.setContextTarget(event.target);
     },
     true

@@ -10,6 +10,7 @@
     const win = opts.window;
     const getFieldValue = typeof opts.getFieldValue === "function" ? opts.getFieldValue : function () { return ""; };
     const getVisibleFieldKeys = typeof opts.getVisibleFieldKeys === "function" ? opts.getVisibleFieldKeys : function () { return smartFillApi.getSupportedFieldKeys(); };
+    const isEnabled = typeof opts.isEnabled === "function" ? opts.isEnabled : function () { return true; };
     const onFieldFilled = typeof opts.onFieldFilled === "function" ? opts.onFieldFilled : function () {};
 
     let smartButton = null;
@@ -100,6 +101,10 @@
     }
 
     function fillCurrentTarget(fieldKey) {
+      if (!isEnabled()) {
+        hideSmartButton();
+        return;
+      }
       const target = editableTargetApi.findEditableTarget(activeSmartTarget) || editableTargetApi.findEditableTarget(doc.activeElement);
       const value = getFieldValue(fieldKey);
       if (!target || !fieldKey || typeof value !== "string") return;
@@ -109,6 +114,14 @@
     }
 
     function fillTarget(target, fieldKey) {
+      if (!isEnabled()) {
+        hideSmartButton();
+        return;
+      }
+      if (!fieldKey) {
+        hideSmartButton();
+        return;
+      }
       const editableTarget = editableTargetApi.findEditableTarget(target);
       const value = getFieldValue(fieldKey);
       if (!editableTarget || !fieldKey || typeof value !== "string") return;
@@ -120,6 +133,10 @@
     }
 
     function syncTarget(target) {
+      if (!isEnabled()) {
+        hideSmartButton();
+        return;
+      }
       const editableTarget = editableTargetApi.findEditableTarget(target);
       if (!editableTarget) {
         hideSmartButton();

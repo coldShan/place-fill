@@ -8,11 +8,13 @@
     const iconAssetsApi = opts.iconAssetsApi;
     const fieldMetaApi = opts.fieldMetaApi;
     const fieldVisibilityApi = opts.fieldVisibilityApi;
+    const siteFeatureToggleApi = opts.siteFeatureToggleApi;
     const smartFillApi = opts.smartFillApi;
     const doc = opts.document;
     const win = opts.window;
     const canRenderPanel = opts.canRenderPanel !== false;
     const onOverridesImported = typeof opts.onOverridesImported === "function" ? opts.onOverridesImported : function () {};
+    const onSiteFeatureEnabledChanged = typeof opts.onSiteFeatureEnabledChanged === "function" ? opts.onSiteFeatureEnabledChanged : function () {};
     const onVisibleFieldKeysChanged = typeof opts.onVisibleFieldKeysChanged === "function" ? opts.onVisibleFieldKeysChanged : function () {};
 
     const fieldKeys = fieldMetaApi.getFieldKeys();
@@ -31,11 +33,13 @@
     let importInput = null;
     let versionStatus = null;
     let visibilityList = null;
+    let siteFeatureToggle = null;
 
     const state = {
       copiedFieldKey: null,
       panelView: "main",
       profile: generators.generateProfile(),
+      siteFeatureEnabled: siteFeatureToggleApi.getDefaultSiteFeatureEnabled(),
       visibleFieldKeys: fieldVisibilityApi.getDefaultVisibleFieldKeys()
     };
 
@@ -135,6 +139,22 @@
       ].join("");
     }
 
+    function renderSiteFeatureToggleMarkup() {
+      return [
+        '<section class="ctdp-settings-card ctdp-settings-card-static">',
+        '  <span class="ctdp-settings-card-head">',
+        "    " + renderButtonIcon(iconAssetsApi.ACTION_ICONS.settings, "当前站点智能功能", "ctdp-settings-card-icon"),
+        '    <span class="ctdp-settings-card-title">当前站点智能功能</span>',
+        '    <label class="ctdp-switch" aria-label="切换当前站点智能功能">',
+        '      <input class="ctdp-switch-input" type="checkbox" data-role="site-feature-toggle"' + (state.siteFeatureEnabled ? " checked" : "") + ">",
+        '      <span class="ctdp-switch-track"><span class="ctdp-switch-thumb"></span></span>',
+        "    </label>",
+        "  </span>",
+        '  <span class="ctdp-settings-card-note">关闭后，当前站点不启用智能识别和右键标注，其余功能不受影响</span>',
+        "</section>"
+      ].join("");
+    }
+
     function cardTemplate(key, value) {
       const copied = state.copiedFieldKey === key;
       const label = fieldMetaApi.getFieldLabel(key);
@@ -209,6 +229,7 @@
       if (!fieldGrid) return;
       renderCards();
       renderVisibilityList();
+      syncSiteFeatureToggle();
       updatePanelState();
       updatePanelView();
     }
@@ -241,6 +262,27 @@
       }
       render();
       onVisibleFieldKeysChanged(state.visibleFieldKeys);
+    }
+
+    function syncSiteFeatureToggle() {
+      if (!siteFeatureToggle) return;
+      siteFeatureToggle.checked = state.siteFeatureEnabled;
+    }
+
+    function syncSiteFeatureEnabled(enabled) {
+      state.siteFeatureEnabled = siteFeatureToggleApi.isSiteFeatureEnabled(enabled);
+      syncSiteFeatureToggle();
+      onSiteFeatureEnabledChanged(state.siteFeatureEnabled);
+    }
+
+    async function loadSiteFeatureEnabled() {
+      syncSiteFeatureEnabled(await siteFeatureToggleApi.readSiteFeatureEnabled());
+    }
+
+    async function toggleSiteFeatureEnabled(enabled) {
+      const nextEnabled = await siteFeatureToggleApi.writeSiteFeatureEnabled(enabled);
+      syncSiteFeatureEnabled(nextEnabled);
+      setSettingsStatus(nextEnabled ? "当前站点已启用智能识别和右键标注" : "当前站点已停用智能识别和右键标注", nextEnabled ? "success" : "warning");
     }
 
     async function toggleFieldVisibility(fieldKey, checked) {
@@ -421,6 +463,7 @@
         "      </div>",
         "    </header>",
         '    <div class="ctdp-settings-list">',
+        renderSiteFeatureToggleMarkup(),
         '      <section class="ctdp-settings-card ctdp-settings-card-static">',
         '        <span class="ctdp-settings-card-head">' +
           renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.visibleFields, "填充项选择", "ctdp-settings-card-icon") +
@@ -485,6 +528,7 @@
       importInput = root.querySelector('[data-role="import-file"]');
       versionStatus = root.querySelector('[data-role="version-status"]');
       visibilityList = root.querySelector('[data-role="field-visibility-list"]');
+      siteFeatureToggle = root.querySelector('[data-role="site-feature-toggle"]');
 
       root.addEventListener("click", function (event) {
         const trigger = event.target.closest("[data-role]");
@@ -537,6 +581,11 @@
       });
 
       root.addEventListener("change", function (event) {
+        const siteFeatureTrigger = event.target.closest('[data-role="site-feature-toggle"]');
+        if (siteFeatureTrigger) {
+          toggleSiteFeatureEnabled(siteFeatureTrigger.checked);
+          return;
+        }
         const trigger = event.target.closest('[data-role="field-visibility-toggle"]');
         if (!trigger) return;
         toggleFieldVisibility(trigger.getAttribute("data-key"), trigger.checked);
@@ -571,6 +620,7 @@
       });
 
       render();
+      loadSiteFeatureEnabled();
       loadVisibleFieldKeys();
     }
 
@@ -610,6 +660,10 @@
       return state.visibleFieldKeys.slice();
     }
 
+    function isSiteFeatureEnabled() {
+      return state.siteFeatureEnabled;
+    }
+
     function consumeFieldValue(fieldKey) {
       hideFallback();
       pulseFlash("copy");
@@ -621,9 +675,11 @@
       consumeFieldValue,
       expand,
       getFieldValue,
+      isSiteFeatureEnabled,
       getVisibleFieldKeys,
       handleDocumentFocusIn,
       handleDocumentPointerDown,
+      loadSiteFeatureEnabled,
       loadVisibleFieldKeys,
       mount,
       syncImportedOverrideState,

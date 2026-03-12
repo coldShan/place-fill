@@ -9,7 +9,7 @@ const script = readFileSync(join(here, "../extension/src/background.js"), "utf8"
 
 test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /chrome\.action\.onClicked\.addListener/);
-  assert.match(script, /importScripts\("field-meta\.js",\s*"field-visibility\.js",\s*"smart-fill\.js"\)/);
+  assert.match(script, /importScripts\("field-meta\.js",\s*"field-visibility\.js",\s*"site-feature-toggle\.js",\s*"smart-fill\.js"\)/);
   assert.match(script, /chrome\.contextMenus\.create/);
   assert.match(script, /contexts:\s*\["editable"\]/);
   assert.match(script, /chrome\.contextMenus\.onClicked\.addListener/);
@@ -17,6 +17,9 @@ test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /frameId:\s*info\.frameId/);
   assert.match(script, /readVisibleFieldKeys/);
   assert.match(script, /writeVisibleFieldKeys/);
+  assert.match(script, /readSiteFeatureEnabledMap/);
+  assert.match(script, /siteFeatureToggleApi\.isSiteFeatureEnabled/);
+  assert.match(script, /sync-site-feature-context-menu/);
   assert.match(script, /getSupportedFieldKeys\(\)/);
   assert.match(script, /if \(chrome\.storage && chrome\.storage\.onChanged\)/);
   assert.match(script, /apply-smart-fill-override/);

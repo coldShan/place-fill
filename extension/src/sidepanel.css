@@ -552,6 +552,57 @@
   gap: 12px;
 }
 
+.ctdp-switch {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  cursor: pointer;
+}
+
+.ctdp-switch-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ctdp-switch-track {
+  position: relative;
+  width: 40px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border: 1px solid rgba(83, 63, 45, 0.12);
+  border-radius: 999px;
+  background: rgba(113, 98, 83, 0.18);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.ctdp-switch-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 10px rgba(77, 53, 26, 0.14);
+  transition: transform 160ms ease;
+}
+
+.ctdp-switch-input:checked + .ctdp-switch-track {
+  border-color: rgba(72, 96, 88, 0.16);
+  background: rgba(72, 96, 88, 0.74);
+}
+
+.ctdp-switch-input:checked + .ctdp-switch-track .ctdp-switch-thumb {
+  transform: translateX(16px);
+}
+
+.ctdp-switch-input:focus-visible + .ctdp-switch-track {
+  outline: 2px solid rgba(72, 96, 88, 0.28);
+  outline-offset: 2px;
+}
+
 .ctdp-settings-card-icon {
   width: 16px;
   height: 16px;
