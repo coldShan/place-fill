@@ -105,6 +105,8 @@
     function setSmartButtonPosition(target) {
       if (!smartButton || !target || typeof target.getBoundingClientRect !== "function") return;
       const rect = target.getBoundingClientRect();
+      const scrollX = win.pageXOffset || 0;
+      const scrollY = win.pageYOffset || 0;
       const buttonWidth = smartButton.children[0].offsetWidth || 42;
       const buttonHeight = smartButton.children[0].offsetHeight || 42;
       const viewportWidth = win.innerWidth || doc.documentElement.clientWidth || 0;
@@ -112,8 +114,8 @@
       const left = Math.min(Math.max(rect.right + 10, 8), Math.max(viewportWidth - buttonWidth - 8, 8));
       const top = Math.min(Math.max(rect.top + rect.height / 2 - buttonHeight / 2, 8), Math.max(viewportHeight - buttonHeight - 8, 8));
 
-      smartButton.style.left = left + "px";
-      smartButton.style.top = top + "px";
+      smartButton.style.left = left + scrollX + "px";
+      smartButton.style.top = top + scrollY + "px";
     }
 
     function getFocusRingRadius(target) {

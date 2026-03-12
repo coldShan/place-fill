@@ -22,7 +22,7 @@
 }
 
 .ctdp-smartfill {
-  position: fixed;
+  position: absolute;
   z-index: 2147483647;
   width: 42px;
   padding: 0;
