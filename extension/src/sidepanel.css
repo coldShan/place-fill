@@ -335,6 +335,11 @@
     background-color 160ms ease;
 }
 
+.ctdp-btn.is-hidden,
+.ctdp-footer-status.is-hidden {
+  display: none;
+}
+
 .ctdp-btn:hover {
   transform: translateY(-1px);
 }

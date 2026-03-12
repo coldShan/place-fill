@@ -32,6 +32,8 @@
     let settingsStatus = null;
     let importInput = null;
     let versionStatus = null;
+    let githubBtn = null;
+    let checkUpdateBtn = null;
     let visibilityList = null;
     let siteFeatureStatus = null;
     let siteFeatureToggle = null;
@@ -323,6 +325,22 @@
       versionStatus.setAttribute("data-tone", tone || "muted");
     }
 
+    function setGithubControlsHidden(hidden) {
+      const method = hidden ? "add" : "remove";
+      if (githubBtn) githubBtn.classList[method]("is-hidden");
+      if (checkUpdateBtn) checkUpdateBtn.classList[method]("is-hidden");
+      if (versionStatus) versionStatus.classList[method]("is-hidden");
+    }
+
+    function hideGithubControls() {
+      setGithubControlsHidden(true);
+    }
+
+    function revealGithubControls() {
+      setGithubControlsHidden(false);
+      setVersionStatus("点击检查更新", "muted");
+    }
+
     function sendRuntimeMessage(message) {
       return new Promise(function (resolve) {
         if (!runtimeApi || typeof runtimeApi.sendMessage !== "function") {
@@ -455,7 +473,7 @@
         '        <button class="ctdp-btn ctdp-btn-strong" type="button" data-role="copy-all" aria-label="复制整组数据" title="复制整组数据">' +
           renderButtonIcon(iconAssetsApi.ACTION_ICONS.copyAll, "复制整组数据", "ctdp-btn-icon") +
           "</button>",
-        '        <button class="ctdp-btn ctdp-btn-primary" type="button" data-role="open-repository" aria-label="打开 GitHub 仓库" title="打开 GitHub 仓库">' +
+        '        <button class="ctdp-btn ctdp-btn-primary is-hidden" type="button" data-role="open-repository" aria-label="打开 GitHub 仓库" title="打开 GitHub 仓库">' +
           renderButtonIcon(iconAssetsApi.ACTION_ICONS.github, "打开 GitHub 仓库", "ctdp-btn-icon") +
           "</button>",
         "      </div>",
@@ -510,9 +528,9 @@
         '    <div class="ctdp-footer-meta">',
         '      <div class="ctdp-footer-copy">',
         '        <span class="ctdp-footer-version" data-role="panel-version">v' + extensionVersion + "</span>",
-        '        <span class="ctdp-footer-status" data-role="version-status" data-tone="muted">点击检查更新</span>',
+        '        <span class="ctdp-footer-status is-hidden" data-role="version-status" data-tone="muted">点击检查更新</span>',
         "      </div>",
-        '      <button class="ctdp-btn ctdp-footer-btn" type="button" data-role="check-update" aria-label="检查更新" title="检查更新">' +
+        '      <button class="ctdp-btn ctdp-footer-btn is-hidden" type="button" data-role="check-update" aria-label="检查更新" title="检查更新">' +
           renderButtonIcon(iconAssetsApi.ACTION_ICONS.updateCheck, "检查更新", "ctdp-btn-icon") +
           "</button>",
         "    </div>",
@@ -537,6 +555,8 @@
       settingsStatus = root.querySelector('[data-role="settings-status"]');
       importInput = root.querySelector('[data-role="import-file"]');
       versionStatus = root.querySelector('[data-role="version-status"]');
+      githubBtn = root.querySelector('[data-role="open-repository"]');
+      checkUpdateBtn = root.querySelector('[data-role="check-update"]');
       visibilityList = root.querySelector('[data-role="field-visibility-list"]');
       siteFeatureStatus = root.querySelector('[data-role="site-feature-status"]');
       siteFeatureToggle = root.querySelector('[data-role="site-feature-toggle"]');
@@ -631,6 +651,7 @@
       });
 
       render();
+      hideGithubControls();
       loadSiteFeatureEnabled();
       loadVisibleFieldKeys();
     }

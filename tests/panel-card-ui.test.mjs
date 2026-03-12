@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-
 const here = dirname(fileURLToPath(import.meta.url));
 const orchestratorScript = readFileSync(join(here, "../extension/src/content-script.js"), "utf8");
 const panelScript = readFileSync(join(here, "../extension/src/content-script-panel.js"), "utf8");
@@ -32,7 +31,7 @@ test("dock and smart-fill buttons use icon markup instead of visible text labels
 test("panel toolbar keeps settings on the left and github plus two actions on the right", () => {
   assert.match(panelScript, /<header class="ctdp-toolbar">[\s\S]*?ctdp-toolbar-group-left[\s\S]*?data-role="open-settings"[\s\S]*?ctdp-toolbar-group-right[\s\S]*?data-role="regen"[\s\S]*?data-role="copy-all"[\s\S]*?data-role="open-repository"/);
   assert.match(panelScript, /data-role="open-settings" aria-label="打开设置" title="打开设置"/);
-  assert.match(panelScript, /data-role="open-repository" aria-label="打开 GitHub 仓库" title="打开 GitHub 仓库"/);
+  assert.match(panelScript, /class="ctdp-btn ctdp-btn-primary is-hidden" type="button" data-role="open-repository" aria-label="打开 GitHub 仓库" title="打开 GitHub 仓库"/);
   assert.match(panelScript, /data-role="regen" aria-label="重新生成全部" title="重新生成全部"/);
   assert.match(panelScript, /data-role="copy-all" aria-label="复制整组数据" title="复制整组数据"/);
   assert.doesNotMatch(panelScript, /data-role="collapse" aria-label="收起面板" title="收起面板"/);
@@ -57,9 +56,22 @@ test("panel footer renders version info and update trigger while keeping fallbac
   assert.doesNotMatch(panelScript, /<footer class="ctdp-footer">[\s\S]*?data-role="copy-all"/);
   assert.match(panelScript, /<footer class="ctdp-footer" data-role="footer">/);
   assert.match(panelScript, /data-role="panel-version"/);
-  assert.match(panelScript, /data-role="version-status"/);
-  assert.match(panelScript, /data-role="check-update" aria-label="检查更新" title="检查更新"/);
+  assert.match(panelScript, /class="ctdp-footer-status is-hidden" data-role="version-status" data-tone="muted"/);
+  assert.match(panelScript, /class="ctdp-btn ctdp-footer-btn is-hidden" type="button" data-role="check-update" aria-label="检查更新" title="检查更新"/);
   assert.doesNotMatch(panelScript, /data-role="footer" hidden/);
+});
+
+test("github button, check-update button and version-status are hidden by default and controlled by runtime probe", () => {
+  assert.match(panelScript, /class="[^"]*\bis-hidden\b[^"]*"[^>]*data-role="open-repository"/);
+  assert.match(panelScript, /class="[^"]*\bis-hidden\b[^"]*"[^>]*data-role="check-update"/);
+  assert.match(panelScript, /class="[^"]*\bis-hidden\b[^"]*"[^>]*data-role="version-status"/);
+  assert.doesNotMatch(panelScript, /navigator\.onLine/);
+  assert.doesNotMatch(panelScript, /addEventListener\("online"/);
+  assert.doesNotMatch(panelScript, /addEventListener\("offline"/);
+  assert.doesNotMatch(panelScript, /requestGithubControlsRefresh/);
+  assert.doesNotMatch(panelScript, /refreshGithubControls/);
+  assert.doesNotMatch(panelScript, /shouldRevealGithubControls/);
+  assert.match(panelScript, /async function checkForUpdates\(\)/);
 });
 
 test("panel footer adds a settings entry and the panel includes a dedicated settings view", () => {

@@ -29,6 +29,7 @@ test("toolbar keeps a left settings slot and a right-aligned action cluster", ()
 
 test("settings entry and back button stay compact within the shared glass panel system", () => {
   assert.match(stylesheet, /\.ctdp-footer\s*\{[\s\S]*?padding:\s*12px 16px 16px;/);
+  assert.match(stylesheet, /\.ctdp-btn\.is-hidden,\s*\.ctdp-footer-status\.is-hidden\s*\{[\s\S]*?display:\s*none;/);
   assert.match(stylesheet, /\.ctdp-footer\[hidden\]\s*\{[\s\S]*?display:\s*none;/);
   assert.match(stylesheet, /\.ctdp-footer-btn,\s*\.ctdp-settings-back\s*\{[\s\S]*?width:\s*42px;/);
   assert.match(stylesheet, /\.ctdp-footer-btn,\s*\.ctdp-settings-back\s*\{[\s\S]*?height:\s*42px;/);
