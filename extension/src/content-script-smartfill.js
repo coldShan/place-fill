@@ -12,12 +12,14 @@
     const getVisibleFieldKeys = typeof opts.getVisibleFieldKeys === "function" ? opts.getVisibleFieldKeys : function () { return smartFillApi.getSupportedFieldKeys(); };
     const isEnabled = typeof opts.isEnabled === "function" ? opts.isEnabled : function () { return true; };
     const onFieldFilled = typeof opts.onFieldFilled === "function" ? opts.onFieldFilled : function () {};
+    const FOCUS_RING_FADE_OUT_MS = 520;
 
     let smartButton = null;
     let focusRing = null;
     let activeSmartTarget = null;
     let activeSmartFieldKey = null;
     let lastContextTarget = null;
+    let focusTargetClearTimer = null;
 
     function isTransparentColor(value) {
       return !value || value === "transparent" || value === "rgba(0, 0, 0, 0)";
@@ -45,7 +47,24 @@
       target.removeAttribute("data-ctdp-smartfocus-target");
     }
 
+    function cancelFocusTargetMarkerClear() {
+      if (!focusTargetClearTimer) return;
+      win.clearTimeout(focusTargetClearTimer);
+      focusTargetClearTimer = null;
+    }
+
+    function scheduleFocusTargetMarkerClear(target) {
+      cancelFocusTargetMarkerClear();
+      if (!target) return;
+      focusTargetClearTimer = win.setTimeout(function () {
+        if (focusRing && focusRing.getAttribute("data-visible") === "true" && activeSmartTarget === target) return;
+        clearFocusTargetMarker(target);
+        focusTargetClearTimer = null;
+      }, FOCUS_RING_FADE_OUT_MS);
+    }
+
     function syncFocusTargetMarker(target) {
+      cancelFocusTargetMarkerClear();
       if (activeSmartTarget && activeSmartTarget !== target) clearFocusTargetMarker(activeSmartTarget);
       if (!target || typeof target.setAttribute !== "function") return;
       if (target.style && typeof target.style.setProperty === "function") {
@@ -148,7 +167,7 @@
     function hideFocusRing() {
       if (!focusRing) return;
       focusRing.setAttribute("data-visible", "false");
-      clearFocusTargetMarker(activeSmartTarget);
+      scheduleFocusTargetMarkerClear(activeSmartTarget);
     }
 
     function hideSmartButton() {
