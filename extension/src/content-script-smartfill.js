@@ -14,9 +14,45 @@
     const onFieldFilled = typeof opts.onFieldFilled === "function" ? opts.onFieldFilled : function () {};
 
     let smartButton = null;
+    let focusRing = null;
     let activeSmartTarget = null;
     let activeSmartFieldKey = null;
     let lastContextTarget = null;
+
+    function isTransparentColor(value) {
+      return !value || value === "transparent" || value === "rgba(0, 0, 0, 0)";
+    }
+
+    function resolveFocusTargetSurfaceColor(target) {
+      let node = target;
+      while (node && node.nodeType === 1) {
+        try {
+          const backgroundColor = win.getComputedStyle(node).backgroundColor;
+          if (!isTransparentColor(backgroundColor)) return backgroundColor;
+        } catch (_) {
+          break;
+        }
+        node = node.parentElement;
+      }
+      return "rgba(255, 255, 255, 0.98)";
+    }
+
+    function clearFocusTargetMarker(target) {
+      if (!target || typeof target.removeAttribute !== "function") return;
+      if (target.style && typeof target.style.removeProperty === "function") {
+        target.style.removeProperty("--ctdp-smartfocus-surface");
+      }
+      target.removeAttribute("data-ctdp-smartfocus-target");
+    }
+
+    function syncFocusTargetMarker(target) {
+      if (activeSmartTarget && activeSmartTarget !== target) clearFocusTargetMarker(activeSmartTarget);
+      if (!target || typeof target.setAttribute !== "function") return;
+      if (target.style && typeof target.style.setProperty === "function") {
+        target.style.setProperty("--ctdp-smartfocus-surface", resolveFocusTargetSurfaceColor(target));
+      }
+      target.setAttribute("data-ctdp-smartfocus-target", "true");
+    }
 
     function renderSmartFillMenuItemMarkup(fieldKey) {
       const label = smartFillApi.formatSmartFillButtonLabel(fieldKey);
@@ -61,10 +97,37 @@
       smartButton.style.top = top + "px";
     }
 
+    function getFocusRingRadius(target) {
+      if (!target || !win || typeof win.getComputedStyle !== "function") return "14px";
+      try {
+        return win.getComputedStyle(target).borderRadius || "14px";
+      } catch (_) {
+        return "14px";
+      }
+    }
+
+    function setFocusRingPosition(target) {
+      if (!focusRing || !target || typeof target.getBoundingClientRect !== "function") return;
+      const rect = target.getBoundingClientRect();
+      const inset = 1;
+      focusRing.style.left = Math.max(rect.left - inset, 0) + "px";
+      focusRing.style.top = Math.max(rect.top - inset, 0) + "px";
+      focusRing.style.width = rect.width + inset * 2 + "px";
+      focusRing.style.height = rect.height + inset * 2 + "px";
+      focusRing.style.setProperty("--ctdp-focus-radius", getFocusRingRadius(target));
+    }
+
     function scheduleSmartButtonPosition() {
       if (!smartButton || !activeSmartTarget || smartButton.hidden) return;
       win.requestAnimationFrame(function () {
         setSmartButtonPosition(activeSmartTarget);
+      });
+    }
+
+    function scheduleFocusRingPosition() {
+      if (!focusRing || !activeSmartTarget || focusRing.getAttribute("data-visible") !== "true") return;
+      win.requestAnimationFrame(function () {
+        setFocusRingPosition(activeSmartTarget);
       });
     }
 
@@ -74,11 +137,26 @@
       scheduleSmartButtonPosition();
     }
 
+    function showFocusRing(target) {
+      if (!focusRing || !target) return;
+      syncFocusTargetMarker(target);
+      focusRing.setAttribute("data-visible", "true");
+      setFocusRingPosition(target);
+      scheduleFocusRingPosition();
+    }
+
+    function hideFocusRing() {
+      if (!focusRing) return;
+      focusRing.setAttribute("data-visible", "false");
+      clearFocusTargetMarker(activeSmartTarget);
+    }
+
     function hideSmartButton() {
       if (!smartButton) return;
       smartButton.hidden = true;
       smartButton.setAttribute("data-visible", "false");
       smartButton.setAttribute("data-expanded", "false");
+      hideFocusRing();
       activeSmartTarget = null;
       activeSmartFieldKey = null;
     }
@@ -93,6 +171,7 @@
       activeSmartFieldKey = fieldKey;
       smartButton.hidden = false;
       smartButton.setAttribute("data-visible", "true");
+      showFocusRing(target);
       smartButton.innerHTML = renderSmartFillMenuMarkup(fieldKey);
       smartButton.setAttribute("aria-label", fieldKey ? "智能填充" + smartFillApi.formatSmartFillButtonLabel(fieldKey) : "选择测试数据类型");
       smartButton.title = fieldKey ? smartFillApi.formatSmartFillButtonLabel(fieldKey) : "选择测试数据类型";
@@ -162,10 +241,17 @@
 
     function refreshPosition() {
       if (activeSmartTarget && smartButton && !smartButton.hidden) scheduleSmartButtonPosition();
+      if (activeSmartTarget && focusRing && focusRing.getAttribute("data-visible") === "true") scheduleFocusRingPosition();
     }
 
     function mount() {
       if (smartButton || !doc || !doc.documentElement) return;
+      focusRing = doc.createElement("div");
+      focusRing.className = "ctdp-smartfocus";
+      focusRing.setAttribute("data-visible", "false");
+      focusRing.setAttribute("aria-hidden", "true");
+      doc.documentElement.appendChild(focusRing);
+
       smartButton = doc.createElement("div");
       smartButton.className = "ctdp-smartfill";
       smartButton.hidden = true;

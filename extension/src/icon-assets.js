@@ -66,7 +66,13 @@
   function getIconAssetUrl(name, env) {
     const assetPath = getIconAssetPath(name);
     const runtime = getRuntimeApi(env);
-    if (runtime && typeof runtime.getURL === "function") return runtime.getURL(assetPath);
+    if (runtime && typeof runtime.getURL === "function") {
+      try {
+        return runtime.getURL(assetPath);
+      } catch (_error) {
+        return assetPath;
+      }
+    }
     return assetPath;
   }
 

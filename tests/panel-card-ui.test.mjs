@@ -99,6 +99,8 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(panelScript, /readSiteFeatureEnabled/);
   assert.match(panelScript, /writeSiteFeatureEnabled/);
   assert.match(smartfillScript, /function renderSmartFillMenuMarkup\(primaryFieldKey\)/);
+  assert.match(smartfillScript, /function resolveFocusTargetSurfaceColor\(target\)/);
+  assert.match(smartfillScript, /--ctdp-smartfocus-surface/);
   assert.match(smartfillScript, /const isEnabled = typeof opts\.isEnabled === "function"/);
   assert.match(smartfillScript, /if \(!isEnabled\(\)\) \{\s*hideSmartButton\(\);\s*return;\s*\}/);
   assert.match(smartfillScript, /getSmartFillMenuFieldKeys\(primaryFieldKey,\s*visibleFieldKeys\)/);

@@ -23,7 +23,7 @@
 
 .ctdp-smartfill {
   position: fixed;
-  z-index: 2147483646;
+  z-index: 2147483647;
   width: 42px;
   padding: 0;
   border: 0;
@@ -34,6 +34,74 @@
   transition:
     opacity 160ms ease,
     transform 160ms ease;
+}
+
+.ctdp-smartfocus {
+  --ctdp-focus-radius: 14px;
+  position: fixed;
+  z-index: 2147483645;
+  border-radius: var(--ctdp-focus-radius);
+  border: 1px solid rgba(30, 36, 51, 0.82);
+  background: transparent;
+  overflow: visible;
+  pointer-events: none;
+  isolation: isolate;
+  opacity: 0;
+  transform: scale(0.985);
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+[data-ctdp-smartfocus-target="true"],
+[data-ctdp-smartfocus-target="true"]:focus,
+[data-ctdp-smartfocus-target="true"]:focus-visible,
+[data-ctdp-smartfocus-target="true"]:focus-within {
+  position: relative !important;
+  z-index: 2147483646 !important;
+  background: var(--ctdp-smartfocus-surface, rgba(255, 255, 255, 0.98)) !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+.ctdp-smartfocus[data-visible="true"] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.ctdp-smartfocus::before,
+.ctdp-smartfocus::after {
+  content: "";
+  position: absolute;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: -1;
+  animation: ctdp-focus-aurora-shift 4s ease infinite paused;
+}
+
+.ctdp-smartfocus::before {
+  inset: -3px;
+  border-radius: calc(var(--ctdp-focus-radius) + 3px);
+  background: linear-gradient(135deg, #7c3aed, #06b6d4, #ec4899, #f59e0b);
+  background-size: 300% 300%;
+  filter: blur(8px);
+  z-index: -2;
+}
+
+.ctdp-smartfocus::after {
+  inset: -1px;
+  border-radius: calc(var(--ctdp-focus-radius) + 1px);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.25), rgba(6, 182, 212, 0.25), rgba(236, 72, 153, 0.25));
+  background-size: 300% 300%;
+}
+
+.ctdp-smartfocus[data-visible="true"]::before,
+.ctdp-smartfocus[data-visible="true"]::after {
+  opacity: 1;
+  animation-play-state: running;
 }
 
 .ctdp-smartfill[data-visible="false"] {
@@ -966,5 +1034,16 @@
       0 0 0 0 rgba(54, 93, 82, 0),
       inset 0 1px 0 rgba(255, 255, 255, 0.34),
       0 14px 30px rgba(54, 93, 82, 0.08);
+  }
+}
+
+@keyframes ctdp-focus-aurora-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
   }
 }

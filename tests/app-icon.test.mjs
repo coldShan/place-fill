@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import iconAssets from "../extension/src/icon-assets.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const iconSourcePath = join(here, "../extension/assets/app-icons/icon-source.png");
@@ -47,6 +48,18 @@ test("icon asset map uses standalone lucide files instead of inline svg markup",
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/arrow-left\.svg/);
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/upload\.svg/);
   assert.match(iconAssetsSource, /getURL/);
+});
+
+test("icon asset url falls back to relative path when extension runtime is invalidated", () => {
+  const assetUrl = iconAssets.getIconAssetUrl("github", {
+    chromeRuntime: {
+      getURL() {
+        throw new Error("Extension context invalidated.");
+      }
+    }
+  });
+
+  assert.equal(assetUrl, "assets/icons/lucide/github.svg");
 });
 
 test("landmark icon matches the official lucide shape in file asset", () => {
