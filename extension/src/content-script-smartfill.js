@@ -128,9 +128,11 @@
     function setFocusRingPosition(target) {
       if (!focusRing || !target || typeof target.getBoundingClientRect !== "function") return;
       const rect = target.getBoundingClientRect();
+      const scrollX = win.pageXOffset || 0;
+      const scrollY = win.pageYOffset || 0;
       const inset = 1;
-      focusRing.style.left = Math.max(rect.left - inset, 0) + "px";
-      focusRing.style.top = Math.max(rect.top - inset, 0) + "px";
+      focusRing.style.left = Math.max(rect.left + scrollX - inset, 0) + "px";
+      focusRing.style.top = Math.max(rect.top + scrollY - inset, 0) + "px";
       focusRing.style.width = rect.width + inset * 2 + "px";
       focusRing.style.height = rect.height + inset * 2 + "px";
       focusRing.style.setProperty("--ctdp-focus-radius", getFocusRingRadius(target));

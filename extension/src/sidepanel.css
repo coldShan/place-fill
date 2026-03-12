@@ -38,7 +38,7 @@
 
 .ctdp-smartfocus {
   --ctdp-focus-radius: 14px;
-  position: fixed;
+  position: absolute;
   z-index: 2147483645;
   border-radius: var(--ctdp-focus-radius);
   border: 1px solid rgba(30, 36, 51, 0.82);
