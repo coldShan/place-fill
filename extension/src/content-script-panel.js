@@ -33,6 +33,7 @@
     let importInput = null;
     let versionStatus = null;
     let visibilityList = null;
+    let siteFeatureStatus = null;
     let siteFeatureToggle = null;
 
     const state = {
@@ -150,9 +151,13 @@
         '      <span class="ctdp-switch-track"><span class="ctdp-switch-thumb"></span></span>',
         "    </label>",
         "  </span>",
-        '  <span class="ctdp-settings-card-note">关闭后，当前站点不启用智能识别和右键标注，其余功能不受影响</span>',
+        '  <span class="ctdp-settings-card-note" data-role="site-feature-status">' + getSiteFeatureStatusText() + "</span>",
         "</section>"
       ].join("");
+    }
+
+    function getSiteFeatureStatusText() {
+      return state.siteFeatureEnabled ? "当前站点已启用智能识别和右键标注" : "当前站点已停用智能识别和右键标注";
     }
 
     function cardTemplate(key, value) {
@@ -269,9 +274,15 @@
       siteFeatureToggle.checked = state.siteFeatureEnabled;
     }
 
+    function syncSiteFeatureStatus() {
+      if (!siteFeatureStatus) return;
+      siteFeatureStatus.textContent = getSiteFeatureStatusText();
+    }
+
     function syncSiteFeatureEnabled(enabled) {
       state.siteFeatureEnabled = siteFeatureToggleApi.isSiteFeatureEnabled(enabled);
       syncSiteFeatureToggle();
+      syncSiteFeatureStatus();
       onSiteFeatureEnabledChanged(state.siteFeatureEnabled);
     }
 
@@ -282,7 +293,6 @@
     async function toggleSiteFeatureEnabled(enabled) {
       const nextEnabled = await siteFeatureToggleApi.writeSiteFeatureEnabled(enabled);
       syncSiteFeatureEnabled(nextEnabled);
-      setSettingsStatus(nextEnabled ? "当前站点已启用智能识别和右键标注" : "当前站点已停用智能识别和右键标注", nextEnabled ? "success" : "warning");
     }
 
     async function toggleFieldVisibility(fieldKey, checked) {
@@ -528,6 +538,7 @@
       importInput = root.querySelector('[data-role="import-file"]');
       versionStatus = root.querySelector('[data-role="version-status"]');
       visibilityList = root.querySelector('[data-role="field-visibility-list"]');
+      siteFeatureStatus = root.querySelector('[data-role="site-feature-status"]');
       siteFeatureToggle = root.querySelector('[data-role="site-feature-toggle"]');
 
       root.addEventListener("click", function (event) {

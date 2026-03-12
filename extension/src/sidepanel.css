@@ -197,9 +197,11 @@
 .ctdp-panel {
   position: relative;
   width: 380px;
+  height: min(720px, calc(100vh - 36px));
   margin-right: 18px;
   max-height: calc(100vh - 36px);
   display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
   gap: 12px;
   padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.34);
@@ -208,6 +210,7 @@
   backdrop-filter: blur(28px) saturate(185%);
   -webkit-backdrop-filter: blur(28px) saturate(185%);
   box-shadow: var(--ctdp-shadow);
+  overflow: hidden;
 }
 
 .ctdp-panel::before {
@@ -333,19 +336,25 @@
 .ctdp-view {
   display: grid;
   gap: 12px;
+  min-height: 0;
 }
 
 .ctdp-view[hidden] {
   display: none;
 }
 
+.ctdp-main-view {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 .ctdp-grid {
   display: grid;
   gap: 12px;
   position: relative;
-  overflow: auto;
-  max-height: calc(100vh - 260px);
-  padding-right: 2px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 6px;
 }
 
 .ctdp-grid.is-refreshing::after {
@@ -460,6 +469,7 @@
 
 .ctdp-settings-view {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 12px;
 }
 
@@ -507,6 +517,42 @@
 .ctdp-settings-list {
   display: grid;
   gap: 10px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.ctdp-settings-list,
+.ctdp-grid {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(122, 88, 72, 0.58) rgba(255, 251, 247, 0.1);
+  scrollbar-gutter: stable;
+}
+
+.ctdp-settings-list::-webkit-scrollbar,
+.ctdp-grid::-webkit-scrollbar {
+  width: 10px;
+}
+
+.ctdp-settings-list::-webkit-scrollbar-track,
+.ctdp-grid::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(255, 251, 247, 0.08);
+}
+
+.ctdp-settings-list::-webkit-scrollbar-thumb,
+.ctdp-grid::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(122, 88, 72, 0.68), rgba(72, 96, 88, 0.5));
+  background-clip: padding-box;
+}
+
+.ctdp-settings-list::-webkit-scrollbar-thumb:hover,
+.ctdp-grid::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(122, 88, 72, 0.82), rgba(72, 96, 88, 0.64));
+  background-clip: padding-box;
 }
 
 .ctdp-settings-card {

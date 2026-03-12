@@ -34,3 +34,14 @@ test("settings entry and back button stay compact within the shared glass panel 
   assert.match(stylesheet, /\.ctdp-footer-btn,\s*\.ctdp-settings-back\s*\{[\s\S]*?height:\s*42px;/);
   assert.match(stylesheet, /\.ctdp-settings-view\s*\{[\s\S]*?display:\s*grid;/);
 });
+
+test("panel keeps a fixed viewport-bounded height and makes settings content scroll with styled scrollbars", () => {
+  assert.match(stylesheet, /\.ctdp-panel\s*\{[\s\S]*?\bheight:\s*min\(720px,\s*calc\(100vh - 36px\)\);/);
+  assert.match(stylesheet, /\.ctdp-panel\s*\{[\s\S]*?\bgrid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto\s+auto;/);
+  assert.match(stylesheet, /\.ctdp-main-view\s*\{[\s\S]*?\bgrid-template-rows:\s*auto\s+minmax\(0,\s*1fr\);/);
+  assert.match(stylesheet, /\.ctdp-settings-view\s*\{[\s\S]*?\bgrid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;/);
+  assert.match(stylesheet, /\.ctdp-settings-list\s*\{[\s\S]*?\boverflow-y:\s*auto;/);
+  assert.match(stylesheet, /\.ctdp-settings-list,\s*\.ctdp-grid\s*\{[\s\S]*?\bscrollbar-width:\s*thin;/);
+  assert.match(stylesheet, /\.ctdp-settings-list::\-webkit-scrollbar,\s*\.ctdp-grid::\-webkit-scrollbar\s*\{/);
+  assert.match(stylesheet, /\.ctdp-settings-list::\-webkit-scrollbar-thumb,\s*\.ctdp-grid::\-webkit-scrollbar-thumb\s*\{/);
+});
