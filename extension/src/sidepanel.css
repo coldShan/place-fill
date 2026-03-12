@@ -906,6 +906,86 @@
   opacity: 0.82;
 }
 
+.ctdp-dock[data-autofill-done]::before {
+  content: "填完啦！";
+  position: absolute;
+  right: calc(100% + 14px);
+  top: 50%;
+  white-space: nowrap;
+  padding: 7px 12px;
+  border-radius: 12px;
+  background: rgba(246, 240, 234, 0.96);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  box-shadow:
+    0 4px 16px rgba(77, 53, 26, 0.13),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62);
+  color: #3d2a20;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+  animation: ctdp-bubble-pop 3s ease forwards;
+}
+
+.ctdp-dock[data-autofill-done]::after {
+  content: "";
+  position: absolute;
+  right: calc(100% + 7px);
+  top: 50%;
+  margin-top: -5px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid rgba(246, 240, 234, 0.96);
+  pointer-events: none;
+  animation: ctdp-tail-fade 3s ease forwards;
+}
+
+@keyframes ctdp-bubble-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(-50%) translateX(8px) scale(0.82);
+  }
+
+  10% {
+    opacity: 1;
+    transform: translateY(-50%) translateX(-2px) scale(1.06);
+  }
+
+  18% {
+    transform: translateY(-50%) translateX(0) scale(1);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-50%) translateX(5px) scale(0.92);
+  }
+}
+
+@keyframes ctdp-tail-fade {
+  0%,
+  8% {
+    opacity: 0;
+  }
+
+  14% {
+    opacity: 1;
+  }
+
+  70% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
 .ctdp-dock-icon {
   width: 42px;
   height: 42px;
