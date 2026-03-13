@@ -102,7 +102,16 @@ async function checkExtensionUpdate() {
       Accept: "application/vnd.github+json"
     }
   });
-  if (!response.ok) throw new Error("检查更新失败");
+  if (response.status === 404) {
+    return {
+      currentVersion,
+      hasUpdate: false,
+      latestVersion: "",
+      releaseUrl: RELEASES_URL,
+      noReleases: true
+    };
+  }
+  if (!response.ok) throw new Error(`检查更新失败（HTTP ${response.status}）`);
   const payload = await response.json();
   const latestVersion = normalizeVersion(payload && (payload.tag_name || payload.name));
   if (!latestVersion) throw new Error("未找到可用版本信息");
