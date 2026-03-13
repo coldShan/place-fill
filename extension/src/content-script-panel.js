@@ -738,6 +738,9 @@
       hideGithubControls();
       loadSiteFeatureEnabled();
       loadVisibleFieldKeys();
+      sendRuntimeMessage({ type: "check-github-reachable" }).then(function (res) {
+        if (res && res.reachable) revealGithubControls();
+      });
     }
 
     function toggleVisible() {

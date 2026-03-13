@@ -250,6 +250,20 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
     sendResponse({ ok: true });
     return;
   }
+  if (message.type === "check-github-reachable") {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 30000);
+    fetch("https://api.github.com", { method: "HEAD", signal: controller.signal })
+      .then(function () {
+        clearTimeout(timer);
+        sendResponse({ reachable: true });
+      })
+      .catch(function () {
+        clearTimeout(timer);
+        sendResponse({ reachable: false });
+      });
+    return true;
+  }
   if (message.type === "check-extension-update") {
     checkExtensionUpdate()
       .then(function (result) {
