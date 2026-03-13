@@ -610,7 +610,7 @@
   margin: 0;
 }
 
-/* 姓名行右侧手机号（小号灰色，不占左侧空间） */
+/* 姓名行右侧手机号（图标 + 号码，小号灰色） */
 .ctdp-card-mobile-header {
   flex-shrink: 0;
   padding: 2px 0;
@@ -623,6 +623,25 @@
   &:focus-visible {
     outline: none;
     background: rgba(150, 120, 85, 0.08);
+  }
+
+  .ctdp-card-body {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    grid-template-columns: unset;
+  }
+
+  .ctdp-card-icon {
+    width: 13px;
+    height: 13px;
+    min-height: 13px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: rgba(122, 88, 72, 0.5);
   }
 
   .ctdp-card-value {
