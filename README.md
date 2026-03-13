@@ -16,12 +16,6 @@
 
 ---
 
-## 概览
-
-在测试和演示场景下，频繁手动录入合规测试数据既耗时又容易出错。**place-fill** 在任意页面右侧注入一个侧边面板，即时生成符合中国业务标准的测试数据，并通过智能识别将数据直接填入目标输入框。
-
----
-
 ## 支持的数据字段
 
 | 字段 | 说明 |
@@ -71,7 +65,7 @@
 
 ## 安装方法
 
-### 从 Release 安装（推荐）
+### 从 Release 安装
 
 1. 前往 [GitHub Releases](https://github.com/coldShan/place-fill/releases) 下载最新的 `place-fill-vx.x.x.zip`
 2. 解压到本地任意目录
@@ -80,14 +74,6 @@
 5. 工具栏出现插件图标即安装成功
 
 > **提示**：解压后的目录内应直接包含 `manifest.json`，无需进入子目录。
-
-### 从源码加载
-
-```bash
-git clone https://github.com/coldShan/place-fill.git
-```
-
-在 `chrome://extensions` 中加载 `extension/` 目录即可，无需任何构建步骤。
 
 ---
 
@@ -128,10 +114,3 @@ place-fill/
 ├── tests/                 # 单元测试
 └── releases/              # 打包输出目录
 ```
-
-### 开发调试
-
-- 在 `chrome://extensions` 中以开发者模式加载 `extension/` 目录
-- 使用 `mock-form/index.html` 作为包含全部 9 种字段的本地测试页面
-- 修改源码后，在扩展管理页点击**重新加载**即可生效
-
