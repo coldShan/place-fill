@@ -12,7 +12,6 @@
   <img src="https://img.shields.io/badge/版本-v0.5.0-4a6fa5?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/Chrome-MV3-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="chrome mv3">
   <img src="https://img.shields.io/badge/零构建-纯原生JS-21e985?style=flat-square" alt="no build">
-  <img src="https://img.shields.io/badge/许可-MIT-f0c040?style=flat-square" alt="license">
 </p>
 
 ---
@@ -136,8 +135,3 @@ place-fill/
 - 使用 `mock-form/index.html` 作为包含全部 9 种字段的本地测试页面
 - 修改源码后，在扩展管理页点击**重新加载**即可生效
 
----
-
-## 许可
-
-[MIT License](LICENSE)
