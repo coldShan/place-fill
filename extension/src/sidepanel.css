@@ -1,14 +1,23 @@
 :root {
-  --ctdp-panel: rgba(246, 240, 234, 0.34);
-  --ctdp-panel-strong: rgba(255, 251, 247, 0.26);
-  --ctdp-line: rgba(83, 63, 45, 0.08);
-  --ctdp-line-strong: rgba(83, 63, 45, 0.14);
-  --ctdp-ink: #1d1914;
-  --ctdp-muted: #716253;
-  --ctdp-accent: #7a5848;
-  --ctdp-accent-2: #486058;
-  --ctdp-shadow: 0 22px 44px rgba(77, 53, 26, 0.14);
-  --ctdp-highlight: rgba(255, 255, 255, 0.42);
+  /* ── 面板底色 ────────────────────────────── */
+  --ctdp-panel: rgba(255, 255, 255, 0.30);
+  --ctdp-panel-strong: rgba(255, 255, 255, 0.24);
+
+  /* ── 分割线 ──────────────────────────────── */
+  --ctdp-line: rgba(20, 35, 80, 0.07);
+  --ctdp-line-strong: rgba(20, 35, 80, 0.12);
+
+  /* ── 文字 ────────────────────────────────── */
+  --ctdp-ink: #111827;
+  --ctdp-muted: #5a6580;
+
+  /* ── 主题色（改这里即可全局换色） ────────── */
+  --ctdp-accent: #4a6fa5;
+  --ctdp-accent-2: #3a7a9a;
+
+  /* ── 阴影 / 高光 / 模糊 ─────────────────── */
+  --ctdp-shadow: 0 22px 44px rgba(15, 30, 80, 0.12);
+  --ctdp-highlight: rgba(255, 255, 255, 0.55);
   --ctdp-backdrop: blur(22px) saturate(175%);
 }
 
@@ -124,15 +133,15 @@
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.48);
   border-radius: 999px;
   color: var(--ctdp-ink);
-  background: rgba(255, 252, 248, 0.24);
+  background: rgba(255, 255, 255, 0.26);
   backdrop-filter: blur(18px) saturate(170%);
   -webkit-backdrop-filter: blur(18px) saturate(170%);
   box-shadow:
-    0 10px 24px rgba(77, 53, 26, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+    0 10px 24px rgba(15, 30, 80, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42);
   cursor: pointer;
   transition:
     transform 160ms ease,
@@ -141,10 +150,10 @@
 }
 
 .ctdp-smartfill-trigger:hover {
-  background: rgba(255, 252, 248, 0.34);
+  background: rgba(255, 255, 255, 0.38);
   box-shadow:
-    0 14px 28px rgba(77, 53, 26, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.42);
+    0 14px 28px rgba(15, 30, 80, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.52);
 }
 
 .ctdp-smartfill-trigger:hover .ctdp-smartfill-icon {
@@ -179,15 +188,15 @@
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.44);
   border-radius: 999px;
   color: var(--ctdp-ink);
-  background: rgba(255, 252, 248, 0.24);
+  background: rgba(255, 255, 255, 0.26);
   backdrop-filter: blur(18px) saturate(170%);
   -webkit-backdrop-filter: blur(18px) saturate(170%);
   box-shadow:
-    0 10px 24px rgba(77, 53, 26, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+    0 10px 24px rgba(15, 30, 80, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42);
   cursor: pointer;
   transition:
     transform 160ms ease,
@@ -199,10 +208,10 @@
 .ctdp-smartfill-item:focus-visible {
   outline: none;
   transform: translateY(-1px);
-  background: rgba(255, 252, 248, 0.34);
+  background: rgba(255, 255, 255, 0.38);
   box-shadow:
-    0 14px 28px rgba(77, 53, 26, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.42);
+    0 14px 28px rgba(15, 30, 80, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.52);
 }
 
 .ctdp-root[data-visible="false"] .ctdp-panel,
@@ -272,7 +281,7 @@
   grid-template-rows: minmax(0, 1fr) auto auto;
   gap: 12px;
   padding: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.44);
   border-radius: 22px;
   background: var(--ctdp-panel);
   backdrop-filter: blur(28px) saturate(185%);
@@ -285,7 +294,7 @@
   content: "";
   position: absolute;
   inset: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 18px;
   pointer-events: none;
 }
@@ -294,14 +303,14 @@
 .ctdp-footer {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.42);
   border-radius: 18px;
   background: var(--ctdp-panel-strong);
   backdrop-filter: var(--ctdp-backdrop);
   -webkit-backdrop-filter: var(--ctdp-backdrop);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    0 10px 24px rgba(77, 53, 26, 0.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    0 10px 24px rgba(15, 30, 80, 0.05);
 }
 
 .ctdp-toolbar {
@@ -357,14 +366,14 @@
 
 .ctdp-btn-primary,
 .ctdp-btn-strong {
-  border: 1px solid rgba(255, 255, 255, 0.36);
+  border: 1px solid rgba(255, 255, 255, 0.46);
   color: var(--ctdp-ink);
-  background: rgba(255, 252, 248, 0.24);
+  background: rgba(255, 255, 255, 0.26);
   backdrop-filter: blur(16px) saturate(165%);
   -webkit-backdrop-filter: blur(16px) saturate(165%);
   box-shadow:
-    0 10px 22px rgba(77, 53, 26, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 10px 22px rgba(15, 30, 80, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.40);
 }
 
 .ctdp-btn-primary {
@@ -374,14 +383,14 @@
 }
 
 .ctdp-btn-ghost {
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.40);
   color: var(--ctdp-accent);
-  background: rgba(255, 252, 248, 0.18);
+  background: rgba(255, 255, 255, 0.20);
   backdrop-filter: blur(14px) saturate(160%);
   -webkit-backdrop-filter: blur(14px) saturate(160%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    0 8px 18px rgba(77, 53, 26, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 8px 18px rgba(15, 30, 80, 0.05);
 }
 
 .ctdp-flash {
@@ -389,7 +398,7 @@
   inset: 0;
   opacity: 0;
   pointer-events: none;
-  background: linear-gradient(180deg, transparent 0%, rgba(181, 63, 26, 0.22) 48%, transparent 100%);
+  background: linear-gradient(180deg, transparent 0%, rgba(80, 110, 220, 0.18) 48%, transparent 100%);
   mix-blend-mode: multiply;
 }
 
@@ -398,7 +407,7 @@
 }
 
 .ctdp-flash[data-tone="manual"] {
-  background: linear-gradient(180deg, transparent 0%, rgba(29, 25, 20, 0.18) 48%, transparent 100%);
+  background: linear-gradient(180deg, transparent 0%, rgba(25, 30, 50, 0.15) 48%, transparent 100%);
 }
 
 .ctdp-flash.is-active {
@@ -438,7 +447,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 0%, rgba(181, 63, 26, 0.16) 48%, transparent 100%);
+  background: linear-gradient(180deg, transparent 0%, rgba(80, 110, 220, 0.13) 48%, transparent 100%);
   pointer-events: none;
   animation: ctdp-scan-refresh 560ms ease;
 }
@@ -453,16 +462,26 @@
 .ctdp-bizcard-paper {
   position: relative;
   border-radius: 14px;
-  background: linear-gradient(155deg, #fefdf9 0%, #f7f0e4 55%, #ede2cf 100%);
+  /* mesh 色球渐变 + 磨砂白底 */
+  background:
+    radial-gradient(ellipse at 12% 18%, rgba(147, 197, 253, 0.10) 0%, transparent 52%),
+    radial-gradient(ellipse at 88% 12%, rgba(196, 181, 253, 0.08) 0%, transparent 48%),
+    radial-gradient(ellipse at 72% 88%, rgba(110, 231, 183, 0.06) 0%, transparent 52%),
+    radial-gradient(ellipse at 18% 82%, rgba(253, 186, 116, 0.05) 0%, transparent 46%),
+    rgba(255, 255, 255, 0.52);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.88),
-    inset 0 -1px 0 rgba(160, 125, 85, 0.12),
-    0 2px 4px rgba(100, 75, 45, 0.10),
-    0 8px 20px rgba(85, 60, 35, 0.15),
-    0 22px 48px rgba(60, 40, 20, 0.11);
-  transform: rotateX(1.5deg) rotateY(-0.4deg);
+    inset 0 1px 0 rgba(255, 255, 255, 0.80),
+    inset 0 -1px 0 rgba(180, 190, 215, 0.10),
+    0 2px 4px rgba(15, 30, 80, 0.07),
+    0 8px 20px rgba(15, 30, 80, 0.10),
+    0 22px 48px rgba(15, 30, 80, 0.07);
   transform-style: preserve-3d;
-  transition: transform 300ms ease, box-shadow 300ms ease;
+  /* 回弹用弹性曲线，离开时快速还原 */
+  transition:
+    transform 0.45s cubic-bezier(0.03, 0.98, 0.52, 0.99),
+    box-shadow 0.45s ease;
   overflow: hidden;
 
   /* 纸张纹理噪点 */
@@ -473,7 +492,7 @@
     border-radius: inherit;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
     background-size: 180px 180px;
-    opacity: 0.032;
+    opacity: 0.022;
     mix-blend-mode: multiply;
     pointer-events: none;
     z-index: 0;
@@ -487,21 +506,12 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.88) 25%, rgba(255, 255, 255, 0.88) 75%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.92) 25%, rgba(255, 255, 255, 0.92) 75%, transparent 100%);
     pointer-events: none;
     z-index: 1;
   }
-
-  &:hover {
-    transform: rotateX(0.5deg) rotateY(-0.15deg) translateY(-2px);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.92),
-      inset 0 -1px 0 rgba(160, 125, 85, 0.14),
-      0 4px 8px rgba(100, 75, 45, 0.12),
-      0 14px 32px rgba(85, 60, 35, 0.18),
-      0 30px 60px rgba(60, 40, 20, 0.13);
-  }
 }
+
 
 /* 名片头部：姓名行 + 公司 */
 .ctdp-bizcard-header {
@@ -527,7 +537,7 @@
   z-index: 1;
   margin: 0 20px;
   border: none;
-  border-top: 1px solid rgba(150, 120, 85, 0.16);
+  border-top: 1px solid rgba(180, 190, 220, 0.18);
 }
 
 /* 名片主体：字段行列表 */
@@ -580,12 +590,12 @@
   }
 
   &:hover {
-    background: rgba(150, 120, 85, 0.05);
+    background: rgba(90, 110, 165, 0.05);
   }
 
   &:focus-visible {
     outline: none;
-    background: rgba(150, 120, 85, 0.08);
+    background: rgba(90, 110, 165, 0.08);
   }
 }
 
@@ -631,7 +641,7 @@
     border-radius: 0;
     background: transparent;
     box-shadow: none;
-    color: rgba(122, 88, 72, 0.5);
+    color: rgba(74, 111, 165, 0.5);
   }
 
   .ctdp-card-value {
@@ -651,12 +661,12 @@
   border-radius: 4px;
 
   &:hover {
-    background: rgba(150, 120, 85, 0.05);
+    background: rgba(90, 110, 165, 0.05);
   }
 
   &:focus-visible {
     outline: none;
-    background: rgba(150, 120, 85, 0.08);
+    background: rgba(90, 110, 165, 0.08);
   }
 
   .ctdp-card-body {
@@ -675,7 +685,7 @@
     border-radius: 0;
     background: transparent;
     box-shadow: none;
-    color: rgba(122, 88, 72, 0.5);
+    color: rgba(74, 111, 165, 0.5);
   }
 
   .ctdp-card-value {
@@ -693,13 +703,13 @@
   padding: 5px 20px;
 
   &:hover {
-    background: rgba(150, 120, 85, 0.06);
+    background: rgba(90, 110, 165, 0.06);
   }
 
   &:focus-visible {
     outline: none;
-    background: rgba(150, 120, 85, 0.08);
-    box-shadow: inset 3px 0 0 rgba(122, 88, 72, 0.28);
+    background: rgba(90, 110, 165, 0.08);
+    box-shadow: inset 3px 0 0 rgba(74, 111, 165, 0.28);
   }
 
   /* row 内部 body 布局：小图标列 */
@@ -718,13 +728,13 @@
     border-radius: 0;
     background: transparent;
     box-shadow: none;
-    color: rgba(122, 88, 72, 0.6);
+    color: rgba(74, 111, 165, 0.6);
   }
 
   /* row label：微型标签 */
   .ctdp-card-label {
     font-size: 10px;
-    color: rgba(113, 98, 83, 0.7);
+    color: rgba(90, 101, 128, 0.7);
     letter-spacing: 0.04em;
     padding-top: 0;
   }
@@ -769,10 +779,10 @@
   gap: 5px;
   flex-shrink: 0;
   padding: 3px 8px;
-  border: 1px solid rgba(72, 96, 88, 0.14);
+  border: 1px solid rgba(58, 122, 154, 0.14);
   border-radius: 999px;
   color: var(--ctdp-accent-2);
-  background: rgba(242, 250, 246, 0.4);
+  background: rgba(235, 245, 255, 0.4);
   font-size: 10px;
   letter-spacing: 0.06em;
 }
@@ -800,14 +810,14 @@
   align-items: center;
   gap: 12px;
   padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.42);
   border-radius: 18px;
   background: var(--ctdp-panel-strong);
   backdrop-filter: var(--ctdp-backdrop);
   -webkit-backdrop-filter: var(--ctdp-backdrop);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    0 10px 24px rgba(77, 53, 26, 0.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    0 10px 24px rgba(15, 30, 80, 0.05);
 }
 
 .ctdp-settings-copy {
@@ -847,7 +857,7 @@
 .ctdp-settings-list,
 .ctdp-grid {
   scrollbar-width: thin;
-  scrollbar-color: rgba(122, 88, 72, 0.58) rgba(255, 251, 247, 0.1);
+  scrollbar-color: rgba(74, 111, 165, 0.50) rgba(255, 255, 255, 0.08);
   scrollbar-gutter: stable;
 }
 
@@ -859,20 +869,20 @@
 .ctdp-settings-list::-webkit-scrollbar-track,
 .ctdp-grid::-webkit-scrollbar-track {
   border-radius: 999px;
-  background: rgba(255, 251, 247, 0.08);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .ctdp-settings-list::-webkit-scrollbar-thumb,
 .ctdp-grid::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(122, 88, 72, 0.68), rgba(72, 96, 88, 0.5));
+  background: linear-gradient(180deg, rgba(74, 111, 165, 0.60), rgba(58, 122, 154, 0.46));
   background-clip: padding-box;
 }
 
 .ctdp-settings-list::-webkit-scrollbar-thumb:hover,
 .ctdp-grid::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(122, 88, 72, 0.82), rgba(72, 96, 88, 0.64));
+  background: linear-gradient(180deg, rgba(74, 111, 165, 0.78), rgba(58, 122, 154, 0.62));
   background-clip: padding-box;
 }
 
@@ -880,15 +890,15 @@
   display: grid;
   gap: 8px;
   padding: 14px 15px;
-  border: 1px solid rgba(255, 255, 255, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.42);
   border-radius: 18px;
   color: var(--ctdp-ink);
-  background: rgba(255, 251, 247, 0.18);
+  background: rgba(255, 255, 255, 0.20);
   backdrop-filter: var(--ctdp-backdrop);
   -webkit-backdrop-filter: var(--ctdp-backdrop);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    0 10px 24px rgba(77, 53, 26, 0.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    0 10px 24px rgba(15, 30, 80, 0.05);
   cursor: pointer;
   transition:
     transform 160ms ease,
@@ -904,8 +914,8 @@
 .ctdp-settings-card:focus-visible {
   outline: none;
   transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 251, 247, 0.24);
+  border-color: rgba(255, 255, 255, 0.56);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .ctdp-settings-card-static:hover,
@@ -939,9 +949,9 @@
   display: inline-flex;
   align-items: center;
   padding: 2px;
-  border: 1px solid rgba(83, 63, 45, 0.12);
+  border: 1px solid rgba(20, 35, 80, 0.12);
   border-radius: 999px;
-  background: rgba(113, 98, 83, 0.18);
+  background: rgba(90, 101, 128, 0.18);
   transition:
     background-color 160ms ease,
     border-color 160ms ease;
@@ -951,14 +961,14 @@
   width: 18px;
   height: 18px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 4px 10px rgba(77, 53, 26, 0.14);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 10px rgba(15, 30, 80, 0.14);
   transition: transform 160ms ease;
 }
 
 .ctdp-switch-input:checked + .ctdp-switch-track {
-  border-color: rgba(72, 96, 88, 0.16);
-  background: rgba(72, 96, 88, 0.74);
+  border-color: rgba(74, 111, 165, 0.20);
+  background: rgba(74, 111, 165, 0.72);
 }
 
 .ctdp-switch-input:checked + .ctdp-switch-track .ctdp-switch-thumb {
@@ -966,14 +976,14 @@
 }
 
 .ctdp-switch-input:focus-visible + .ctdp-switch-track {
-  outline: 2px solid rgba(72, 96, 88, 0.28);
+  outline: 2px solid rgba(74, 111, 165, 0.30);
   outline-offset: 2px;
 }
 
 .ctdp-settings-card-icon {
   width: 16px;
   height: 16px;
-  color: rgba(61, 42, 32, 0.86);
+  color: rgba(25, 40, 80, 0.86);
 }
 
 .ctdp-settings-card-title {
@@ -1004,7 +1014,7 @@
   width: 16px;
   height: 16px;
   margin: 0;
-  accent-color: rgba(72, 96, 88, 0.92);
+  accent-color: rgba(74, 111, 165, 0.92);
 }
 
 .ctdp-field-visibility-copy {
@@ -1023,27 +1033,27 @@
 
 .ctdp-settings-status {
   padding: 12px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.36);
   border-radius: 16px;
   color: var(--ctdp-muted);
-  background: rgba(255, 251, 247, 0.18);
+  background: rgba(255, 255, 255, 0.18);
   font-size: 12px;
   line-height: 1.5;
 }
 
 .ctdp-settings-status[data-tone="success"] {
   color: var(--ctdp-accent-2);
-  background: rgba(242, 250, 246, 0.32);
+  background: rgba(235, 248, 255, 0.32);
 }
 
 .ctdp-settings-status[data-tone="warning"] {
   color: var(--ctdp-accent);
-  background: rgba(255, 247, 238, 0.28);
+  background: rgba(240, 246, 255, 0.28);
 }
 
 .ctdp-settings-status[data-tone="error"] {
-  color: #8d4f3b;
-  background: rgba(255, 241, 236, 0.32);
+  color: #c0392b;
+  background: rgba(255, 240, 238, 0.32);
 }
 
 .ctdp-footer {
@@ -1090,7 +1100,7 @@
 }
 
 .ctdp-footer-status[data-tone="error"] {
-  color: #8d4f3b;
+  color: #c0392b;
 }
 
 .ctdp-footer-btn,
@@ -1098,14 +1108,14 @@
   width: 42px;
   height: 42px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.42);
   color: var(--ctdp-ink);
-  background: rgba(255, 252, 248, 0.22);
+  background: rgba(255, 255, 255, 0.24);
   backdrop-filter: blur(16px) saturate(165%);
   -webkit-backdrop-filter: blur(16px) saturate(165%);
   box-shadow:
-    0 10px 22px rgba(77, 53, 26, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 10px 22px rgba(15, 30, 80, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.40);
 }
 
 .ctdp-icon {
@@ -1162,13 +1172,13 @@
   white-space: nowrap;
   padding: 7px 12px;
   border-radius: 12px;
-  background: rgba(246, 240, 234, 0.96);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px) saturate(160%);
   -webkit-backdrop-filter: blur(12px) saturate(160%);
   box-shadow:
-    0 4px 16px rgba(77, 53, 26, 0.13),
-    inset 0 1px 0 rgba(255, 255, 255, 0.62);
-  color: #3d2a20;
+    0 4px 16px rgba(15, 30, 80, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  color: #1a2540;
   font-size: 13px;
   font-weight: 600;
   line-height: 1;
@@ -1184,7 +1194,7 @@
   margin-top: -5px;
   border-top: 5px solid transparent;
   border-bottom: 5px solid transparent;
-  border-left: 7px solid rgba(246, 240, 234, 0.96);
+  border-left: 7px solid rgba(255, 255, 255, 0.96);
   pointer-events: none;
   animation: ctdp-tail-fade 3s ease forwards;
 }
@@ -1238,39 +1248,39 @@
   width: 42px;
   height: 42px;
   color: transparent;
-  filter: drop-shadow(0 4px 8px rgba(77, 53, 26, 0.16));
+  filter: drop-shadow(0 4px 8px rgba(15, 30, 80, 0.16));
   transition: filter 180ms ease;
 }
 
 .ctdp-dock:hover .ctdp-dock-icon {
   filter:
-    drop-shadow(0 6px 12px rgba(77, 53, 26, 0.18))
-    drop-shadow(0 0 18px rgba(255, 241, 220, 0.34));
+    drop-shadow(0 6px 12px rgba(15, 30, 80, 0.18))
+    drop-shadow(0 0 18px rgba(220, 232, 255, 0.42));
 }
 
 .ctdp-smartfill-icon {
   width: 16px;
   height: 16px;
-  color: rgba(61, 42, 32, 0.9);
+  color: rgba(25, 40, 80, 0.90);
 }
 
 .ctdp-smartfill-item-icon {
   width: 16px;
   height: 16px;
-  color: rgba(61, 42, 32, 0.82);
+  color: rgba(25, 40, 80, 0.82);
 }
 
 .ctdp-card-icon {
   align-self: center;
   width: 28px;
   height: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.30);
+  border: 1px solid rgba(255, 255, 255, 0.40);
   border-radius: 8px;
-  color: rgba(122, 88, 72, 0.82);
-  background: rgba(255, 252, 248, 0.22);
+  color: rgba(74, 111, 165, 0.82);
+  background: rgba(255, 255, 255, 0.24);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.24),
-    0 4px 10px rgba(77, 53, 26, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 4px 10px rgba(15, 30, 80, 0.05);
 }
 
 .ctdp-copy-state-icon {
@@ -1293,10 +1303,10 @@
   min-height: 96px;
   resize: vertical;
   padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.44);
   border-radius: 16px;
   color: var(--ctdp-ink);
-  background: rgba(255, 251, 247, 0.24);
+  background: rgba(255, 255, 255, 0.26);
   backdrop-filter: blur(14px) saturate(160%);
   -webkit-backdrop-filter: blur(14px) saturate(160%);
   font-family: "SFMono-Regular", "Roboto Mono", "Liberation Mono", monospace;

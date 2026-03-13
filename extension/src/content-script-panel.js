@@ -268,6 +268,24 @@
 
       parts.push("</div></div>");
       fieldGrid.innerHTML = parts.join("");
+      bindBizcardTilt();
+    }
+
+    function bindBizcardTilt() {
+      const paper = fieldGrid && fieldGrid.querySelector(".ctdp-bizcard-paper");
+      if (!paper) return;
+
+      paper.addEventListener("mousemove", function (e) {
+        const rect = paper.getBoundingClientRect();
+        const dx = (e.clientX - (rect.left + rect.width  / 2)) / (rect.width  / 2);
+        const dy = (e.clientY - (rect.top  + rect.height / 2)) / (rect.height / 2);
+        paper.style.transform =
+          "rotateX(" + (-dy * 3).toFixed(2) + "deg) rotateY(" + (dx * 6).toFixed(2) + "deg)";
+      });
+
+      paper.addEventListener("mouseleave", function () {
+        paper.style.transform = "";
+      });
     }
 
     function renderVisibilityList() {
@@ -529,7 +547,7 @@
         return;
       }
       if (!response.hasUpdate) {
-        setVersionStatus("当前已是最新版本", "success");
+        setVersionStatus(response.noReleases ? "仓库暂无 Release" : "当前已是最新版本", "success");
         return;
       }
       setVersionStatus("发现 v" + response.latestVersion, "warning");
