@@ -190,6 +190,7 @@
         hideSmartButton();
         return;
       }
+      if (activeSmartTarget && activeSmartTarget !== target) clearFocusTargetMarker(activeSmartTarget);
       activeSmartTarget = target;
       activeSmartFieldKey = fieldKey;
       smartButton.hidden = false;
