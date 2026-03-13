@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "place-fill",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Generate legal-looking test data for fast form testing.",
   "permissions": ["clipboardWrite", "contextMenus", "storage"],
-  "host_permissions": ["https://api.github.com/repos/coldShan/place-fill/*"],
+  "host_permissions": ["https://api.github.com/*"],
   "icons": {
     "16": "assets/app-icons/icon-16.png",
     "32": "assets/app-icons/icon-32.png",
