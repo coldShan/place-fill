@@ -611,8 +611,10 @@
   }
 }
 
-/* 公司名 — 图标 + 副标题 */
+/* 公司名 — 图标 + 副标题，padding 清零避免与 header 的 20px 双重叠加 */
 .ctdp-card-identity[data-key="companyName"] {
+  padding: 1px 0;
+
   .ctdp-card-body {
     display: flex;
     align-items: center;
