@@ -20,6 +20,7 @@
 
     const fieldKeys = fieldMetaApi.getFieldKeys();
     const IDENTITY_FIELD_KEYS = ["fullName", "companyName"];
+    const MOBILE_KEY = "mobile";
     const panelState = panelStateApi.createPanelState();
     const runtimeApi = typeof chrome !== "undefined" ? chrome.runtime : null;
     const extensionVersion = runtimeApi && typeof runtimeApi.getManifest === "function" ? String(runtimeApi.getManifest().version || "") : "";
@@ -176,6 +177,15 @@
         + "</article>";
     }
 
+    function mobileHeaderTemplate(key, value) {
+      const label = fieldMetaApi.getFieldLabel(key);
+      return '<article class="ctdp-card ctdp-card-mobile-header" role="button" tabindex="0"'
+        + ' data-role="copy-card" data-key="' + key + '" data-copied="false"'
+        + ' aria-label="复制' + label + '">'
+        + '<p class="ctdp-card-value">' + value + "</p>"
+        + "</article>";
+    }
+
     function fieldRowTemplate(key, value) {
       const label = fieldMetaApi.getFieldLabel(key);
       const iconName = fieldMetaApi.getFieldIconName(key);
@@ -190,35 +200,66 @@
         + "</div></div></article>";
     }
 
+    function pairedRowTemplate(key1, val1, key2, val2) {
+      return '<div class="ctdp-bizcard-pair">'
+        + fieldRowTemplate(key1, val1)
+        + fieldRowTemplate(key2, val2)
+        + "</div>";
+    }
+
     function renderCards() {
       if (!fieldGrid) return;
-      const visKeys = state.visibleFieldKeys;
       const visIdentityKeys = IDENTITY_FIELD_KEYS.filter(function (k) {
-        return visKeys.indexOf(k) !== -1;
+        return state.visibleFieldKeys.indexOf(k) !== -1;
       });
-      const visBodyKeys = visKeys.filter(function (k) {
-        return IDENTITY_FIELD_KEYS.indexOf(k) === -1;
+      const mobileVisible = state.visibleFieldKeys.indexOf(MOBILE_KEY) !== -1;
+      const visBodyKeys = state.visibleFieldKeys.filter(function (k) {
+        return IDENTITY_FIELD_KEYS.indexOf(k) === -1 && k !== MOBILE_KEY;
       });
 
-      if (visIdentityKeys.length === 0 && visBodyKeys.length === 0) {
+      if (visIdentityKeys.length === 0 && !mobileVisible && visBodyKeys.length === 0) {
         fieldGrid.innerHTML = "";
         return;
       }
 
       const parts = ['<div class="ctdp-bizcard"><div class="ctdp-bizcard-paper">'];
-      if (visIdentityKeys.length > 0) {
+
+      const hasHeader = visIdentityKeys.length > 0 || mobileVisible;
+      if (hasHeader) {
         parts.push('<div class="ctdp-bizcard-header">');
-        visIdentityKeys.forEach(function (k) { parts.push(identityTemplate(k, state.profile[k])); });
+        const fullNameVisible = state.visibleFieldKeys.indexOf("fullName") !== -1;
+        if (fullNameVisible || mobileVisible) {
+          parts.push('<div class="ctdp-bizcard-name-row">');
+          if (fullNameVisible) { parts.push(identityTemplate("fullName", state.profile["fullName"])); }
+          if (mobileVisible) { parts.push(mobileHeaderTemplate(MOBILE_KEY, state.profile[MOBILE_KEY])); }
+          parts.push("</div>");
+        }
+        if (state.visibleFieldKeys.indexOf("companyName") !== -1) {
+          parts.push(identityTemplate("companyName", state.profile["companyName"]));
+        }
         parts.push("</div>");
       }
-      if (visIdentityKeys.length > 0 && visBodyKeys.length > 0) {
+
+      if (hasHeader && visBodyKeys.length > 0) {
         parts.push('<hr class="ctdp-bizcard-divider" aria-hidden="true">');
       }
+
       if (visBodyKeys.length > 0) {
         parts.push('<div class="ctdp-bizcard-body">');
-        visBodyKeys.forEach(function (k) { parts.push(fieldRowTemplate(k, state.profile[k])); });
+        let i = 0;
+        while (i < visBodyKeys.length) {
+          const k = visBodyKeys[i];
+          if (k === "email" && i + 1 < visBodyKeys.length && visBodyKeys[i + 1] === "landline") {
+            parts.push(pairedRowTemplate("email", state.profile["email"], "landline", state.profile["landline"]));
+            i += 2;
+          } else {
+            parts.push(fieldRowTemplate(k, state.profile[k]));
+            i++;
+          }
+        }
         parts.push("</div>");
       }
+
       parts.push("</div></div>");
       fieldGrid.innerHTML = parts.join("");
     }

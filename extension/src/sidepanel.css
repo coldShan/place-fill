@@ -503,7 +503,7 @@
   }
 }
 
-/* 名片头部：姓名 + 公司 */
+/* 名片头部：姓名行 + 公司 */
 .ctdp-bizcard-header {
   position: relative;
   z-index: 1;
@@ -511,6 +511,14 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+/* 姓名行：姓名左、手机号右 */
+.ctdp-bizcard-name-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 /* 分割线 */
@@ -529,6 +537,24 @@
   padding: 7px 0 8px;
 }
 
+/* 邮箱 + 固话并排行 */
+.ctdp-bizcard-pair {
+  display: flex;
+
+  .ctdp-card-row {
+    flex: 1;
+    min-width: 0;
+    padding-right: 8px;
+
+    .ctdp-card-value {
+      font-size: 11.5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+
 /* 卡片基类（两种变体的公共属性） */
 .ctdp-card {
   position: relative;
@@ -542,10 +568,16 @@
   }
 }
 
-/* identity 变体（姓名/公司） */
+/* identity 变体（姓名/公司），在 name-row 中 fullName 撑满剩余空间 */
 .ctdp-card-identity {
   display: block;
   padding: 1px 20px;
+
+  .ctdp-bizcard-name-row & {
+    flex: 1;
+    min-width: 0;
+    padding: 1px 0;
+  }
 
   &:hover {
     background: rgba(150, 120, 85, 0.05);
@@ -576,6 +608,30 @@
   color: var(--ctdp-muted);
   letter-spacing: 0.03em;
   margin: 0;
+}
+
+/* 姓名行右侧手机号（小号灰色，不占左侧空间） */
+.ctdp-card-mobile-header {
+  flex-shrink: 0;
+  padding: 2px 0;
+  border-radius: 4px;
+
+  &:hover {
+    background: rgba(150, 120, 85, 0.05);
+  }
+
+  &:focus-visible {
+    outline: none;
+    background: rgba(150, 120, 85, 0.08);
+  }
+
+  .ctdp-card-value {
+    font-size: 12px;
+    color: var(--ctdp-muted);
+    letter-spacing: 0.03em;
+    line-height: 1.2;
+    margin: 0;
+  }
 }
 
 /* row 变体（其余字段） */
