@@ -170,11 +170,14 @@
 
     function identityTemplate(key, value) {
       const label = fieldMetaApi.getFieldLabel(key);
+      const iconName = fieldMetaApi.getFieldIconName(key);
       return '<article class="ctdp-card ctdp-card-identity" role="button" tabindex="0"'
         + ' data-role="copy-card" data-key="' + key + '" data-copied="false"'
         + ' aria-label="复制' + label + '">'
+        + '<div class="ctdp-card-body">'
+        + iconAssetsApi.renderIconMarkup(iconName, "ctdp-card-icon")
         + '<p class="ctdp-card-value">' + value + "</p>"
-        + "</article>";
+        + "</div></article>";
     }
 
     function mobileHeaderTemplate(key, value) {

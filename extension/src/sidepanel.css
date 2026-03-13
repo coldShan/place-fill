@@ -589,25 +589,52 @@
   }
 }
 
-/* 姓名 — 大号主标题 */
-.ctdp-card-identity[data-key="fullName"] .ctdp-card-value {
-  font-size: 21px;
-  font-weight: 600;
-  font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  color: var(--ctdp-ink);
-  letter-spacing: 0.03em;
-  line-height: 1.2;
-  margin: 0;
+/* 姓名 — 大号主标题，不显示图标 */
+.ctdp-card-identity[data-key="fullName"] {
+  .ctdp-card-icon {
+    display: none;
+  }
+
+  .ctdp-card-value {
+    font-size: 21px;
+    font-weight: 600;
+    font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: var(--ctdp-ink);
+    letter-spacing: 0.03em;
+    line-height: 1.2;
+    margin: 0;
+  }
 }
 
-/* 公司名 — 副标题 */
-.ctdp-card-identity[data-key="companyName"] .ctdp-card-value {
-  font-size: 12px;
-  font-weight: 400;
-  font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  color: var(--ctdp-muted);
-  letter-spacing: 0.03em;
-  margin: 0;
+/* 公司名 — 图标 + 副标题 */
+.ctdp-card-identity[data-key="companyName"] {
+  .ctdp-card-body {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    grid-template-columns: unset;
+  }
+
+  .ctdp-card-icon {
+    width: 13px;
+    height: 13px;
+    min-height: 13px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: rgba(122, 88, 72, 0.5);
+  }
+
+  .ctdp-card-value {
+    font-size: 12px;
+    font-weight: 400;
+    font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: var(--ctdp-muted);
+    letter-spacing: 0.03em;
+    margin: 0;
+  }
 }
 
 /* 姓名行右侧手机号（图标 + 号码，小号灰色） */
