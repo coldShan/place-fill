@@ -291,8 +291,7 @@
 }
 
 .ctdp-toolbar,
-.ctdp-footer,
-.ctdp-card {
+.ctdp-footer {
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.32);
@@ -422,12 +421,20 @@
 
 .ctdp-grid {
   display: grid;
-  gap: 12px;
+  gap: 0;
   position: relative;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding-right: 6px;
+  /* ID 卡片外框 */
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 18px;
+  background: var(--ctdp-panel-strong);
+  backdrop-filter: var(--ctdp-backdrop);
+  -webkit-backdrop-filter: var(--ctdp-backdrop);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 10px 24px rgba(77, 53, 26, 0.06);
 }
 
 .ctdp-grid.is-refreshing::after {
@@ -440,36 +447,32 @@
 }
 
 .ctdp-card {
-  padding: 14px 15px;
-  background: rgba(255, 251, 247, 0.18);
-  animation: ctdp-lift-in 260ms ease both;
+  position: relative;
+  padding: 9px 14px;
+  background: transparent;
+  border-bottom: 1px solid var(--ctdp-line);
+  animation: ctdp-lift-in 200ms ease both;
   cursor: pointer;
-  transition: transform 160ms ease;
-}
+  transition: background-color 140ms ease;
 
-.ctdp-card:hover {
-  transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 251, 247, 0.24);
-}
+  &:last-child {
+    border-bottom: none;
+  }
 
-.ctdp-card:focus-visible {
-  outline: none;
-  border-color: rgba(122, 88, 72, 0.36);
-  box-shadow:
-    0 0 0 2px rgba(122, 88, 72, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    0 10px 24px rgba(77, 53, 26, 0.08);
-}
+  &:hover {
+    background: rgba(255, 251, 247, 0.14);
+  }
 
-.ctdp-card[data-copied="true"] {
-  border-color: rgba(72, 96, 88, 0.26);
-  background: rgba(242, 250, 246, 0.28);
-  box-shadow:
-    0 0 0 1px rgba(72, 96, 88, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.34),
-    0 14px 30px rgba(54, 93, 82, 0.08);
-  animation: ctdp-copied-pulse 420ms ease;
+  &:focus-visible {
+    outline: none;
+    background: rgba(255, 251, 247, 0.18);
+    box-shadow: inset 3px 0 0 rgba(122, 88, 72, 0.32);
+  }
+
+  &[data-copied="true"] {
+    background: rgba(242, 250, 246, 0.22);
+    animation: ctdp-copied-pulse 380ms ease;
+  }
 }
 
 .ctdp-card:nth-child(2) {
@@ -490,9 +493,9 @@
 
 .ctdp-card-body {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .ctdp-card-text {
@@ -530,11 +533,11 @@
 }
 
 .ctdp-card-value {
-  margin: 7px 0 0;
+  margin: 3px 0 0;
   color: var(--ctdp-ink);
   font-family: "SFMono-Regular", "Roboto Mono", "Liberation Mono", monospace;
-  font-size: 19px;
-  line-height: 1.18;
+  font-size: 14px;
+  line-height: 1.25;
   word-break: break-all;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
@@ -1013,16 +1016,16 @@
 }
 
 .ctdp-card-icon {
-  align-self: stretch;
-  width: 42px;
-  height: 42px;
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  border-radius: 14px;
-  color: rgba(122, 88, 72, 0.88);
-  background: rgba(255, 252, 248, 0.28);
+  align-self: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.30);
+  border-radius: 8px;
+  color: rgba(122, 88, 72, 0.82);
+  background: rgba(255, 252, 248, 0.22);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 8px 18px rgba(77, 53, 26, 0.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 4px 10px rgba(77, 53, 26, 0.05);
 }
 
 .ctdp-copy-state-icon {
@@ -1101,24 +1104,18 @@
 
 @keyframes ctdp-copied-pulse {
   0% {
-    box-shadow:
-      0 0 0 0 rgba(54, 93, 82, 0.22),
-      inset 0 1px 0 rgba(255, 255, 255, 0.34),
-      0 14px 30px rgba(54, 93, 82, 0.08);
+    background: rgba(242, 250, 246, 0.08);
+    box-shadow: inset 3px 0 0 rgba(72, 96, 88, 0);
   }
 
-  55% {
-    box-shadow:
-      0 0 0 8px rgba(54, 93, 82, 0),
-      inset 0 1px 0 rgba(255, 255, 255, 0.34),
-      0 14px 30px rgba(54, 93, 82, 0.12);
+  25% {
+    background: rgba(242, 250, 246, 0.30);
+    box-shadow: inset 3px 0 0 rgba(72, 96, 88, 0.38);
   }
 
   100% {
-    box-shadow:
-      0 0 0 0 rgba(54, 93, 82, 0),
-      inset 0 1px 0 rgba(255, 255, 255, 0.34),
-      0 14px 30px rgba(54, 93, 82, 0.08);
+    background: rgba(242, 250, 246, 0.22);
+    box-shadow: inset 3px 0 0 rgba(72, 96, 88, 0);
   }
 }
 
