@@ -94,7 +94,7 @@ test("panel footer adds a settings entry and the panel includes a dedicated sett
 
 test("panel renders and copies only the currently visible field keys", () => {
   assert.match(panelScript, /visibleFieldKeys:\s*fieldVisibilityApi\.getDefaultVisibleFieldKeys\(\)/);
-  assert.match(panelScript, /state\.visibleFieldKeys\s*\.map\(function \(key\)/);
+  assert.match(panelScript, /state\.visibleFieldKeys\.filter/);
   assert.match(panelScript, /fieldVisibilityApi\.writeVisibleFieldKeys/);
   assert.match(panelScript, /loadVisibleFieldKeys/);
   assert.match(panelScript, /onVisibleFieldKeysChanged\(state\.visibleFieldKeys\)/);

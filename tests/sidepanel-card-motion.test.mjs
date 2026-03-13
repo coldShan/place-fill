@@ -12,6 +12,6 @@ test("card copied feedback only animates activation, not deactivation transition
   assert.match(stylesheet, /\.ctdp-card\s*\{[^}]*transition:\s*background-color 140ms ease;/);
   assert.doesNotMatch(stylesheet, /\.ctdp-card\s*\{[^}]*transform 160ms ease/);
   assert.doesNotMatch(stylesheet, /\.ctdp-card\s*\{[^}]*box-shadow 160ms ease/);
-  // 使用 CSS 嵌套语法，copied 状态在 &[data-copied] 嵌套块中
-  assert.match(stylesheet, /&\[data-copied="true"\]\s*\{[^}]*animation:\s*ctdp-copied-pulse 380ms ease;/);
+  // 使用 CSS 嵌套语法，copied 状态在 &[data-copied] 嵌套块中，触发 pop 弹跳动画
+  assert.match(stylesheet, /&\[data-copied="true"\]\s*\{[^}]*animation:\s*ctdp-card-pop/);
 });

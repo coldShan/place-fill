@@ -19,6 +19,7 @@
     const onVisibleFieldKeysChanged = typeof opts.onVisibleFieldKeysChanged === "function" ? opts.onVisibleFieldKeysChanged : function () {};
 
     const fieldKeys = fieldMetaApi.getFieldKeys();
+    const IDENTITY_FIELD_KEYS = ["fullName", "companyName"];
     const panelState = panelStateApi.createPanelState();
     const runtimeApi = typeof chrome !== "undefined" ? chrome.runtime : null;
     const extensionVersion = runtimeApi && typeof runtimeApi.getManifest === "function" ? String(runtimeApi.getManifest().version || "") : "";
@@ -166,33 +167,60 @@
       return state.siteFeatureEnabled ? "当前站点已启用智能识别和右键标注" : "当前站点已停用智能识别和右键标注";
     }
 
-    function cardTemplate(key, value) {
-      const copied = state.copiedFieldKey === key;
+    function identityTemplate(key, value) {
+      const label = fieldMetaApi.getFieldLabel(key);
+      return '<article class="ctdp-card ctdp-card-identity" role="button" tabindex="0"'
+        + ' data-role="copy-card" data-key="' + key + '" data-copied="false"'
+        + ' aria-label="复制' + label + '">'
+        + '<p class="ctdp-card-value">' + value + "</p>"
+        + "</article>";
+    }
+
+    function fieldRowTemplate(key, value) {
       const label = fieldMetaApi.getFieldLabel(key);
       const iconName = fieldMetaApi.getFieldIconName(key);
-      return [
-        '<article class="ctdp-card" role="button" tabindex="0" data-role="copy-card" data-key="' + key + '" data-copied="' + String(copied) + '" aria-label="复制' + label + '">',
-        '  <div class="ctdp-card-body">',
-        "    " + iconAssetsApi.renderIconMarkup(iconName, "ctdp-card-icon"),
-        '    <div class="ctdp-card-text">',
-        '      <div class="ctdp-card-head">',
-        '        <p class="ctdp-card-label">' + label + "</p>",
-        copied ? "        " + renderCopiedStateMarkup() : "",
-        "      </div>",
-        '      <p class="ctdp-card-value">' + value + "</p>",
-        "    </div>",
-        "  </div>",
-        "</article>"
-      ].join("");
+      return '<article class="ctdp-card ctdp-card-row" role="button" tabindex="0"'
+        + ' data-role="copy-card" data-key="' + key + '" data-copied="false"'
+        + ' aria-label="复制' + label + '">'
+        + '<div class="ctdp-card-body">'
+        + iconAssetsApi.renderIconMarkup(iconName, "ctdp-card-icon")
+        + '<div class="ctdp-card-text">'
+        + '<p class="ctdp-card-label">' + label + "</p>"
+        + '<p class="ctdp-card-value">' + value + "</p>"
+        + "</div></div></article>";
     }
 
     function renderCards() {
       if (!fieldGrid) return;
-      fieldGrid.innerHTML = state.visibleFieldKeys
-        .map(function (key) {
-          return cardTemplate(key, state.profile[key]);
-        })
-        .join("");
+      const visKeys = state.visibleFieldKeys;
+      const visIdentityKeys = IDENTITY_FIELD_KEYS.filter(function (k) {
+        return visKeys.indexOf(k) !== -1;
+      });
+      const visBodyKeys = visKeys.filter(function (k) {
+        return IDENTITY_FIELD_KEYS.indexOf(k) === -1;
+      });
+
+      if (visIdentityKeys.length === 0 && visBodyKeys.length === 0) {
+        fieldGrid.innerHTML = "";
+        return;
+      }
+
+      const parts = ['<div class="ctdp-bizcard"><div class="ctdp-bizcard-paper">'];
+      if (visIdentityKeys.length > 0) {
+        parts.push('<div class="ctdp-bizcard-header">');
+        visIdentityKeys.forEach(function (k) { parts.push(identityTemplate(k, state.profile[k])); });
+        parts.push("</div>");
+      }
+      if (visIdentityKeys.length > 0 && visBodyKeys.length > 0) {
+        parts.push('<hr class="ctdp-bizcard-divider" aria-hidden="true">');
+      }
+      if (visBodyKeys.length > 0) {
+        parts.push('<div class="ctdp-bizcard-body">');
+        visBodyKeys.forEach(function (k) { parts.push(fieldRowTemplate(k, state.profile[k])); });
+        parts.push("</div>");
+      }
+      parts.push("</div></div>");
+      fieldGrid.innerHTML = parts.join("");
     }
 
     function renderVisibilityList() {

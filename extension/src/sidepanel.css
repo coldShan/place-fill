@@ -420,21 +420,18 @@
 }
 
 .ctdp-grid {
-  display: grid;
-  gap: 0;
+  display: block;
   position: relative;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  /* ID 卡片外框 */
-  border: 1px solid rgba(255, 255, 255, 0.32);
-  border-radius: 18px;
-  background: var(--ctdp-panel-strong);
-  backdrop-filter: var(--ctdp-backdrop);
-  -webkit-backdrop-filter: var(--ctdp-backdrop);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    0 10px 24px rgba(77, 53, 26, 0.06);
+  padding: 2px 4px 10px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
 }
 
 .ctdp-grid.is-refreshing::after {
@@ -446,49 +443,188 @@
   animation: ctdp-scan-refresh 560ms ease;
 }
 
-.ctdp-card {
-  position: relative;
-  padding: 9px 14px;
-  background: transparent;
-  border-bottom: 1px solid var(--ctdp-line);
-  animation: ctdp-lift-in 200ms ease both;
-  cursor: pointer;
-  transition: background-color 140ms ease;
+/* 名片容器：提供透视上下文 */
+.ctdp-bizcard {
+  perspective: 900px;
+  perspective-origin: 50% 25%;
+}
 
-  &:last-child {
-    border-bottom: none;
+/* 3D 名片纸张主体 */
+.ctdp-bizcard-paper {
+  position: relative;
+  border-radius: 14px;
+  background: linear-gradient(155deg, #fefdf9 0%, #f7f0e4 55%, #ede2cf 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    inset 0 -1px 0 rgba(160, 125, 85, 0.12),
+    0 2px 4px rgba(100, 75, 45, 0.10),
+    0 8px 20px rgba(85, 60, 35, 0.15),
+    0 22px 48px rgba(60, 40, 20, 0.11);
+  transform: rotateX(1.5deg) rotateY(-0.4deg);
+  transform-style: preserve-3d;
+  transition: transform 300ms ease, box-shadow 300ms ease;
+  overflow: hidden;
+
+  /* 纸张纹理噪点 */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 180px 180px;
+    opacity: 0.032;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* 顶部高光线 */
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.88) 25%, rgba(255, 255, 255, 0.88) 75%, transparent 100%);
+    pointer-events: none;
+    z-index: 1;
   }
 
   &:hover {
-    background: rgba(255, 251, 247, 0.14);
+    transform: rotateX(0.5deg) rotateY(-0.15deg) translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.92),
+      inset 0 -1px 0 rgba(160, 125, 85, 0.14),
+      0 4px 8px rgba(100, 75, 45, 0.12),
+      0 14px 32px rgba(85, 60, 35, 0.18),
+      0 30px 60px rgba(60, 40, 20, 0.13);
+  }
+}
+
+/* 名片头部：姓名 + 公司 */
+.ctdp-bizcard-header {
+  position: relative;
+  z-index: 1;
+  padding: 18px 20px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* 分割线 */
+.ctdp-bizcard-divider {
+  position: relative;
+  z-index: 1;
+  margin: 0 20px;
+  border: none;
+  border-top: 1px solid rgba(150, 120, 85, 0.16);
+}
+
+/* 名片主体：字段行列表 */
+.ctdp-bizcard-body {
+  position: relative;
+  z-index: 1;
+  padding: 7px 0 8px;
+}
+
+/* 卡片基类（两种变体的公共属性） */
+.ctdp-card {
+  position: relative;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+
+  &[data-copied="true"] {
+    animation: ctdp-card-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+}
+
+/* identity 变体（姓名/公司） */
+.ctdp-card-identity {
+  display: block;
+  padding: 1px 20px;
+
+  &:hover {
+    background: rgba(150, 120, 85, 0.05);
   }
 
   &:focus-visible {
     outline: none;
-    background: rgba(255, 251, 247, 0.18);
-    box-shadow: inset 3px 0 0 rgba(122, 88, 72, 0.32);
-  }
-
-  &[data-copied="true"] {
-    background: rgba(242, 250, 246, 0.22);
-    animation: ctdp-copied-pulse 380ms ease;
+    background: rgba(150, 120, 85, 0.08);
   }
 }
 
-.ctdp-card:nth-child(2) {
-  animation-delay: 35ms;
+/* 姓名 — 大号主标题 */
+.ctdp-card-identity[data-key="fullName"] .ctdp-card-value {
+  font-size: 21px;
+  font-weight: 600;
+  font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  color: var(--ctdp-ink);
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  margin: 0;
 }
 
-.ctdp-card:nth-child(3) {
-  animation-delay: 70ms;
+/* 公司名 — 副标题 */
+.ctdp-card-identity[data-key="companyName"] .ctdp-card-value {
+  font-size: 12px;
+  font-weight: 400;
+  font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  color: var(--ctdp-muted);
+  letter-spacing: 0.03em;
+  margin: 0;
 }
 
-.ctdp-card:nth-child(4) {
-  animation-delay: 105ms;
-}
+/* row 变体（其余字段） */
+.ctdp-card-row {
+  display: block;
+  padding: 5px 20px;
 
-.ctdp-card:nth-child(5) {
-  animation-delay: 140ms;
+  &:hover {
+    background: rgba(150, 120, 85, 0.06);
+  }
+
+  &:focus-visible {
+    outline: none;
+    background: rgba(150, 120, 85, 0.08);
+    box-shadow: inset 3px 0 0 rgba(122, 88, 72, 0.28);
+  }
+
+  /* row 内部 body 布局：小图标列 */
+  .ctdp-card-body {
+    grid-template-columns: 16px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  /* row 图标：纯色小图，无外框 */
+  .ctdp-card-icon {
+    align-self: center;
+    width: 14px;
+    height: 14px;
+    min-height: 14px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: rgba(122, 88, 72, 0.6);
+  }
+
+  /* row label：微型标签 */
+  .ctdp-card-label {
+    font-size: 10px;
+    color: rgba(113, 98, 83, 0.7);
+    letter-spacing: 0.04em;
+    padding-top: 0;
+  }
+
+  /* row value：稍小字号 */
+  .ctdp-card-value {
+    font-size: 13px;
+    margin-top: 1px;
+  }
 }
 
 .ctdp-card-body {
@@ -1102,21 +1238,11 @@
   }
 }
 
-@keyframes ctdp-copied-pulse {
-  0% {
-    background: rgba(242, 250, 246, 0.08);
-    box-shadow: inset 3px 0 0 rgba(72, 96, 88, 0);
-  }
-
-  25% {
-    background: rgba(242, 250, 246, 0.30);
-    box-shadow: inset 3px 0 0 rgba(72, 96, 88, 0.38);
-  }
-
-  100% {
-    background: rgba(242, 250, 246, 0.22);
-    box-shadow: inset 3px 0 0 rgba(72, 96, 88, 0);
-  }
+@keyframes ctdp-card-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(0.93); }
+  68%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
 }
 
 @keyframes ctdp-focus-aurora-shift {

@@ -30,7 +30,7 @@ test("icon system keeps dock icon static while preserving other motion hooks", (
   assert.match(stylesheet, /\.ctdp-dock-icon\s*\{[\s\S]*?\bfilter:\s*drop-shadow\(/);
   assert.match(stylesheet, /\.ctdp-dock-icon\s*\{[\s\S]*?\btransition:[\s\S]*?\bfilter 180ms ease/);
   assert.match(stylesheet, /\.ctdp-smartfill\s*\{[\s\S]*?z-index:\s*2147483647/);
-  assert.match(stylesheet, /@keyframes ctdp-copied-pulse/);
+  assert.match(stylesheet, /@keyframes ctdp-card-pop/);
   assert.match(stylesheet, /@keyframes ctdp-focus-aurora-shift/);
   assert.doesNotMatch(stylesheet, /\.ctdp-dock-icon\s*\{[\s\S]*?\banimation:/);
   assert.doesNotMatch(stylesheet, /\.ctdp-dock:hover\s+\.ctdp-dock-icon\s*\{[^}]*\btransform:/);
