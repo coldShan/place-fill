@@ -1,10 +1,16 @@
 {
   "manifest_version": 3,
   "name": "place-fill",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Generate legal-looking test data for fast form testing.",
-  "permissions": ["clipboardWrite", "contextMenus", "storage"],
-  "host_permissions": ["https://api.github.com/*"],
+  "permissions": [
+    "clipboardWrite",
+    "contextMenus",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api.github.com/*"
+  ],
   "icons": {
     "16": "assets/app-icons/icon-16.png",
     "32": "assets/app-icons/icon-32.png",
@@ -25,20 +31,44 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["assets/icons/lucide/*.svg"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "assets/icons/lucide/*.svg"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     },
     {
-      "resources": ["assets/app-icons/*.png"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "assets/app-icons/*.png"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "<all_urls>"
+      ],
       "all_frames": true,
-      "js": ["src/field-meta.js", "src/field-visibility.js", "src/site-feature-toggle.js", "src/generators.js", "src/panel-state.js", "src/editable-target.js", "src/icon-assets.js", "src/smart-fill.js", "src/content-script-panel.js", "src/content-script-smartfill.js", "src/content-script.js"],
-      "css": ["src/sidepanel.css"],
+      "js": [
+        "src/field-meta.js",
+        "src/field-visibility.js",
+        "src/site-feature-toggle.js",
+        "src/generators.js",
+        "src/panel-state.js",
+        "src/editable-target.js",
+        "src/icon-assets.js",
+        "src/smart-fill.js",
+        "src/content-script-panel.js",
+        "src/content-script-smartfill.js",
+        "src/content-script.js"
+      ],
+      "css": [
+        "src/sidepanel.css"
+      ],
       "run_at": "document_idle"
     }
   ]
