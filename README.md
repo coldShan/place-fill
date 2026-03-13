@@ -1,62 +1,143 @@
-# place-fill
+<p align="center">
+  <img src="assets/logo.png" alt="place-fill" width="200">
+</p>
+
+<h1 align="center">place-fill</h1>
 
 <p align="center">
-  <img src="assets/logo.png" alt="place-fill logo" width="240">
+  为表单联调、回归测试和录屏演示而生的 Chrome 填充插件
 </p>
 
 <p align="center">
-  <strong>为表单联调、回归测试和录屏演示准备的 Chrome 填充插件</strong>
+  <img src="https://img.shields.io/badge/版本-v0.5.0-4a6fa5?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/Chrome-MV3-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="chrome mv3">
+  <img src="https://img.shields.io/badge/零构建-纯原生JS-21e985?style=flat-square" alt="no build">
+  <img src="https://img.shields.io/badge/许可-MIT-f0c040?style=flat-square" alt="license">
 </p>
 
-<p align="center">
-  一侧生成测试数据，一侧智能识别输入框，减少重复录入和人工切换。
-</p>
+---
 
-<p align="center">
-  <img src="assets/img1.png" alt="place-fill panel preview" width="47%">
-  <img src="assets/img2.png" alt="place-fill smart fill preview" width="47%">
-</p>
+## 概览
 
-## 插件功能
+在测试和演示场景下，频繁手动录入合规测试数据既耗时又容易出错。**place-fill** 在任意页面右侧注入一个侧边面板，即时生成符合中国业务标准的测试数据，并通过智能识别将数据直接填入目标输入框。
 
-### 生成常用测试数据
+---
 
-- 支持统一社会信用代码、公司名称、姓名、身份证号、银行卡号、手机号、邮箱、固定电话、地址
-- 支持单项复制、整组复制和一键重新生成全部数据
-- 地址字段按中文业务表单常见格式生成，适合本地联调和演示录屏
+## 支持的数据字段
 
-### 悬浮面板与快捷操作
+| 字段 | 说明 |
+|------|------|
+| 统一社会信用代码 | 符合国标校验规则的 18 位编码 |
+| 公司名称 | 随机生成的企业全称 |
+| 姓名 | 常见中文姓名组合 |
+| 身份证号 | 含正确校验位的 18 位号码 |
+| 银行卡号 | 符合 Luhn 算法校验的卡号 |
+| 手机号 | 国内三大运营商号段 |
+| 邮箱 | 常见域名格式 |
+| 固定电话 | 含区号的座机号 |
+| 地址 | 省市区街道完整格式 |
 
-- 页面右侧注入可展开、可收起的悬浮面板
-- 面板失焦后会自动收起，减少对页面操作的遮挡
-- 字段卡片、吸附入口和工具栏统一使用本地图标与本地 logo 资源
+---
 
-### 智能识别与填充
+## 核心功能
 
-- 聚焦可识别输入框时，会在输入区域旁显示智能填充按钮
-- 支持邮箱、手机号、身份证号、银行卡号、姓名、公司名称、统一社会信用代码等常见字段识别
-- 支持右键手动标注字段类型，并在当前站点范围内复用标注结果
+### 📋 数据面板
 
-### 设置与站点控制
+- 页面右侧注入可展开 / 收起的悬浮侧边栏
+- 每个字段支持**单项复制**、**整组一键复制**
+- 支持**一键重新生成**全部数据
+- 面板失焦后自动收起，不干扰页面操作
+- 磨砂玻璃风格 UI，名片区域支持 3D 视差旋转
 
-- 可按当前站点勾选展示哪些填充项
-- 可按当前站点单独开启或关闭智能识别与右键标注
-- 支持导出、导入和脱敏导出人工标注数据
+### 🔍 智能填充
 
-## 浏览器导入方法
+- 聚焦可编辑输入框时，在输入区域旁自动浮现填充菜单
+- 自动识别：邮箱、手机号、身份证号、银行卡号、姓名、公司名称、统一社会信用代码等
+- 支持 `autocomplete` 属性辅助识别
+- **右键手动标注**：无法自动识别时，可右键为输入框指定字段类型，标注结果按域名 + 一级路径复用
 
-### Chrome / Edge
+### ⚙️ 站点级设置
 
-1. 前往 [GitHub Releases](https://github.com/coldShan/place-fill/releases) 下载最新版本的 `place-fill-vx.x.x.zip`
-2. 将下载的 zip 文件解压到本地任意目录
-3. 打开浏览器扩展管理页：`chrome://extensions` 或 `edge://extensions`
-4. 打开右上角的“开发者模式”
-5. 点击“加载已解压的扩展程序”
-6. 选择刚刚解压后的发布包目录
-7. 导入完成后，工具栏中会出现 `place-fill` 图标
+- 按当前站点独立控制每个字段的**显示 / 隐藏**
+- 按当前站点单独**开启 / 关闭**智能识别与右键标注功能
+- 所有配置存储在本地，互不干扰
 
-### 使用提示
+### 📦 标注数据管理
 
-- 选择的目录内应直接包含 `manifest.json`
-- Release 压缩包解压后就是插件本体文件，不包含额外的 `extension` 外层目录
-- 如果修改了插件代码，需要回到扩展管理页点击“重新加载”
+- 支持**导出**人工标注数据（JSON）
+- 支持**脱敏导出**（隐去生成值，仅保留字段映射）
+- 支持**导入**已有标注，跨设备迁移
+
+---
+
+## 安装方法
+
+### 从 Release 安装（推荐）
+
+1. 前往 [GitHub Releases](https://github.com/coldShan/place-fill/releases) 下载最新的 `place-fill-vx.x.x.zip`
+2. 解压到本地任意目录
+3. 打开 `chrome://extensions`，开启右上角**开发者模式**
+4. 点击**加载已解压的扩展程序**，选择解压后的目录
+5. 工具栏出现插件图标即安装成功
+
+> **提示**：解压后的目录内应直接包含 `manifest.json`，无需进入子目录。
+
+### 从源码加载
+
+```bash
+git clone https://github.com/coldShan/place-fill.git
+```
+
+在 `chrome://extensions` 中加载 `extension/` 目录即可，无需任何构建步骤。
+
+---
+
+## 本地开发
+
+本项目**零构建工具**，无 npm、无打包器，所有源码均为浏览器原生可直接运行的 JS。
+
+```bash
+# 语法检查
+node --check extension/src/*.js
+
+# 运行全部测试（88 个用例，基于 node:test）
+node --test tests/*.test.mjs
+
+# 同步 Lucide 图标（下载缺失、移除未使用）
+node extension/scripts/localize-icons.mjs
+
+# 打包发布 zip（版本号读取自 manifest.json）
+node extension/scripts/package-release.mjs
+```
+
+### 目录结构
+
+```
+place-fill/
+├── extension/
+│   ├── manifest.json
+│   ├── src/               # 内容脚本（按加载顺序依赖）
+│   │   ├── field-meta.js
+│   │   ├── generators.js
+│   │   ├── smart-fill.js
+│   │   ├── content-script-panel.js
+│   │   ├── background.js
+│   │   └── ...
+│   ├── assets/
+│   │   └── icons/lucide/  # 本地 SVG 图标
+│   └── scripts/           # 构建辅助脚本
+├── tests/                 # 单元测试
+└── releases/              # 打包输出目录
+```
+
+### 开发调试
+
+- 在 `chrome://extensions` 中以开发者模式加载 `extension/` 目录
+- 使用 `mock-form/index.html` 作为包含全部 9 种字段的本地测试页面
+- 修改源码后，在扩展管理页点击**重新加载**即可生效
+
+---
+
+## 许可
+
+[MIT License](LICENSE)
