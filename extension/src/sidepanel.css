@@ -591,6 +591,11 @@
 
 /* 姓名 — 大号主标题，不显示图标 */
 .ctdp-card-identity[data-key="fullName"] {
+  /* 隐藏图标并消除 grid 列占位，让文字铺满全宽 */
+  .ctdp-card-body {
+    display: block;
+  }
+
   .ctdp-card-icon {
     display: none;
   }
