@@ -217,39 +217,39 @@
 .ctdp-root[data-visible="false"] .ctdp-panel,
 .ctdp-root[data-visible="false"] .ctdp-dock {
   opacity: 0;
-  transform: translateX(24px);
+  transform: translateX(24px) scale(0.96);
   pointer-events: none;
 }
 
 .ctdp-root[data-visible="true"][data-collapsed="true"] .ctdp-panel {
   opacity: 0;
-  transform: translateX(24px);
+  transform: translateX(20px) scale(0.96);
   pointer-events: none;
 }
 
 .ctdp-root[data-visible="true"][data-collapsed="true"] .ctdp-dock {
   opacity: 1;
-  transform: translateX(0);
+  transform: translateX(0) scale(1);
   pointer-events: auto;
 }
 
 .ctdp-root[data-visible="true"][data-collapsed="false"] .ctdp-panel {
   opacity: 1;
-  transform: translateX(0);
+  transform: translateX(0) scale(1);
   pointer-events: auto;
 }
 
 .ctdp-root[data-visible="true"][data-collapsed="false"] .ctdp-dock {
   opacity: 0;
-  transform: translateX(12px);
+  transform: translateX(10px) scale(0.86);
   pointer-events: none;
 }
 
 .ctdp-dock,
 .ctdp-panel {
   transition:
-    opacity 180ms ease,
-    transform 180ms ease;
+    opacity 200ms ease,
+    transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .ctdp-dock {
@@ -269,6 +269,7 @@
   -webkit-backdrop-filter: none;
   box-shadow: none;
   cursor: pointer;
+  transform-origin: right center;
 }
 
 .ctdp-panel {
@@ -276,6 +277,7 @@
   width: 380px;
   height: min(720px, calc(100vh - 36px));
   margin-right: 18px;
+  transform-origin: right top;
   max-height: calc(100vh - 36px);
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto auto;
