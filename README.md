@@ -5,7 +5,7 @@
 <h1 align="center">place-fill</h1>
 
 <p align="center">
-  为表单联调、回归测试和录屏演示而生的 Chrome 填充插件
+  为表单联调、回归测试而生的 Chrome 填充插件
 </p>
 
 <p align="center">
