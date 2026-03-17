@@ -272,19 +272,37 @@
     }
 
     function bindBizcardTilt() {
-      const paper = fieldGrid && fieldGrid.querySelector(".ctdp-bizcard-paper");
+      var paper = fieldGrid && fieldGrid.querySelector(".ctdp-bizcard-paper");
       if (!paper) return;
 
       paper.addEventListener("mousemove", function (e) {
-        const rect = paper.getBoundingClientRect();
-        const dx = (e.clientX - (rect.left + rect.width  / 2)) / (rect.width  / 2);
-        const dy = (e.clientY - (rect.top  + rect.height / 2)) / (rect.height / 2);
+        var rect = paper.getBoundingClientRect();
+        var dx = (e.clientX - (rect.left + rect.width  / 2)) / (rect.width  / 2); // -1..1
+        var dy = (e.clientY - (rect.top  + rect.height / 2)) / (rect.height / 2); // -1..1
+        var px = ((e.clientX - rect.left) / rect.width  * 100).toFixed(1);
+        var py = ((e.clientY - rect.top)  / rect.height * 100).toFixed(1);
+
+        // 3D 倾斜
         paper.style.transform =
           "rotateX(" + (-dy * 3).toFixed(2) + "deg) rotateY(" + (dx * 6).toFixed(2) + "deg)";
+        // 白色高光跟随光标
+        paper.style.setProperty("--ctdp-light-x", px + "%");
+        paper.style.setProperty("--ctdp-light-y", py + "%");
+        // 动态阴影：跟随倾斜角度偏移
+        var sx = (dx * -12).toFixed(1);
+        var sy = (dy * -8 + 10).toFixed(1);
+        paper.style.boxShadow =
+          "inset 0 1px 0 rgba(255,255,255,0.08)," +
+          "inset 0 -1px 0 rgba(0,0,0,0.3)," +
+          sx + "px " + sy + "px 30px rgba(0,0,0,0.35)," +
+          "0 2px 8px rgba(0,0,0,0.18)";
       });
 
       paper.addEventListener("mouseleave", function () {
         paper.style.transform = "";
+        paper.style.removeProperty("--ctdp-light-x");
+        paper.style.removeProperty("--ctdp-light-y");
+        paper.style.boxShadow = "";
       });
     }
 
