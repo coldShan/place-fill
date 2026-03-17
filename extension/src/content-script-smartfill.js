@@ -20,6 +20,7 @@
     let activeSmartFieldKey = null;
     let lastContextTarget = null;
     let focusTargetClearTimer = null;
+    let fillInProgress = false;
 
     function isTransparentColor(value) {
       return !value || value === "transparent" || value === "rgba(0, 0, 0, 0)";
@@ -211,7 +212,9 @@
       const target = editableTargetApi.findEditableTarget(activeSmartTarget) || editableTargetApi.findEditableTarget(doc.activeElement);
       const value = getFieldValue(fieldKey);
       if (!target || !fieldKey || typeof value !== "string") return;
+      fillInProgress = true;
       editableTargetApi.fillEditableTarget(target, value);
+      fillInProgress = false;
       onFieldFilled(fieldKey);
       showSmartButton(target, smartFillApi.inferFieldKeyForSmartFill(target));
     }
@@ -230,12 +233,15 @@
       if (!editableTarget || !fieldKey || typeof value !== "string") return;
       activeSmartTarget = editableTarget;
       activeSmartFieldKey = fieldKey;
+      fillInProgress = true;
       editableTargetApi.fillEditableTarget(editableTarget, value);
+      fillInProgress = false;
       onFieldFilled(fieldKey);
       showSmartButton(editableTarget, smartFillApi.inferFieldKeyForSmartFill(editableTarget));
     }
 
     function syncTarget(target) {
+      if (fillInProgress) return;
       if (!isEnabled()) {
         hideSmartButton();
         return;
