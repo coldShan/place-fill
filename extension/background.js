@@ -1,6 +1,6 @@
 "use strict";
 
-importScripts("field-meta.js", "field-visibility.js", "site-feature-toggle.js", "smart-fill.js");
+importScripts("src/field-meta.js", "src/field-visibility.js", "src/site-feature-toggle.js", "src/smart-fill.js");
 
 const fieldVisibilityApi = globalThis.ChromeTestDataFieldVisibility;
 const siteFeatureToggleApi = globalThis.ChromeTestDataSiteFeatureToggle;
