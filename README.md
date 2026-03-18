@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/版本-v0.5.0-4a6fa5?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/版本-v0.5.3-4a6fa5?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/Chrome-MV3-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="chrome mv3">
   <img src="https://img.shields.io/badge/零构建-纯原生JS-21e985?style=flat-square" alt="no build">
 </p>
@@ -67,7 +67,7 @@
 
 ### 从 Release 安装
 
-1. 前往 [GitHub Releases](https://github.com/coldShan/place-fill/releases) 下载最新的 `place-fill-vx.x.x.zip`
+1. 前往 [GitHub Releases](https://github.com/coldShan/place-fill/releases) 下载最新的 `place-fill-v0.5.3.zip`
 2. 解压到本地任意目录
 3. 打开 `chrome://extensions`，开启右上角**开发者模式**
 4. 点击**加载已解压的扩展程序**，选择解压后的目录
