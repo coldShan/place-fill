@@ -91,6 +91,9 @@ node --test tests/*.test.mjs
 # 同步 Lucide 图标（下载缺失、移除未使用）
 node extension/scripts/localize-icons.mjs
 
+# 同步 README 版本号（读取 manifest.json）
+node extension/scripts/sync-readme-version.mjs
+
 # 打包发布 zip（版本号读取自 manifest.json）
 node extension/scripts/package-release.mjs
 ```

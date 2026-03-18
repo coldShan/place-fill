@@ -55,6 +55,30 @@ test("packageRelease targets the releases directory with a versioned zip filenam
   });
 });
 
+test("packageRelease runs README version sync before packaging when provided", async () => {
+  const releaseScript = await loadPackageReleaseModule();
+  const rootDir = mkdtempSync(join(tmpdir(), "ctdp-release-sync-"));
+  const extensionDir = join(rootDir, "extension");
+  const releasesDir = join(rootDir, "releases");
+  mkdirSync(extensionDir, { recursive: true });
+  writeFileSync(
+    join(extensionDir, "manifest.json"),
+    JSON.stringify({ name: "place-fill", version: "1.2.3" }, null, 2)
+  );
+
+  let synced = 0;
+  releaseScript?.packageRelease({
+    extensionDir,
+    releasesDir,
+    syncReadme() {
+      synced += 1;
+    },
+    runZip() {}
+  });
+
+  assert.equal(synced, 1);
+});
+
 test("repository keeps tests outside the packaged extension directory", () => {
   assert.equal(existsSync(join(process.cwd(), "tests")), true);
   assert.equal(existsSync(join(process.cwd(), "extension", "tests")), false);

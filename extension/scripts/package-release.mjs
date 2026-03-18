@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { syncReadmeVersion } from "./sync-readme-version.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const scriptsDir = dirname(scriptPath);
@@ -19,6 +20,7 @@ export function buildReleaseZipName({ name, version }) {
 export function packageRelease({
   extensionDir: targetExtensionDir = extensionDir,
   releasesDir: targetReleasesDir = releasesDir,
+  syncReadme = targetExtensionDir === extensionDir ? syncReadmeVersion : null,
   runZip = function ({ extensionDir, outputPath }) {
     const result = spawnSync("zip", ["-qr", outputPath, "."], {
       cwd: extensionDir,
@@ -30,6 +32,10 @@ export function packageRelease({
     }
   }
 } = {}) {
+  if (typeof syncReadme === "function") {
+    syncReadme();
+  }
+
   const manifest = JSON.parse(readFileSync(join(targetExtensionDir, "manifest.json"), "utf8"));
   const fileName = buildReleaseZipName(manifest);
   const outputPath = join(targetReleasesDir, fileName);
