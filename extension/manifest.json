@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "place-fill",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Generate legal-looking test data for fast form testing.",
   "permissions": [
     "clipboardWrite",
