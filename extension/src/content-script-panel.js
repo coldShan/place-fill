@@ -40,16 +40,20 @@
     let visibilityList = null;
     let siteFeatureStatus = null;
     let siteFeatureToggle = null;
+    let focusStyleToggle = null;
     let dockBtn = null;
     let autoFillAborted = false;
     let autoFillRunning = false;
+
+    const FOCUS_STYLE_STORAGE_KEY = "ctdp.focusStyle.v1";
 
     const state = {
       copiedFieldKey: null,
       panelView: "main",
       profile: generators.generateProfile(),
       siteFeatureEnabled: siteFeatureToggleApi.getDefaultSiteFeatureEnabled(),
-      visibleFieldKeys: fieldVisibilityApi.getDefaultVisibleFieldKeys()
+      visibleFieldKeys: fieldVisibilityApi.getDefaultVisibleFieldKeys(),
+      focusStyle: "subtle"
     };
 
     function updatePanelState() {
@@ -166,6 +170,60 @@
 
     function getSiteFeatureStatusText() {
       return state.siteFeatureEnabled ? "当前站点已启用智能识别和右键标注" : "当前站点已停用智能识别和右键标注";
+    }
+
+    function renderFocusStyleToggleMarkup() {
+      return [
+        '<section class="ctdp-settings-card ctdp-settings-card-static">',
+        '  <span class="ctdp-settings-card-head">',
+        "    " + renderButtonIcon("wand-sparkles", "焦点边框风格", "ctdp-settings-card-icon"),
+        '    <span class="ctdp-settings-card-title">焦点边框风格</span>',
+        '    <label class="ctdp-switch" aria-label="切换焦点边框风格">',
+        '      <input class="ctdp-switch-input" type="checkbox" data-role="focus-style-toggle"' + (state.focusStyle === "bold" ? " checked" : "") + ">",
+        '      <span class="ctdp-switch-track"><span class="ctdp-switch-thumb"></span></span>',
+        "    </label>",
+        "  </span>",
+        '  <span class="ctdp-settings-card-note" data-role="focus-style-note">' + getFocusStyleNoteText() + "</span>",
+        "</section>"
+      ].join("");
+    }
+
+    function getFocusStyleNoteText() {
+      return state.focusStyle === "bold" ? "炫彩光晕 / 张扬" : "细边框 / 极简";
+    }
+
+    function applyFocusStyle() {
+      if (!doc || !doc.documentElement) return;
+      doc.documentElement.setAttribute("data-ctdp-focus-style", state.focusStyle);
+    }
+
+    function syncFocusStyleToggle() {
+      if (!focusStyleToggle) return;
+      focusStyleToggle.checked = state.focusStyle === "bold";
+      const note = root && root.querySelector('[data-role="focus-style-note"]');
+      if (note) note.textContent = getFocusStyleNoteText();
+    }
+
+    async function loadFocusStyle() {
+      try {
+        const stored = await chrome.storage.local.get(FOCUS_STYLE_STORAGE_KEY);
+        state.focusStyle = (stored && stored[FOCUS_STYLE_STORAGE_KEY]) === "bold" ? "bold" : "subtle";
+      } catch (_) {
+        state.focusStyle = "subtle";
+      }
+      syncFocusStyleToggle();
+      applyFocusStyle();
+    }
+
+    async function setFocusStyle(bold) {
+      state.focusStyle = bold ? "bold" : "subtle";
+      syncFocusStyleToggle();
+      applyFocusStyle();
+      try {
+        const entry = {};
+        entry[FOCUS_STYLE_STORAGE_KEY] = state.focusStyle;
+        await chrome.storage.local.set(entry);
+      } catch (_) {}
     }
 
     function identityTemplate(key, value) {
@@ -557,6 +615,14 @@
       if (response && response.error) setVersionStatus(response.error, "error");
     }
 
+    async function openDownloadUrl(url) {
+      const response = await sendRuntimeMessage({
+        type: "download-extension-update",
+        url: url || ""
+      });
+      if (response && response.error) setVersionStatus(response.error, "error");
+    }
+
     async function checkForUpdates() {
       setVersionStatus("正在检查更新", "muted");
       const response = await sendRuntimeMessage({ type: "check-extension-update" });
@@ -569,8 +635,12 @@
         return;
       }
       setVersionStatus("发现 v" + response.latestVersion, "warning");
-      if (win.confirm("发现新版本 v" + response.latestVersion + "，是否前往 Release 页面？")) {
-        await openReleasePage(response.releaseUrl);
+      if (win.confirm("发现新版本 v" + response.latestVersion + "，是否立即下载？")) {
+        if (response.downloadUrl) {
+          await openDownloadUrl(response.downloadUrl);
+        } else {
+          await openReleasePage(response.releaseUrl);
+        }
       }
     }
 
@@ -682,6 +752,7 @@
         "    </header>",
         '    <div class="ctdp-settings-list">',
         renderSiteFeatureToggleMarkup(),
+        renderFocusStyleToggleMarkup(),
         '      <section class="ctdp-settings-card ctdp-settings-card-static">',
         '        <span class="ctdp-settings-card-head">' +
           renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.visibleFields, "填充项选择", "ctdp-settings-card-icon") +
@@ -750,6 +821,7 @@
       visibilityList = root.querySelector('[data-role="field-visibility-list"]');
       siteFeatureStatus = root.querySelector('[data-role="site-feature-status"]');
       siteFeatureToggle = root.querySelector('[data-role="site-feature-toggle"]');
+      focusStyleToggle = root.querySelector('[data-role="focus-style-toggle"]');
       dockBtn = root.querySelector('[data-role="expand"]');
 
       root.addEventListener("click", function (event) {
@@ -812,6 +884,11 @@
           toggleSiteFeatureEnabled(siteFeatureTrigger.checked);
           return;
         }
+        const focusStyleTrigger = event.target.closest('[data-role="focus-style-toggle"]');
+        if (focusStyleTrigger) {
+          setFocusStyle(focusStyleTrigger.checked);
+          return;
+        }
         const trigger = event.target.closest('[data-role="field-visibility-toggle"]');
         if (!trigger) return;
         toggleFieldVisibility(trigger.getAttribute("data-key"), trigger.checked);
@@ -848,6 +925,7 @@
       render();
       hideGithubControls();
       loadSiteFeatureEnabled();
+      loadFocusStyle();
       loadVisibleFieldKeys();
       sendRuntimeMessage({ type: "check-github-reachable" }).then(function (res) {
         if (res && res.reachable) revealGithubControls();

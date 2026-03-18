@@ -25,14 +25,14 @@
   position: fixed;
   top: 18px;
   right: 0;
-  z-index: 2147483647;
+  z-index: 999999;
   pointer-events: none;
   font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 }
 
 .ctdp-smartfill {
   position: absolute;
-  z-index: 2147483647;
+  z-index: 999999;
   width: 42px;
   padding: 0;
   border: 0;
@@ -48,10 +48,16 @@
 .ctdp-smartfocus {
   --ctdp-focus-radius: 14px;
   position: absolute;
-  z-index: 2147483645;
+  z-index: 999997;
   border-radius: var(--ctdp-focus-radius);
-  border: 1px solid rgba(30, 36, 51, 0.82);
-  background: transparent;
+  /* 细渐变边框：padding-box 透明遮住内部，border-box 渐变只露在边框区域 */
+  border: 1.5px solid transparent;
+  background-image:
+    linear-gradient(transparent, transparent),
+    linear-gradient(135deg, rgba(124, 58, 237, 0.75), rgba(6, 182, 212, 0.75), rgba(236, 72, 153, 0.75), rgba(245, 158, 11, 0.65));
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+  background-size: auto, 300% 300%;
   overflow: visible;
   pointer-events: none;
   isolation: isolate;
@@ -60,6 +66,7 @@
   transition:
     opacity 220ms ease,
     transform 220ms ease;
+  animation: ctdp-focus-aurora-shift 4s ease infinite paused;
 }
 
 [data-ctdp-smartfocus-target="true"],
@@ -67,7 +74,7 @@
 [data-ctdp-smartfocus-target="true"]:focus-visible,
 [data-ctdp-smartfocus-target="true"]:focus-within {
   position: relative !important;
-  z-index: 2147483646 !important;
+  z-index: 999998 !important;
   background: var(--ctdp-smartfocus-surface, rgba(255, 255, 255, 0.98)) !important;
   outline: none !important;
   box-shadow: none !important;
@@ -77,13 +84,18 @@
 .ctdp-smartfocus[data-visible="true"] {
   opacity: 1;
   transform: scale(1);
+  animation-play-state: running;
 }
 
-.ctdp-smartfocus::before,
-.ctdp-smartfocus::after {
+/* 极淡外发光，仅作轻微晕染 */
+.ctdp-smartfocus::before {
   content: "";
   position: absolute;
-  border-radius: inherit;
+  inset: -4px;
+  border-radius: calc(var(--ctdp-focus-radius) + 4px);
+  background: linear-gradient(135deg, #7c3aed, #06b6d4, #ec4899, #f59e0b);
+  background-size: 300% 300%;
+  filter: blur(7px);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.5s ease;
@@ -91,7 +103,23 @@
   animation: ctdp-focus-aurora-shift 4s ease infinite paused;
 }
 
-.ctdp-smartfocus::before {
+.ctdp-smartfocus[data-visible="true"]::before {
+  opacity: 0.18;
+  animation-play-state: running;
+}
+
+/* 焦点边框：张扬风格覆写（html[data-ctdp-focus-style="bold"]） */
+[data-ctdp-focus-style="bold"] .ctdp-smartfocus {
+  border: none;
+  background-image: none;
+  background-origin: unset;
+  background-clip: unset;
+  background-size: unset;
+  background: transparent;
+  animation: none;
+}
+
+[data-ctdp-focus-style="bold"] .ctdp-smartfocus::before {
   inset: -3px;
   border-radius: calc(var(--ctdp-focus-radius) + 3px);
   background: linear-gradient(135deg, #7c3aed, #06b6d4, #ec4899, #f59e0b);
@@ -100,15 +128,25 @@
   z-index: -2;
 }
 
-.ctdp-smartfocus::after {
+[data-ctdp-focus-style="bold"] .ctdp-smartfocus[data-visible="true"]::before {
+  opacity: 1;
+}
+
+[data-ctdp-focus-style="bold"] .ctdp-smartfocus::after {
+  content: "";
+  position: absolute;
   inset: -1px;
   border-radius: calc(var(--ctdp-focus-radius) + 1px);
   background: linear-gradient(135deg, rgba(124, 58, 237, 0.25), rgba(6, 182, 212, 0.25), rgba(236, 72, 153, 0.25));
   background-size: 300% 300%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: -1;
+  animation: ctdp-focus-aurora-shift 4s ease infinite paused;
 }
 
-.ctdp-smartfocus[data-visible="true"]::before,
-.ctdp-smartfocus[data-visible="true"]::after {
+[data-ctdp-focus-style="bold"] .ctdp-smartfocus[data-visible="true"]::after {
   opacity: 1;
   animation-play-state: running;
 }
@@ -484,36 +522,35 @@
     transform 0.45s cubic-bezier(0.03, 0.98, 0.52, 0.99),
     box-shadow 0.45s ease;
   overflow: hidden;
-
-  /* 金属磨砂纹理：screen 在深色底上显示为亮色微粒 */
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 180px 180px;
-    opacity: 0.12;
-    filter: contrast(2.5) brightness(1.2);
-    mix-blend-mode: screen;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* 顶部金属高光边 */
-  &::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent 0%, rgba(180, 190, 210, 0.25) 25%, rgba(180, 190, 210, 0.25) 75%, transparent 100%);
-    pointer-events: none;
-    z-index: 1;
-  }
 }
 
+/* 金属磨砂纹理：screen 在深色底上显示为亮色微粒 */
+.ctdp-bizcard-paper::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  opacity: 0.12;
+  filter: contrast(2.5) brightness(1.2);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 顶部金属高光边 */
+.ctdp-bizcard-paper::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(180, 190, 210, 0.25) 25%, rgba(180, 190, 210, 0.25) 75%, transparent 100%);
+  pointer-events: none;
+  z-index: 1;
+}
 
 /* 名片头部：姓名行 + 公司 */
 .ctdp-bizcard-header {
@@ -552,19 +589,19 @@
 /* 邮箱 + 固话并排行 */
 .ctdp-bizcard-pair {
   display: flex;
+}
 
-  .ctdp-card-row {
-    flex: 1;
-    min-width: 0;
-    padding-right: 8px;
+.ctdp-bizcard-pair .ctdp-card-row {
+  flex: 1;
+  min-width: 0;
+  padding-right: 8px;
+}
 
-    .ctdp-card-value {
-      font-size: 11.5px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-  }
+.ctdp-bizcard-pair .ctdp-card-row .ctdp-card-value {
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 卡片基类（两种变体的公共属性） */
@@ -574,80 +611,76 @@
   border: none;
   cursor: pointer;
   transition: background-color 140ms ease;
+}
 
-  &[data-copied="true"] {
-    animation: ctdp-card-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
+.ctdp-card[data-copied="true"] {
+  animation: ctdp-card-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* identity 变体（姓名/公司），在 name-row 中 fullName 撑满剩余空间 */
 .ctdp-card-identity {
   display: block;
   padding: 1px 20px;
+}
 
-  .ctdp-bizcard-name-row & {
-    flex: 1;
-    min-width: 0;
-    padding: 1px 0;
-  }
-
+.ctdp-bizcard-name-row .ctdp-card-identity {
+  flex: 1;
+  min-width: 0;
+  padding: 1px 0;
 }
 
 /* 姓名 — 大号主标题，不显示图标 */
-.ctdp-card-identity[data-key="fullName"] {
-  /* 隐藏图标并消除 grid 列占位，让文字铺满全宽 */
-  .ctdp-card-body {
-    display: block;
-  }
+.ctdp-card-identity[data-key="fullName"] .ctdp-card-body {
+  display: block;
+}
 
-  .ctdp-card-icon {
-    display: none;
-  }
+.ctdp-card-identity[data-key="fullName"] .ctdp-card-icon {
+  display: none;
+}
 
-  .ctdp-card-value {
-    font-size: 21px;
-    font-weight: 600;
-    font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-    background: linear-gradient(135deg, #d0d0d8, #a8a8b4, #dcdce2, #b8b8c4);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    letter-spacing: 0.03em;
-    line-height: 1.2;
-    margin: 0;
-  }
+.ctdp-card-identity[data-key="fullName"] .ctdp-card-value {
+  font-size: 21px;
+  font-weight: 600;
+  font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: linear-gradient(135deg, #d0d0d8, #a8a8b4, #dcdce2, #b8b8c4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  margin: 0;
 }
 
 /* 公司名 — 图标 + 副标题，padding 清零避免与 header 的 20px 双重叠加 */
 .ctdp-card-identity[data-key="companyName"] {
   padding: 1px 0;
+}
 
-  .ctdp-card-body {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    grid-template-columns: unset;
-  }
+.ctdp-card-identity[data-key="companyName"] .ctdp-card-body {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  grid-template-columns: unset;
+}
 
-  .ctdp-card-icon {
-    width: 13px;
-    height: 13px;
-    min-height: 13px;
-    flex-shrink: 0;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    color: rgba(160, 168, 190, 0.5);
-  }
+.ctdp-card-identity[data-key="companyName"] .ctdp-card-icon {
+  width: 13px;
+  height: 13px;
+  min-height: 13px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: rgba(160, 168, 190, 0.5);
+}
 
-  .ctdp-card-value {
-    font-size: 12px;
-    font-weight: 400;
-    font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-    color: rgba(160, 168, 190, 0.7);
-    letter-spacing: 0.03em;
-    margin: 0;
-  }
+.ctdp-card-identity[data-key="companyName"] .ctdp-card-value {
+  font-size: 12px;
+  font-weight: 400;
+  font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  color: rgba(160, 168, 190, 0.7);
+  letter-spacing: 0.03em;
+  margin: 0;
 }
 
 /* 姓名行右侧手机号（图标 + 号码，小号灰色） */
@@ -655,73 +688,73 @@
   flex-shrink: 0;
   padding: 2px 0;
   border-radius: 4px;
+}
 
-  .ctdp-card-body {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    grid-template-columns: unset;
-  }
+.ctdp-card-mobile-header .ctdp-card-body {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  grid-template-columns: unset;
+}
 
-  .ctdp-card-icon {
-    width: 13px;
-    height: 13px;
-    min-height: 13px;
-    flex-shrink: 0;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    color: rgba(160, 168, 190, 0.5);
-  }
+.ctdp-card-mobile-header .ctdp-card-icon {
+  width: 13px;
+  height: 13px;
+  min-height: 13px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: rgba(160, 168, 190, 0.5);
+}
 
-  .ctdp-card-value {
-    font-size: 12px;
-    color: rgba(160, 168, 190, 0.7);
-    letter-spacing: 0.03em;
-    line-height: 1.2;
-    margin: 0;
-  }
+.ctdp-card-mobile-header .ctdp-card-value {
+  font-size: 12px;
+  color: rgba(160, 168, 190, 0.7);
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  margin: 0;
 }
 
 /* row 变体（其余字段） */
 .ctdp-card-row {
   display: block;
   padding: 5px 20px;
+}
 
-  /* row 内部 body 布局：小图标列 */
-  .ctdp-card-body {
-    grid-template-columns: 16px minmax(0, 1fr);
-    gap: 8px;
-  }
+/* row 内部 body 布局：小图标列 */
+.ctdp-card-row .ctdp-card-body {
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 8px;
+}
 
-  /* row 图标：银色 */
-  .ctdp-card-icon {
-    align-self: center;
-    width: 14px;
-    height: 14px;
-    min-height: 14px;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    color: rgba(160, 168, 190, 0.55);
-  }
+/* row 图标：银色 */
+.ctdp-card-row .ctdp-card-icon {
+  align-self: center;
+  width: 14px;
+  height: 14px;
+  min-height: 14px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: rgba(160, 168, 190, 0.55);
+}
 
-  /* row label：暗银标签 */
-  .ctdp-card-label {
-    font-size: 10px;
-    color: rgba(140, 150, 175, 0.55);
-    letter-spacing: 0.04em;
-    padding-top: 0;
-  }
+/* row label：暗银标签 */
+.ctdp-card-row .ctdp-card-label {
+  font-size: 10px;
+  color: rgba(140, 150, 175, 0.55);
+  letter-spacing: 0.04em;
+  padding-top: 0;
+}
 
-  /* row value：银色 */
-  .ctdp-card-value {
-    font-size: 13px;
-    color: rgba(195, 200, 215, 0.85);
-    margin-top: 1px;
-  }
+/* row value：银色 */
+.ctdp-card-row .ctdp-card-value {
+  font-size: 13px;
+  color: rgba(195, 200, 215, 0.85);
+  margin-top: 1px;
 }
 
 .ctdp-card-body {
