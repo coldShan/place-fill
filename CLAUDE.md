@@ -65,8 +65,13 @@ Scripts are loaded sequentially; later scripts depend on earlier ones:
 - Manual field annotations: keyed by `domain + first-level subpath` (same business area shares, cross-area isolates)
 - Field visibility config: keyed by domain
 - Site feature toggles: keyed by domain
+- Global (non-domain) preferences: flat key directly via `chrome.storage.local.get/set`, no dedicated API module needed
 
 All use `chrome.storage.local`.
+
+### DOM Structure Note
+
+`.ctdp-smartfocus` and `.ctdp-root` are **siblings** — both direct children of `<html>`, mounted by different controllers (`content-script-smartfill.js` vs `content-script-panel.js`). CSS targeting `.ctdp-smartfocus` via a state toggle must use `html[data-attr] .ctdp-smartfocus`, not `.ctdp-root .ctdp-smartfocus`.
 
 ### Controller Dependency Injection
 
@@ -85,8 +90,14 @@ function createSmartFillController(options) {
 - After any icon addition/removal/change, run `node extension/scripts/localize-icons.mjs`
 - Include resulting file changes in the same commit
 
+## Browser Compatibility
+
+- Minimum supported Chrome: **109** (released Jan 2023)
+- **Do NOT use native CSS nesting** — Chrome 112+ only; write flat selectors instead
+- `background.js` must live at extension root (not `src/`); Chrome 109 `importScripts` resolves paths relative to the service worker file location
+
 ## Development
 
 - Load `extension/` directory as unpacked extension in `chrome://extensions` (developer mode)
 - Use `mock-form/index.html` as a local test page with all 9 field types
-- CSS uses native nesting (max 3 levels) and custom properties for theming
+- CSS uses custom properties for theming; write flat selectors (no native nesting — Chrome 109 incompatible)
