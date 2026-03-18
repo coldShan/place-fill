@@ -23,6 +23,7 @@
     const MOBILE_KEY = "mobile";
     const panelState = panelStateApi.createPanelState();
     const runtimeApi = typeof chrome !== "undefined" ? chrome.runtime : null;
+    const dataRecordsApi = rootScope.ChromeTestDataDataRecords;
     const extensionVersion = runtimeApi && typeof runtimeApi.getManifest === "function" ? String(runtimeApi.getManifest().version || "") : "";
     let root = null;
     let fieldGrid = null;
@@ -417,6 +418,7 @@
     function regenerateProfile() {
       state.copiedFieldKey = null;
       state.profile = generators.generateProfile();
+      recordGeneratedProfile();
       hideFallback();
       pulseFlash("regen");
       pulseRefreshGrid();
@@ -602,9 +604,30 @@
       });
     }
 
+    function getCurrentScopeKey() {
+      if (!win || !win.location || typeof win.location.hostname !== "string") return "";
+      return String(win.location.hostname || "").trim().toLowerCase();
+    }
+
+    function recordGeneratedProfile() {
+      const scope = getCurrentScopeKey();
+      if (!scope || !dataRecordsApi || typeof dataRecordsApi.recordGeneratedProfile !== "function") return Promise.resolve([]);
+      return dataRecordsApi.recordGeneratedProfile(scope, state.profile).catch(function () {
+        return [];
+      });
+    }
+
     async function openRepositoryPage() {
       const response = await sendRuntimeMessage({ type: "open-extension-repository-page" });
       if (response && response.error) setVersionStatus(response.error, "error");
+    }
+
+    async function openDataManagerPage() {
+      const response = await sendRuntimeMessage({
+        type: "open-data-manager-page",
+        scope: getCurrentScopeKey()
+      });
+      if (response && response.error) setSettingsStatus(response.error, "error");
     }
 
     async function openReleasePage(url) {
@@ -721,6 +744,9 @@
         '      <div class="ctdp-toolbar-group ctdp-toolbar-group-left">',
         '        <button class="ctdp-btn ctdp-footer-btn" type="button" data-role="open-settings" aria-label="打开设置" title="打开设置">' +
           renderButtonIcon(iconAssetsApi.ACTION_ICONS.settings, "打开设置", "ctdp-btn-icon") +
+          "</button>",
+        '        <button class="ctdp-btn ctdp-footer-btn" type="button" data-role="open-data-manager" aria-label="打开数据管理" title="打开数据管理">' +
+          renderButtonIcon("list-filter", "打开数据管理", "ctdp-btn-icon") +
           "</button>",
         "      </div>",
         '      <div class="ctdp-toolbar-group ctdp-toolbar-group-right">',
@@ -849,6 +875,10 @@
           openRepositoryPage();
           return;
         }
+        if (role === "open-data-manager") {
+          openDataManagerPage();
+          return;
+        }
         if (role === "check-update") {
           checkForUpdates();
           return;
@@ -923,6 +953,7 @@
       });
 
       render();
+      recordGeneratedProfile();
       hideGithubControls();
       loadSiteFeatureEnabled();
       loadFocusStyle();

@@ -1,7 +1,8 @@
 "use strict";
 
-importScripts("src/field-meta.js", "src/field-visibility.js", "src/site-feature-toggle.js", "src/smart-fill.js");
+importScripts("src/field-meta.js", "src/field-visibility.js", "src/site-feature-toggle.js", "src/smart-fill.js", "generated/data-manager-bridge.js");
 
+const dataManagerBridgeApi = globalThis.ChromeTestDataDataManagerBridge;
 const fieldVisibilityApi = globalThis.ChromeTestDataFieldVisibility;
 const siteFeatureToggleApi = globalThis.ChromeTestDataSiteFeatureToggle;
 const smartFillApi = globalThis.ChromeTestDataSmartFill;
@@ -93,6 +94,15 @@ function compareVersions(left, right) {
 function openExtensionPage(url) {
   if (!url || !chrome.tabs || typeof chrome.tabs.create !== "function") return;
   chrome.tabs.create({ url: url });
+}
+
+function openDataManagerPage(scope) {
+  if (!chrome.runtime || typeof chrome.runtime.getURL !== "function") return;
+  const baseUrl = chrome.runtime.getURL("");
+  const url = dataManagerBridgeApi && typeof dataManagerBridgeApi.buildDataManagerPageUrl === "function"
+    ? dataManagerBridgeApi.buildDataManagerPageUrl(baseUrl, scope)
+    : chrome.runtime.getURL("data-manager.html");
+  openExtensionPage(url);
 }
 
 async function checkExtensionUpdate() {
@@ -251,6 +261,11 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
   if (!message || typeof message.type !== "string") return;
   if (message.type === "open-extension-repository-page") {
     openExtensionPage(REPOSITORY_URL);
+    sendResponse({ ok: true });
+    return;
+  }
+  if (message.type === "open-data-manager-page") {
+    openDataManagerPage(message.scope);
     sendResponse({ ok: true });
     return;
   }

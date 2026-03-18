@@ -1,0 +1,20 @@
+{
+  "name": "place-fill",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-extension.mjs",
+    "build:watch": "node scripts/build-extension.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm run test:js && pnpm run test:ts",
+    "test:js": "node --test tests/*.test.mjs",
+    "test:ts": "tsx --test tests/*.test.ts",
+    "check": "node --check extension/background.js extension/src/*.js"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.24",
+    "@types/node": "^24.5.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vite": "^7.0.7"
+  }
+}

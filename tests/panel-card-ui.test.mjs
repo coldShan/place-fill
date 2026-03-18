@@ -29,8 +29,9 @@ test("dock and smart-fill buttons use icon markup instead of visible text labels
 });
 
 test("panel toolbar keeps settings on the left and github plus two actions on the right", () => {
-  assert.match(panelScript, /<header class="ctdp-toolbar">[\s\S]*?ctdp-toolbar-group-left[\s\S]*?data-role="open-settings"[\s\S]*?ctdp-toolbar-group-right[\s\S]*?data-role="regen"[\s\S]*?data-role="copy-all"[\s\S]*?data-role="open-repository"/);
+  assert.match(panelScript, /<header class="ctdp-toolbar">[\s\S]*?ctdp-toolbar-group-left[\s\S]*?data-role="open-settings"[\s\S]*?data-role="open-data-manager"[\s\S]*?ctdp-toolbar-group-right[\s\S]*?data-role="regen"[\s\S]*?data-role="copy-all"[\s\S]*?data-role="open-repository"/);
   assert.match(panelScript, /data-role="open-settings" aria-label="打开设置" title="打开设置"/);
+  assert.match(panelScript, /data-role="open-data-manager" aria-label="打开数据管理" title="打开数据管理"/);
   assert.match(panelScript, /class="ctdp-btn ctdp-btn-primary is-hidden" type="button" data-role="open-repository" aria-label="打开 GitHub 仓库" title="打开 GitHub 仓库"/);
   assert.match(panelScript, /data-role="regen" aria-label="重新生成全部" title="重新生成全部"/);
   assert.match(panelScript, /data-role="copy-all" aria-label="复制整组数据" title="复制整组数据"/);
@@ -106,6 +107,8 @@ test("manual copy fallback uses accurate failure wording instead of browser supp
 });
 
 test("smart fill menu supports right-click manual annotation and regenerates only the used field", () => {
+  assert.match(panelScript, /ChromeTestDataDataRecords/);
+  assert.match(panelScript, /recordGeneratedProfile/);
   assert.match(panelScript, /function regenerateFieldValue\(fieldKey\)/);
   assert.match(panelScript, /siteFeatureEnabled:\s*siteFeatureToggleApi\.getDefaultSiteFeatureEnabled\(\)/);
   assert.match(panelScript, /readSiteFeatureEnabled/);

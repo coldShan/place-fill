@@ -1,4 +1,5 @@
 *.zip
+node_modules
 task_plan.md
 findings.md
 progress.md

@@ -11,7 +11,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/版本-v0.5.3-4a6fa5?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/Chrome-MV3-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="chrome mv3">
-  <img src="https://img.shields.io/badge/零构建-纯原生JS-21e985?style=flat-square" alt="no build">
+  <img src="https://img.shields.io/badge/渐进迁移-JS%20%2B%20TS-21e985?style=flat-square" alt="js and ts">
 </p>
 
 ---
@@ -55,6 +55,14 @@
 - 按当前站点单独**开启 / 关闭**智能识别与右键标注功能
 - 所有配置存储在本地，互不干扰
 
+### 🗂️ 数据管理页
+
+- 从插件面板进入独立的数据管理页
+- 按**域名 / IP** 隔离展示和管理数据
+- `生成记录` 记录当前作用域最近 30 条整组生成快照
+- `常用数据` 支持整组模板的**新增 / 编辑 / 删除 / 收藏 / 复制**
+- 可从生成记录一键收藏到常用数据
+
 ### 📦 标注数据管理
 
 - 支持**导出**人工标注数据（JSON）
@@ -79,13 +87,29 @@
 
 ## 本地开发
 
-本项目**零构建工具**，无 npm、无打包器，所有源码均为浏览器原生可直接运行的 JS。
+项目当前处于**渐进式 TypeScript 迁移阶段**：
+
+- 现有 content script / smart fill 主体仍保持原生 JS
+- 数据管理页、共享数据存储和桥接模块通过 `TypeScript + Vite` 构建到 `extension/generated/`
+- 加载 unpacked extension 前需要先执行一次构建
 
 ```bash
-# 语法检查
-node --check extension/src/*.js
+# 安装依赖
+pnpm install
 
-# 运行全部测试（88 个用例，基于 node:test）
+# 构建数据管理页和 TS 桥接产物
+pnpm build
+
+# TS 类型检查
+pnpm typecheck
+
+# JS 语法检查
+pnpm check
+
+# 运行全部 TS 测试
+pnpm run test:ts
+
+# 运行现有 JS 测试
 node --test tests/*.test.mjs
 
 # 同步 Lucide 图标（下载缺失、移除未使用）
@@ -103,17 +127,23 @@ node extension/scripts/package-release.mjs
 ```
 place-fill/
 ├── extension/
+│   ├── data-manager.html    # 独立数据管理页入口
+│   ├── generated/           # Vite 生成的 TS 运行时产物
+│   ├── src-ts/              # 新功能与共享模块的 TS 源码
 │   ├── manifest.json
-│   ├── src/               # 内容脚本（按加载顺序依赖）
-│   │   ├── field-meta.js
-│   │   ├── generators.js
-│   │   ├── smart-fill.js
-│   │   ├── content-script-panel.js
-│   │   ├── background.js
-│   │   └── ...
+│   ├── background.js
+│   ├── src/                 # 现有原生 JS 内容脚本
 │   ├── assets/
-│   │   └── icons/lucide/  # 本地 SVG 图标
-│   └── scripts/           # 构建辅助脚本
-├── tests/                 # 单元测试
-└── releases/              # 打包输出目录
+│   └── scripts/
+├── scripts/                 # 仓库级构建脚本
+├── tests/
+├── package.json
+└── pnpm-lock.yaml
 ```
+
+### 加载调试
+
+1. 执行 `pnpm install`
+2. 执行 `pnpm build`
+3. 打开 `chrome://extensions`
+4. 选择 `extension/` 目录作为 unpacked extension
