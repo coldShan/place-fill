@@ -115,11 +115,16 @@ async function checkExtensionUpdate() {
   const payload = await response.json();
   const latestVersion = normalizeVersion(payload && (payload.tag_name || payload.name));
   if (!latestVersion) throw new Error("未找到可用版本信息");
+  const assets = Array.isArray(payload && payload.assets) ? payload.assets : [];
+  const zipAsset = assets.find(function (asset) {
+    return asset && typeof asset.name === "string" && asset.name.endsWith(".zip");
+  });
   return {
     currentVersion,
     hasUpdate: compareVersions(latestVersion, currentVersion) > 0,
     latestVersion,
-    releaseUrl: payload && payload.html_url ? payload.html_url : RELEASES_URL
+    releaseUrl: payload && payload.html_url ? payload.html_url : RELEASES_URL,
+    downloadUrl: zipAsset && zipAsset.browser_download_url ? zipAsset.browser_download_url : ""
   };
 }
 
@@ -256,6 +261,11 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
   }
   if (message.type === "open-extension-release-page") {
     openExtensionPage(message.url || RELEASES_URL);
+    sendResponse({ ok: true });
+    return;
+  }
+  if (message.type === "download-extension-update") {
+    openExtensionPage(message.url);
     sendResponse({ ok: true });
     return;
   }
