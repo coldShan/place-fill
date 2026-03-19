@@ -38,11 +38,13 @@
 
 html,
 body {
+  height: 100%;
   min-height: 100%;
 }
 
 body {
   margin: 0;
+  overflow: hidden;
 }
 
 button,
@@ -64,6 +66,7 @@ select:focus-visible {
 
 .dm-app {
   position: relative;
+  height: 100vh;
   min-height: 100vh;
   overflow: hidden;
 }
@@ -108,33 +111,14 @@ select:focus-visible {
 .dm-shell {
   position: relative;
   z-index: 1;
+  height: 100vh;
   min-height: 100vh;
   padding: 28px;
+  max-width: 1680px;
+  margin: 0 auto;
 }
 
-.dm-topbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  align-items: flex-start;
-  margin-bottom: 22px;
-  padding: 28px 30px;
-  border: 1px solid var(--dm-line);
-  border-radius: var(--dm-radius-xl);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 251, 253, 0.88));
-  box-shadow: var(--dm-shadow-lg);
-  backdrop-filter: blur(20px);
-}
-
-.dm-brand {
-  display: grid;
-  gap: 14px;
-}
-
-.dm-brand-kicker,
 .dm-view-kicker,
-.dm-sidebar-label,
-.dm-card-kicker,
 .dm-empty-kicker,
 .dm-modal-kicker {
   margin: 0;
@@ -144,14 +128,6 @@ select:focus-visible {
   text-transform: uppercase;
 }
 
-.dm-brand-copy {
-  display: grid;
-  gap: 10px;
-}
-
-.dm-brand-copy h1,
-.dm-view h1,
-.dm-card-title,
 .dm-empty-state h2,
 .dm-modal-head h2 {
   margin: 0;
@@ -160,48 +136,6 @@ select:focus-visible {
   letter-spacing: -0.04em;
 }
 
-.dm-brand-copy h1 {
-  font-size: clamp(36px, 6vw, 58px);
-  line-height: 0.92;
-}
-
-.dm-brand-copy p {
-  max-width: 760px;
-  margin: 0;
-  color: var(--dm-ink-2);
-  font-size: 15px;
-  line-height: 1.7;
-}
-
-.dm-topbar-meta {
-  display: grid;
-  gap: 14px;
-  min-width: 250px;
-}
-
-.dm-scope-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid rgba(25, 76, 109, 0.08);
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(25, 76, 109, 0.12), rgba(34, 106, 87, 0.14));
-  color: var(--dm-accent-strong);
-  font-size: 13px;
-  font-weight: 700;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
-}
-
-.dm-scope-switcher {
-  display: grid;
-  gap: 8px;
-  color: var(--dm-ink-2);
-  font-size: 13px;
-}
-
-.dm-scope-switcher select,
 .dm-form-field input {
   min-height: 46px;
   border: 1px solid var(--dm-line);
@@ -217,12 +151,16 @@ select:focus-visible {
 
 .dm-frame {
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
+  grid-template-columns: 190px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
   gap: 20px;
+  align-items: stretch;
 }
 
 .dm-sidebar {
   position: relative;
+  min-height: 0;
 }
 
 .dm-sidebar-panel,
@@ -234,22 +172,27 @@ select:focus-visible {
 }
 
 .dm-sidebar-panel {
-  position: sticky;
-  top: 24px;
   display: grid;
-  gap: 10px;
-  padding: 24px;
+  gap: 8px;
+  align-content: start;
+  grid-auto-rows: max-content;
+  height: 100%;
+  min-height: 0;
+  padding: 18px;
   border-radius: var(--dm-radius-xl);
 }
 
 .dm-nav-link {
   display: flex;
   align-items: center;
-  min-height: 52px;
-  padding: 0 16px;
+  min-height: 56px;
+  padding: 0 18px;
   border-radius: 16px;
   color: var(--dm-ink-2);
   background: transparent;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   cursor: pointer;
   transition:
     transform var(--dm-motion-fast) ease,
@@ -266,78 +209,30 @@ select:focus-visible {
   transform: translateY(-1px);
 }
 
-.dm-sidebar-note {
-  display: grid;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 16px;
-  border-radius: var(--dm-radius-md);
-  color: var(--dm-ink-2);
-  background: rgba(17, 32, 47, 0.04);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.dm-sidebar-note strong {
-  color: var(--dm-ink-1);
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 .dm-workspace {
-  min-height: 640px;
+  min-height: 0;
+  overflow: hidden;
   border-radius: var(--dm-radius-xl);
   padding: 28px;
 }
 
 .dm-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
   animation: dm-fade-in var(--dm-motion-base) ease;
 }
 
-.dm-view-head {
+.dm-view-actions {
   display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  align-items: flex-start;
-  margin-bottom: 26px;
-}
-
-.dm-view-copy {
-  display: grid;
-  gap: 10px;
-}
-
-.dm-view h1 {
-  font-size: clamp(32px, 5vw, 48px);
-  line-height: 0.98;
-}
-
-.dm-view-description {
-  max-width: 720px;
-  margin: 0;
-  color: var(--dm-ink-2);
-  font-size: 15px;
-  line-height: 1.7;
-}
-
-.dm-view-description strong {
-  color: var(--dm-accent-strong);
-}
-
-.dm-view-meta {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid var(--dm-line);
-  border-radius: 999px;
-  color: var(--dm-ink-2);
-  background: rgba(255, 255, 255, 0.82);
-  white-space: nowrap;
+  justify-content: flex-end;
+  margin-bottom: 18px;
 }
 
 .dm-favorites-shell {
+  flex: 1;
+  min-height: 0;
   width: 100%;
 }
 
@@ -410,7 +305,9 @@ select:focus-visible {
 }
 
 .dm-table-shell {
-  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   border: 1px solid var(--dm-line);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.92);
@@ -435,10 +332,15 @@ select:focus-visible {
 }
 
 .dm-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   color: var(--dm-ink-3);
   font-size: 12px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
+  background: linear-gradient(180deg, rgba(246, 250, 252, 0.98), rgba(239, 245, 248, 0.96));
+  box-shadow: inset 0 -1px 0 rgba(41, 68, 90, 0.08);
 }
 
 .dm-table td {
@@ -612,48 +514,44 @@ select:focus-visible {
 }
 
 @media (max-width: 980px) {
-  .dm-topbar,
-  .dm-view-head {
-    flex-direction: column;
-  }
-
   .dm-frame {
     grid-template-columns: 1fr;
+    height: 100%;
   }
 
   .dm-sidebar-panel {
-    position: static;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
-  }
-
-  .dm-sidebar-note {
-    grid-column: 1 / -1;
+    height: auto;
   }
 }
 
 @media (max-width: 720px) {
   .dm-shell {
+    height: 100vh;
     padding: 16px;
   }
 
-  .dm-topbar,
   .dm-workspace,
   .dm-sidebar-panel,
   .dm-modal-card {
     padding: 18px;
   }
 
-  .dm-topbar-meta {
-    width: 100%;
-  }
-
   .dm-modal-grid {
     grid-template-columns: 1fr;
   }
 
+  .dm-view-actions {
+    justify-content: stretch;
+  }
+
+  .dm-view-actions .dm-primary-btn {
+    width: 100%;
+  }
+
   .dm-table-shell {
-    overflow-x: auto;
+    overflow: auto;
   }
 
   .dm-table {

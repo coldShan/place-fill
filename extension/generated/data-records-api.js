@@ -117,7 +117,7 @@ var ChromeTestDataDataRecordsBundle = (function() {
         return {
           createdAt,
           id: normalizeId(current.id),
-          name: String(current.name || "").trim() || "未命名模板",
+          name: String(current.name || "").trim() || "常用数据",
           profile: normalizeProfile(current.profile),
           updatedAt
         };
@@ -182,7 +182,7 @@ var ChromeTestDataDataRecordsBundle = (function() {
     const entry = {
       createdAt: String(now),
       id: createId(now, random),
-      name: String(input.name || "").trim() || "未命名模板",
+      name: String(input.name || "").trim() || "常用数据",
       profile: normalizeProfile(input.profile),
       updatedAt: String(now)
     };
@@ -229,7 +229,7 @@ var ChromeTestDataDataRecordsBundle = (function() {
     await writeFavoriteProfilesMap(favoritesMap, env);
     return true;
   }
-  async function createFavoriteFromHistory(scope, historyId, name, env) {
+  async function createFavoriteFromHistory(scope, historyId, name = "", env) {
     const records = await readGeneratedProfiles(scope, env);
     const historyEntry = records.find(function(entry) {
       return entry.id === historyId;

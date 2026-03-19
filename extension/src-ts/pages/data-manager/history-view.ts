@@ -1,19 +1,9 @@
 import type { HistoryEntry } from "./page-model";
 import { escapeHtml, formatDisplayTime } from "./view-helpers";
 
-export function renderHistoryView(scope: string, entries: HistoryEntry[]): string {
+export function renderHistoryView(_scope: string, entries: HistoryEntry[]): string {
   return [
-    '<section class="dm-view dm-view-history" aria-labelledby="dm-view-title">',
-    '  <div class="dm-view-head">',
-    '    <div class="dm-view-copy">',
-    '      <p class="dm-view-kicker">Recent 30</p>',
-    '      <h1 id="dm-view-title">生成记录</h1>',
-    '      <p class="dm-view-description">这里只保留当前作用域 <strong>' +
-      escapeHtml(scope || "未识别") +
-      "</strong> 最近 30 条整组快照，单字段填充不会进入历史。</p>",
-    "    </div>",
-    '    <div class="dm-view-meta">按时间倒序排列</div>',
-    "  </div>",
+    '<section class="dm-view dm-view-history" aria-label="生成记录">',
     entries.length
       ? [
           '<div class="dm-table-shell">',

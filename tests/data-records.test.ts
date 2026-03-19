@@ -79,25 +79,25 @@ test("favorite profiles support create update and delete within a scope", async 
   const created = await createFavoriteProfile(
     "alpha.example.com",
     {
-      name: "回归模板 A",
+      name: "常用数据 A",
       profile: buildProfile(1)
     },
     { storageArea, now: () => 1200 }
   );
 
-  assert.equal(created.name, "回归模板 A");
+  assert.equal(created.name, "常用数据 A");
 
   const updated = await updateFavoriteProfile(
     "alpha.example.com",
     created.id,
     {
-      name: "回归模板 B",
+      name: "常用数据 B",
       profile: buildProfile(2)
     },
     { storageArea, now: () => 1300 }
   );
 
-  assert.equal(updated?.name, "回归模板 B");
+  assert.equal(updated?.name, "常用数据 B");
   assert.equal(updated?.profile.fullName, "测试用户2");
 
   const listAfterUpdate = await readFavoriteProfiles("alpha.example.com", { storageArea });

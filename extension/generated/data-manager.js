@@ -120,7 +120,7 @@ function normalizeFavoriteProfilesMap(rawValue) {
       return {
         createdAt,
         id: normalizeId(current.id),
-        name: String(current.name || "").trim() || "未命名模板",
+        name: String(current.name || "").trim() || "常用数据",
         profile: normalizeProfile(current.profile),
         updatedAt
       };
@@ -138,11 +138,6 @@ async function readFavoriteProfilesMap(env) {
 }
 async function writeFavoriteProfilesMap(nextMap, env) {
   await writeStorageValue(getStorageArea(), FAVORITE_PROFILES_STORAGE_KEY, nextMap);
-}
-async function listKnownScopes(env) {
-  const generatedMap = await readGeneratedProfilesMap();
-  const favoriteMap = await readFavoriteProfilesMap();
-  return Array.from(new Set(Object.keys(generatedMap).concat(Object.keys(favoriteMap)))).sort();
 }
 async function readGeneratedProfiles(scope, env) {
   const normalizedScope = normalizeScopeKey(scope);
@@ -166,7 +161,7 @@ async function createFavoriteProfile(scope, input, env) {
   const entry = {
     createdAt: String(now),
     id: createId(now, random),
-    name: String(input.name || "").trim() || "未命名模板",
+    name: String(input.name || "").trim() || "常用数据",
     profile: normalizeProfile(input.profile),
     updatedAt: String(now)
   };
@@ -213,7 +208,7 @@ async function deleteFavoriteProfile(scope, id, env) {
   await writeFavoriteProfilesMap(favoritesMap);
   return true;
 }
-async function createFavoriteFromHistory(scope, historyId, name, env) {
+async function createFavoriteFromHistory(scope, historyId, name = "", env) {
   const records = await readGeneratedProfiles(scope);
   const historyEntry = records.find(function(entry) {
     return entry.id === historyId;
@@ -244,15 +239,11 @@ function renderFavoriteModal() {
     "      <div>",
     '        <p class="dm-modal-kicker">Reusable Profile</p>',
     '        <h2 id="dm-favorite-modal-title" data-role="favorite-modal-title">新增常用数据</h2>',
-    '        <p class="dm-modal-note" data-role="favorite-modal-note">当前模板会按作用域保存，可在后续直接复制复用。</p>',
+    '        <p class="dm-modal-note" data-role="favorite-modal-note">当前数据会按作用域保存，可在后续直接复制复用。</p>',
     "      </div>",
     '      <button type="button" class="dm-icon-btn" data-action="close-favorite-modal" aria-label="关闭弹窗">关闭</button>',
     "    </div>",
     '    <form class="dm-modal-form" data-role="favorite-form">',
-    '      <label class="dm-form-field dm-form-field-wide">',
-    "        <span>模板名称</span>",
-    '        <input type="text" data-role="favorite-title" placeholder="例如：企业开户回归模板">',
-    "      </label>",
     '      <div class="dm-modal-grid">',
     FIELD_KEYS.map(function(fieldKey) {
       return [
@@ -265,7 +256,7 @@ function renderFavoriteModal() {
     "      </div>",
     '      <div class="dm-modal-actions">',
     '        <button type="button" class="dm-subtle-btn" data-action="close-favorite-modal">取消</button>',
-    '        <button type="submit" class="dm-primary-btn">保存模板</button>',
+    '        <button type="submit" class="dm-primary-btn">保存常用数据</button>',
     "      </div>",
     "    </form>",
     "  </section>",
@@ -273,58 +264,47 @@ function renderFavoriteModal() {
   ].join("");
 }
 function readFavoriteDraft(form) {
-  return {
-    name: String(form?.querySelector('[data-role="favorite-title"]')?.value || ""),
-    profile: normalizeProfile(
-      Object.fromEntries(
-        FIELD_KEYS.map(function(fieldKey) {
-          return [
-            fieldKey,
-            form?.querySelector('[data-field-key="' + fieldKey + '"]')?.value || ""
-          ];
-        })
-      )
+  return normalizeProfile(
+    Object.fromEntries(
+      FIELD_KEYS.map(function(fieldKey) {
+        return [
+          fieldKey,
+          form?.querySelector('[data-field-key="' + fieldKey + '"]')?.value || ""
+        ];
+      })
     )
-  };
+  );
 }
 function syncFavoriteForm(form, titleNode, noteNode, entry) {
   if (!form) return;
-  const titleInput = form.querySelector('[data-role="favorite-title"]');
   if (titleNode) titleNode.textContent = entry ? "编辑常用数据" : "新增常用数据";
   if (noteNode) {
-    noteNode.textContent = entry ? "调整这组模板后，会立即覆盖当前作用域里的已收藏版本。" : "当前模板会按作用域保存，可在后续直接复制复用。";
+    noteNode.textContent = entry ? "调整这组数据后，会立即覆盖当前作用域里的已保存版本。" : "当前数据会按作用域保存，可在后续直接复制复用。";
   }
-  if (titleInput) titleInput.value = entry ? entry.name : "";
   const profile = normalizeProfile(entry ? entry.profile : void 0);
   FIELD_KEYS.forEach(function(fieldKey) {
     const input = form.querySelector('[data-field-key="' + fieldKey + '"]');
     if (input) input.value = profile[fieldKey];
   });
 }
-function renderFavoritesView(scope, entries) {
+function renderFavoritesView(_scope, entries) {
   return [
-    '<section class="dm-view dm-view-favorites" aria-labelledby="dm-view-title">',
-    '  <div class="dm-view-head">',
-    '    <div class="dm-view-copy">',
-    '      <p class="dm-view-kicker">Reusable Profiles</p>',
-    '      <h1 id="dm-view-title">常用数据</h1>',
-    '      <p class="dm-view-description">把会反复复用的整组资料沉淀为模板，当前按作用域 <strong>' + escapeHtml(scope || "未识别") + "</strong> 单独管理。</p>",
-    "    </div>",
+    '<section class="dm-view dm-view-favorites" aria-label="常用数据">',
+    '  <div class="dm-view-actions">',
     '    <button type="button" class="dm-primary-btn" data-action="open-create-favorite">新增常用数据</button>',
     "  </div>",
     entries.length ? [
       '<div class="dm-table-shell dm-favorites-shell">',
       '  <table class="dm-table dm-favorites-table">',
-      "    <thead><tr><th>模板名称</th><th>姓名</th><th>公司</th><th>手机</th><th>更新时间</th><th>操作</th></tr></thead>",
+      "    <thead><tr><th>姓名</th><th>公司</th><th>手机</th><th>邮箱</th><th>操作</th></tr></thead>",
       "    <tbody>",
       entries.map(function(entry) {
         return [
           "<tr>",
-          '  <td class="dm-favorites-name-cell"><strong>' + escapeHtml(entry.name) + "</strong></td>",
           "  <td>" + escapeHtml(entry.profile.fullName || "未填写") + "</td>",
           "  <td>" + escapeHtml(entry.profile.companyName || "未填写") + "</td>",
           "  <td>" + escapeHtml(entry.profile.mobile || "未填写") + "</td>",
-          '  <td class="dm-favorites-time-cell">' + escapeHtml(formatDisplayTime(entry.updatedAt)) + "</td>",
+          "  <td>" + escapeHtml(entry.profile.email || "未填写") + "</td>",
           '  <td class="dm-table-actions">',
           '    <button type="button" class="dm-table-btn" data-action="favorite-copy" data-id="' + escapeHtml(entry.id) + '">复制整组</button>',
           '    <button type="button" class="dm-table-btn" data-action="favorite-edit" data-id="' + escapeHtml(entry.id) + '">编辑</button>',
@@ -340,24 +320,16 @@ function renderFavoritesView(scope, entries) {
       '<section class="dm-empty-state">',
       '  <p class="dm-empty-kicker">No favorites yet</p>',
       "  <h2>当前作用域还没有常用数据</h2>",
-      "  <p>你可以手动新增模板，或者稍后从生成记录里收藏一组数据。</p>",
-      '  <button type="button" class="dm-primary-btn" data-action="open-create-favorite">创建第一组模板</button>',
+      "  <p>你可以手动新增一组数据，或者稍后从生成记录里收藏一组数据。</p>",
+      '  <button type="button" class="dm-primary-btn" data-action="open-create-favorite">新增第一组数据</button>',
       "</section>"
     ].join(""),
     "</section>"
   ].join("");
 }
-function renderHistoryView(scope, entries) {
+function renderHistoryView(_scope, entries) {
   return [
-    '<section class="dm-view dm-view-history" aria-labelledby="dm-view-title">',
-    '  <div class="dm-view-head">',
-    '    <div class="dm-view-copy">',
-    '      <p class="dm-view-kicker">Recent 30</p>',
-    '      <h1 id="dm-view-title">生成记录</h1>',
-    '      <p class="dm-view-description">这里只保留当前作用域 <strong>' + escapeHtml(scope || "未识别") + "</strong> 最近 30 条整组快照，单字段填充不会进入历史。</p>",
-    "    </div>",
-    '    <div class="dm-view-meta">按时间倒序排列</div>',
-    "  </div>",
+    '<section class="dm-view dm-view-history" aria-label="生成记录">',
     entries.length ? [
       '<div class="dm-table-shell">',
       '  <table class="dm-table">',
@@ -423,13 +395,9 @@ const state = {
   editingFavoriteId: null,
   favoriteProfiles: [],
   generatedProfiles: [],
-  knownScopes: [],
   modalOpen: false,
   toastTimer: null
 };
-let scopeSelect = null;
-let scopeBadge = null;
-let scopeStatus = null;
 let workspace = null;
 let toastNode = null;
 let favoriteModal = null;
@@ -457,33 +425,10 @@ async function copyProfile(profile) {
     setToast("自动复制失败，请手动复制", "warning");
   }
 }
-function buildDefaultFavoriteName() {
-  return "收藏 " + (/* @__PURE__ */ new Date()).toLocaleString("zh-CN", { hour12: false });
-}
 function updateLocationQuery() {
   if (!win.history || typeof win.history.replaceState !== "function") return;
   const url = buildDataManagerPageUrl(win.location.href, state.activeScope, state.activeView);
   win.history.replaceState(null, "", url);
-}
-function renderScopeHeader() {
-  if (scopeBadge) scopeBadge.textContent = state.activeScope || "未识别作用域";
-  if (scopeStatus) {
-    scopeStatus.textContent = state.activeScope ? "当前页面按域名/IP 隔离管理数据，可切换到其他作用域进行查看。" : "当前地址没有有效域名/IP，请从插件面板进入，或切换已有作用域继续管理。";
-  }
-}
-function renderScopeOptions() {
-  if (!scopeSelect) return;
-  const scopeSet = new Set(state.knownScopes);
-  if (state.activeScope) scopeSet.add(state.activeScope);
-  scopeSelect.innerHTML = "";
-  Array.from(scopeSet).sort().forEach(function(scope) {
-    const option = doc.createElement("option");
-    option.value = scope;
-    option.textContent = scope;
-    option.selected = scope === state.activeScope;
-    scopeSelect?.appendChild(option);
-  });
-  scopeSelect.disabled = scopeSet.size === 0;
 }
 function renderNavigation() {
   Array.from(doc.querySelectorAll("[data-role='view-link']")).forEach(function(node) {
@@ -507,18 +452,14 @@ function renderModal() {
   syncFavoriteForm(favoriteForm, favoriteModalTitle, favoriteModalNote, editingEntry);
 }
 function renderAll() {
-  renderScopeHeader();
-  renderScopeOptions();
   renderNavigation();
   renderWorkspace();
   renderModal();
   updateLocationQuery();
 }
 async function syncViewState(nextScope, nextView) {
-  const knownScopes = await listKnownScopes();
   const normalizedScope = normalizeScopeKey(nextScope || "");
-  state.knownScopes = knownScopes;
-  state.activeScope = normalizedScope || knownScopes[0] || "";
+  state.activeScope = normalizedScope;
   state.activeView = normalizeDataManagerView(nextView || state.activeView);
   state.favoriteProfiles = state.activeScope ? await readFavoriteProfiles(state.activeScope) : [];
   state.generatedProfiles = state.activeScope ? await readGeneratedProfiles(state.activeScope) : [];
@@ -534,7 +475,7 @@ function openFavoriteModal(entryId) {
   state.editingFavoriteId = entryId || null;
   state.modalOpen = true;
   renderModal();
-  favoriteForm?.querySelector('[data-role="favorite-title"]')?.focus();
+  favoriteForm?.querySelector("[data-field-key]")?.focus();
 }
 function closeFavoriteModal() {
   state.modalOpen = false;
@@ -549,10 +490,10 @@ async function handleFavoriteSubmit(event) {
   }
   const draft = readFavoriteDraft(favoriteForm);
   if (state.editingFavoriteId) {
-    await updateFavoriteProfile(state.activeScope, state.editingFavoriteId, draft);
+    await updateFavoriteProfile(state.activeScope, state.editingFavoriteId, { profile: draft });
     setToast("常用数据已更新", "success");
   } else {
-    await createFavoriteProfile(state.activeScope, draft);
+    await createFavoriteProfile(state.activeScope, { profile: draft });
     setToast("已新增常用数据", "success");
   }
   closeFavoriteModal();
@@ -590,7 +531,7 @@ async function handleRootClick(event) {
     const entry = state.favoriteProfiles.find(function(item) {
       return item.id === id;
     });
-    if (!entry || !win.confirm("确认删除常用数据“" + entry.name + "”？")) return;
+    if (!entry || !win.confirm("确认删除这组常用数据？")) return;
     await deleteFavoriteProfile(state.activeScope, id);
     if (state.editingFavoriteId === id) closeFavoriteModal();
     await syncViewState(state.activeScope, state.activeView);
@@ -605,7 +546,7 @@ async function handleRootClick(event) {
     return;
   }
   if (action === "history-favorite") {
-    const created = await createFavoriteFromHistory(state.activeScope, id, buildDefaultFavoriteName());
+    const created = await createFavoriteFromHistory(state.activeScope, id);
     if (!created) return;
     await syncViewState(state.activeScope, state.activeView);
     setToast("已从生成记录加入常用数据", "success");
@@ -617,26 +558,11 @@ function renderShell() {
     '  <div class="dm-ambient dm-ambient-top" aria-hidden="true"></div>',
     '  <div class="dm-ambient dm-ambient-bottom" aria-hidden="true"></div>',
     '  <div class="dm-shell">',
-    '    <header class="dm-topbar">',
-    '      <div class="dm-brand">',
-    '        <p class="dm-brand-kicker">Place Fill / Data Manager</p>',
-    '        <div class="dm-brand-copy"><h1>数据管理台</h1><p data-role="scope-status"></p></div>',
-    "      </div>",
-    '      <div class="dm-topbar-meta">',
-    '        <span class="dm-scope-badge" data-role="scope-badge"></span>',
-    '        <label class="dm-scope-switcher">',
-    "          <span>作用域</span>",
-    '          <select data-role="scope-select"></select>',
-    "        </label>",
-    "      </div>",
-    "    </header>",
     '    <div class="dm-frame">',
     '      <aside class="dm-sidebar">',
     '        <div class="dm-sidebar-panel">',
-    '          <p class="dm-sidebar-label">Navigation</p>',
     '          <button type="button" class="dm-nav-link" data-role="view-link" data-action="switch-view" data-view="favorites">常用数据</button>',
     '          <button type="button" class="dm-nav-link" data-role="view-link" data-action="switch-view" data-view="history">生成记录</button>',
-    '          <div class="dm-sidebar-note"><strong>管理原则</strong><span>按域名/IP 隔离，模板优先，记录辅助。</span></div>',
     "        </div>",
     "      </aside>",
     '      <main class="dm-workspace" data-role="workspace"></main>',
@@ -646,18 +572,12 @@ function renderShell() {
     "  </div>",
     "</div>"
   ].join("");
-  scopeSelect = doc.querySelector('[data-role="scope-select"]');
-  scopeBadge = doc.querySelector('[data-role="scope-badge"]');
-  scopeStatus = doc.querySelector('[data-role="scope-status"]');
   workspace = doc.querySelector('[data-role="workspace"]');
   toastNode = doc.querySelector('[data-role="toast"]');
   favoriteModal = doc.querySelector('[data-role="favorite-modal"]');
   favoriteModalTitle = doc.querySelector('[data-role="favorite-modal-title"]');
   favoriteModalNote = doc.querySelector('[data-role="favorite-modal-note"]');
   favoriteForm = doc.querySelector('[data-role="favorite-form"]');
-  scopeSelect?.addEventListener("change", function() {
-    void syncViewState(scopeSelect?.value || "", state.activeView);
-  });
   favoriteForm?.addEventListener("submit", function(event) {
     void handleFavoriteSubmit(event);
   });

@@ -130,7 +130,7 @@ function normalizeFavoriteProfilesMap(rawValue: unknown): Record<ScopeKey, Favor
         return {
           createdAt,
           id: normalizeId(current.id),
-          name: String(current.name || "").trim() || "未命名模板",
+          name: String(current.name || "").trim() || "常用数据",
           profile: normalizeProfile(current.profile as Partial<Record<string, unknown>>),
           updatedAt
         };
@@ -200,7 +200,7 @@ export async function readFavoriteProfiles(scope: string, env?: DataRecordsEnv):
 
 export async function createFavoriteProfile(
   scope: string,
-  input: { name: string; profile: Partial<Record<string, unknown>> },
+  input: { name?: string; profile: Partial<Record<string, unknown>> },
   env?: DataRecordsEnv
 ): Promise<FavoriteEntry> {
   const normalizedScope = normalizeScopeKey(scope);
@@ -213,7 +213,7 @@ export async function createFavoriteProfile(
   const entry: FavoriteEntry = {
     createdAt: String(now),
     id: createId(now, random),
-    name: String(input.name || "").trim() || "未命名模板",
+    name: String(input.name || "").trim() || "常用数据",
     profile: normalizeProfile(input.profile),
     updatedAt: String(now)
   };
@@ -228,7 +228,7 @@ export async function createFavoriteProfile(
 export async function updateFavoriteProfile(
   scope: string,
   id: string,
-  input: { name: string; profile: Partial<Record<string, unknown>> },
+  input: { name?: string; profile: Partial<Record<string, unknown>> },
   env?: DataRecordsEnv
 ): Promise<FavoriteEntry | null> {
   const normalizedScope = normalizeScopeKey(scope);
@@ -277,7 +277,7 @@ export async function deleteFavoriteProfile(scope: string, id: string, env?: Dat
 export async function createFavoriteFromHistory(
   scope: string,
   historyId: string,
-  name: string,
+  name = "",
   env?: DataRecordsEnv
 ): Promise<FavoriteEntry | null> {
   const records = await readGeneratedProfiles(scope, env);
