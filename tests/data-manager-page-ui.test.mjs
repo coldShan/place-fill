@@ -66,6 +66,8 @@ test("page fills the viewport and keeps table scrolling inside the workspace", (
   assert.match(pageStyles, /\.dm-shell\s*\{[\s\S]*display:\s*grid/);
   assert.match(pageStyles, /\.dm-shell\s*\{[\s\S]*grid-template-rows:\s*auto auto minmax\(0,\s*1fr\)/);
   assert.match(pageStyles, /\.dm-topbar\s*\{[\s\S]*display:\s*flex/);
+  assert.match(pageStyles, /\.dm-topbar\s*\{[\s\S]*min-height:\s*78px/);
+  assert.match(pageStyles, /\.dm-topbar\s*\{[\s\S]*align-items:\s*center/);
   assert.match(pageStyles, /\.dm-tabs\s*\{[\s\S]*display:\s*flex/);
   assert.match(pageStyles, /\.dm-tab\s*\{[\s\S]*font-size:\s*15px/);
   assert.match(pageStyles, /\.dm-tab\[data-active=\"true\"\]\s*\{[\s\S]*box-shadow:/);

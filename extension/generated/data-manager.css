@@ -130,7 +130,8 @@ select:focus-visible {
 
 .dm-topbar {
   display: flex;
-  align-items: flex-end;
+  min-height: 78px;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 18px 20px 16px;
