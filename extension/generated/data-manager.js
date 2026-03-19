@@ -236,10 +236,9 @@ function renderFavoriteModal() {
     '  <button type="button" class="dm-modal-backdrop" data-action="close-favorite-modal" aria-label="关闭常用数据表单"></button>',
     '  <section class="dm-modal-card" role="dialog" aria-modal="true" aria-labelledby="dm-favorite-modal-title">',
     '    <div class="dm-modal-head">',
-    "      <div>",
-    '        <p class="dm-modal-kicker">Reusable Profile</p>',
+    '      <div class="dm-modal-copy">',
     '        <h2 id="dm-favorite-modal-title" data-role="favorite-modal-title">新增常用数据</h2>',
-    '        <p class="dm-modal-note" data-role="favorite-modal-note">当前数据会按作用域保存，可在后续直接复制复用。</p>',
+    '        <p class="dm-modal-note" data-role="favorite-modal-note">仅保存当前作用域下的数据。</p>',
     "      </div>",
     '      <button type="button" class="dm-icon-btn" data-action="close-favorite-modal" aria-label="关闭弹窗">关闭</button>',
     "    </div>",
@@ -279,7 +278,7 @@ function syncFavoriteForm(form, titleNode, noteNode, entry) {
   if (!form) return;
   if (titleNode) titleNode.textContent = entry ? "编辑常用数据" : "新增常用数据";
   if (noteNode) {
-    noteNode.textContent = entry ? "调整这组数据后，会立即覆盖当前作用域里的已保存版本。" : "当前数据会按作用域保存，可在后续直接复制复用。";
+    noteNode.textContent = entry ? "保存后将覆盖当前这组常用数据。" : "仅保存当前作用域下的数据。";
   }
   const profile = normalizeProfile(entry ? entry.profile : void 0);
   FIELD_KEYS.forEach(function(fieldKey) {
@@ -290,9 +289,6 @@ function syncFavoriteForm(form, titleNode, noteNode, entry) {
 function renderFavoritesView(_scope, entries) {
   return [
     '<section class="dm-view dm-view-favorites" aria-label="常用数据">',
-    '  <div class="dm-view-actions">',
-    '    <button type="button" class="dm-primary-btn" data-action="open-create-favorite">新增常用数据</button>',
-    "  </div>",
     entries.length ? [
       '<div class="dm-table-shell dm-favorites-shell">',
       '  <table class="dm-table dm-favorites-table">',
@@ -318,7 +314,6 @@ function renderFavoritesView(_scope, entries) {
       "</div>"
     ].join("") : [
       '<section class="dm-empty-state">',
-      '  <p class="dm-empty-kicker">No favorites yet</p>',
       "  <h2>当前作用域还没有常用数据</h2>",
       "  <p>你可以手动新增一组数据，或者稍后从生成记录里收藏一组数据。</p>",
       '  <button type="button" class="dm-primary-btn" data-action="open-create-favorite">新增第一组数据</button>',
@@ -355,7 +350,6 @@ function renderHistoryView(_scope, entries) {
       "</div>"
     ].join("") : [
       '<section class="dm-empty-state">',
-      '  <p class="dm-empty-kicker">No history yet</p>',
       "  <h2>当前作用域还没有生成记录</h2>",
       "  <p>先从插件面板生成一组数据，再回到这里进行复制或收藏。</p>",
       "</section>"
@@ -404,6 +398,8 @@ let favoriteModal = null;
 let favoriteModalTitle = null;
 let favoriteModalNote = null;
 let favoriteForm = null;
+let viewTitle = null;
+let viewActions = null;
 function setToast(message, tone = "info") {
   if (!toastNode) return;
   toastNode.textContent = message;
@@ -435,7 +431,9 @@ function renderNavigation() {
     const nextView = normalizeDataManagerView(node.getAttribute("data-view"));
     const isActive = nextView === state.activeView;
     node.setAttribute("aria-current", isActive ? "page" : "false");
+    node.setAttribute("aria-selected", isActive ? "true" : "false");
     node.setAttribute("data-active", isActive ? "true" : "false");
+    node.setAttribute("tabindex", isActive ? "0" : "-1");
   });
 }
 function renderWorkspace() {
@@ -451,7 +449,13 @@ function renderModal() {
   favoriteModal.setAttribute("data-open", state.modalOpen ? "true" : "false");
   syncFavoriteForm(favoriteForm, favoriteModalTitle, favoriteModalNote, editingEntry);
 }
+function renderTopbar() {
+  if (viewTitle) viewTitle.textContent = state.activeView === "history" ? "生成记录" : "常用数据";
+  if (!viewActions) return;
+  viewActions.innerHTML = state.activeView === "favorites" ? '<button type="button" class="dm-primary-btn" data-action="open-create-favorite">新增常用数据</button>' : "";
+}
 function renderAll() {
+  renderTopbar();
   renderNavigation();
   renderWorkspace();
   renderModal();
@@ -558,20 +562,22 @@ function renderShell() {
     '  <div class="dm-ambient dm-ambient-top" aria-hidden="true"></div>',
     '  <div class="dm-ambient dm-ambient-bottom" aria-hidden="true"></div>',
     '  <div class="dm-shell">',
-    '    <div class="dm-frame">',
-    '      <aside class="dm-sidebar">',
-    '        <div class="dm-sidebar-panel">',
-    '          <button type="button" class="dm-nav-link" data-role="view-link" data-action="switch-view" data-view="favorites">常用数据</button>',
-    '          <button type="button" class="dm-nav-link" data-role="view-link" data-action="switch-view" data-view="history">生成记录</button>',
-    "        </div>",
-    "      </aside>",
-    '      <main class="dm-workspace" data-role="workspace"></main>',
-    "    </div>",
+    '    <header class="dm-topbar">',
+    '      <h1 class="dm-topbar-title" data-role="view-title"></h1>',
+    '      <div class="dm-topbar-actions" data-role="view-actions"></div>',
+    "    </header>",
+    '    <nav class="dm-tabs" role="tablist" aria-label="数据管理视图">',
+    '      <button type="button" class="dm-tab" role="tab" data-role="view-link" data-action="switch-view" data-view="favorites">常用数据</button>',
+    '      <button type="button" class="dm-tab" role="tab" data-role="view-link" data-action="switch-view" data-view="history">生成记录</button>',
+    "    </nav>",
+    '    <main class="dm-workspace" data-role="workspace"></main>',
     '    <div class="dm-toast" data-role="toast" hidden></div>',
     renderFavoriteModal(),
     "  </div>",
     "</div>"
   ].join("");
+  viewTitle = doc.querySelector('[data-role="view-title"]');
+  viewActions = doc.querySelector('[data-role="view-actions"]');
   workspace = doc.querySelector('[data-role="workspace"]');
   toastNode = doc.querySelector('[data-role="toast"]');
   favoriteModal = doc.querySelector('[data-role="favorite-modal"]');

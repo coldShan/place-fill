@@ -4,9 +4,6 @@ import { escapeHtml } from "./view-helpers";
 export function renderFavoritesView(_scope: string, entries: FavoriteEntry[]): string {
   return [
     '<section class="dm-view dm-view-favorites" aria-label="常用数据">',
-    '  <div class="dm-view-actions">',
-    '    <button type="button" class="dm-primary-btn" data-action="open-create-favorite">新增常用数据</button>',
-    "  </div>",
     entries.length
       ? [
           '<div class="dm-table-shell dm-favorites-shell">',
@@ -34,7 +31,6 @@ export function renderFavoritesView(_scope: string, entries: FavoriteEntry[]): s
         ].join("")
       : [
           '<section class="dm-empty-state">',
-          '  <p class="dm-empty-kicker">No favorites yet</p>',
           "  <h2>当前作用域还没有常用数据</h2>",
           "  <p>你可以手动新增一组数据，或者稍后从生成记录里收藏一组数据。</p>",
           '  <button type="button" class="dm-primary-btn" data-action="open-create-favorite">新增第一组数据</button>',

@@ -7,10 +7,9 @@ export function renderFavoriteModal(): string {
     '  <button type="button" class="dm-modal-backdrop" data-action="close-favorite-modal" aria-label="关闭常用数据表单"></button>',
     '  <section class="dm-modal-card" role="dialog" aria-modal="true" aria-labelledby="dm-favorite-modal-title">',
     '    <div class="dm-modal-head">',
-    '      <div>',
-    '        <p class="dm-modal-kicker">Reusable Profile</p>',
+    '      <div class="dm-modal-copy">',
     '        <h2 id="dm-favorite-modal-title" data-role="favorite-modal-title">新增常用数据</h2>',
-    '        <p class="dm-modal-note" data-role="favorite-modal-note">当前数据会按作用域保存，可在后续直接复制复用。</p>',
+    '        <p class="dm-modal-note" data-role="favorite-modal-note">仅保存当前作用域下的数据。</p>',
     "      </div>",
     '      <button type="button" class="dm-icon-btn" data-action="close-favorite-modal" aria-label="关闭弹窗">关闭</button>',
     "    </div>",
@@ -58,8 +57,8 @@ export function syncFavoriteForm(
   if (titleNode) titleNode.textContent = entry ? "编辑常用数据" : "新增常用数据";
   if (noteNode) {
     noteNode.textContent = entry
-      ? "调整这组数据后，会立即覆盖当前作用域里的已保存版本。"
-      : "当前数据会按作用域保存，可在后续直接复制复用。";
+      ? "保存后将覆盖当前这组常用数据。"
+      : "仅保存当前作用域下的数据。";
   }
   const profile = normalizeProfile(entry ? entry.profile : undefined);
   FIELD_KEYS.forEach(function (fieldKey) {

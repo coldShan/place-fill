@@ -17,16 +17,19 @@ const pageSource = readdirSync(pageDir)
   .join("\n");
 const pageStyles = readFileSync(join(pageDir, "style.css"), "utf8");
 
-test("data manager page uses left-nav dual routes instead of a single combined layout", () => {
+test("data manager page uses top tabs dual routes instead of a left sidebar layout", () => {
   assert.match(pageSource, /data-view="favorites"/);
   assert.match(pageSource, /data-view="history"/);
-  assert.match(pageSource, /dm-sidebar/);
+  assert.match(pageSource, /dm-topbar/);
+  assert.match(pageSource, /dm-tabs/);
+  assert.match(pageSource, /role="tablist"/);
   assert.match(pageSource, /dm-workspace/);
-  assert.doesNotMatch(pageSource, /dm-topbar/);
+  assert.doesNotMatch(pageSource, /dm-sidebar/);
+  assert.doesNotMatch(pageSource, /dm-sidebar-panel/);
+  assert.doesNotMatch(pageSource, /dm-nav-link/);
   assert.doesNotMatch(pageSource, /data-role="scope-select"/);
   assert.doesNotMatch(pageSource, /dm-sidebar-note/);
   assert.doesNotMatch(pageSource, /dm-view-meta/);
-  assert.doesNotMatch(pageSource, /dm-sidebar-label/);
   assert.doesNotMatch(pageSource, />Reusable Profiles</);
   assert.doesNotMatch(pageSource, />Recent 30</);
   assert.doesNotMatch(pageSource, /dm-view-description/);
@@ -42,6 +45,7 @@ test("favorite create and edit share a modal form instead of an inline persisten
 test("favorites view renders as a regular table instead of cards", () => {
   assert.match(pageSource, /dm-favorites-table/);
   assert.match(pageSource, /<th>姓名<\/th><th>公司<\/th><th>手机<\/th><th>邮箱<\/th><th>操作<\/th>/);
+  assert.doesNotMatch(pageSource, /dm-view-actions/);
   assert.doesNotMatch(pageSource, /模板名称/);
   assert.doesNotMatch(pageSource, /模板/);
   assert.doesNotMatch(pageSource, /favorite-title/);
@@ -59,13 +63,12 @@ test("page fills the viewport and keeps table scrolling inside the workspace", (
   assert.match(pageStyles, /body\s*\{[\s\S]*overflow:\s*hidden/);
   assert.match(pageStyles, /\.dm-app\s*\{[\s\S]*height:\s*100vh/);
   assert.match(pageStyles, /\.dm-shell\s*\{[\s\S]*height:\s*100vh/);
-  assert.match(pageStyles, /\.dm-frame\s*\{[\s\S]*grid-template-columns:\s*190px minmax\(0,\s*1fr\)/);
-  assert.match(pageStyles, /\.dm-frame\s*\{[\s\S]*min-height:\s*0/);
-  assert.match(pageStyles, /\.dm-sidebar-panel\s*\{[\s\S]*align-content:\s*start/);
-  assert.match(pageStyles, /\.dm-sidebar-panel\s*\{[\s\S]*padding:\s*18px/);
-  assert.match(pageStyles, /\.dm-sidebar-panel\s*\{[\s\S]*grid-auto-rows:\s*max-content/);
-  assert.match(pageStyles, /\.dm-nav-link\s*\{[\s\S]*font-size:\s*18px/);
-  assert.match(pageStyles, /\.dm-nav-link\s*\{[\s\S]*font-weight:\s*600/);
+  assert.match(pageStyles, /\.dm-shell\s*\{[\s\S]*display:\s*grid/);
+  assert.match(pageStyles, /\.dm-shell\s*\{[\s\S]*grid-template-rows:\s*auto auto minmax\(0,\s*1fr\)/);
+  assert.match(pageStyles, /\.dm-topbar\s*\{[\s\S]*display:\s*flex/);
+  assert.match(pageStyles, /\.dm-tabs\s*\{[\s\S]*display:\s*flex/);
+  assert.match(pageStyles, /\.dm-tab\s*\{[\s\S]*font-size:\s*15px/);
+  assert.match(pageStyles, /\.dm-tab\[data-active=\"true\"\]\s*\{[\s\S]*box-shadow:/);
   assert.match(pageStyles, /\.dm-workspace\s*\{[\s\S]*min-height:\s*0[\s\S]*overflow:\s*hidden/);
   assert.match(pageStyles, /\.dm-view\s*\{[\s\S]*height:\s*100%/);
   assert.match(pageStyles, /\.dm-table-shell\s*\{[\s\S]*overflow:\s*auto/);

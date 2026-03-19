@@ -33,7 +33,6 @@ export function renderHistoryView(_scope: string, entries: HistoryEntry[]): stri
         ].join("")
       : [
           '<section class="dm-empty-state">',
-          '  <p class="dm-empty-kicker">No history yet</p>',
           "  <h2>当前作用域还没有生成记录</h2>",
           "  <p>先从插件面板生成一组数据，再回到这里进行复制或收藏。</p>",
           "</section>"

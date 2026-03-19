@@ -51,6 +51,8 @@ let favoriteModal: HTMLElement | null = null;
 let favoriteModalTitle: HTMLElement | null = null;
 let favoriteModalNote: HTMLElement | null = null;
 let favoriteForm: HTMLFormElement | null = null;
+let viewTitle: HTMLElement | null = null;
+let viewActions: HTMLElement | null = null;
 
 function setToast(message: string, tone = "info"): void {
   if (!toastNode) return;
@@ -86,7 +88,9 @@ function renderNavigation(): void {
     const nextView = normalizeDataManagerView(node.getAttribute("data-view"));
     const isActive = nextView === state.activeView;
     node.setAttribute("aria-current", isActive ? "page" : "false");
+    node.setAttribute("aria-selected", isActive ? "true" : "false");
     node.setAttribute("data-active", isActive ? "true" : "false");
+    node.setAttribute("tabindex", isActive ? "0" : "-1");
   });
 }
 
@@ -109,7 +113,16 @@ function renderModal(): void {
   syncFavoriteForm(favoriteForm, favoriteModalTitle, favoriteModalNote, editingEntry);
 }
 
+function renderTopbar(): void {
+  if (viewTitle) viewTitle.textContent = state.activeView === "history" ? "生成记录" : "常用数据";
+  if (!viewActions) return;
+  viewActions.innerHTML = state.activeView === "favorites"
+    ? '<button type="button" class="dm-primary-btn" data-action="open-create-favorite">新增常用数据</button>'
+    : "";
+}
+
 function renderAll(): void {
+  renderTopbar();
   renderNavigation();
   renderWorkspace();
   renderModal();
@@ -228,21 +241,23 @@ function renderShell(): void {
     '  <div class="dm-ambient dm-ambient-top" aria-hidden="true"></div>',
     '  <div class="dm-ambient dm-ambient-bottom" aria-hidden="true"></div>',
     '  <div class="dm-shell">',
-    '    <div class="dm-frame">',
-    '      <aside class="dm-sidebar">',
-    '        <div class="dm-sidebar-panel">',
-    '          <button type="button" class="dm-nav-link" data-role="view-link" data-action="switch-view" data-view="favorites">常用数据</button>',
-    '          <button type="button" class="dm-nav-link" data-role="view-link" data-action="switch-view" data-view="history">生成记录</button>',
-    "        </div>",
-    "      </aside>",
-    '      <main class="dm-workspace" data-role="workspace"></main>',
-    "    </div>",
+    '    <header class="dm-topbar">',
+    '      <h1 class="dm-topbar-title" data-role="view-title"></h1>',
+    '      <div class="dm-topbar-actions" data-role="view-actions"></div>',
+    "    </header>",
+    '    <nav class="dm-tabs" role="tablist" aria-label="数据管理视图">',
+    '      <button type="button" class="dm-tab" role="tab" data-role="view-link" data-action="switch-view" data-view="favorites">常用数据</button>',
+    '      <button type="button" class="dm-tab" role="tab" data-role="view-link" data-action="switch-view" data-view="history">生成记录</button>',
+    "    </nav>",
+    '    <main class="dm-workspace" data-role="workspace"></main>',
     '    <div class="dm-toast" data-role="toast" hidden></div>',
     renderFavoriteModal(),
     "  </div>",
     "</div>"
   ].join("");
 
+  viewTitle = doc.querySelector('[data-role="view-title"]');
+  viewActions = doc.querySelector('[data-role="view-actions"]');
   workspace = doc.querySelector('[data-role="workspace"]');
   toastNode = doc.querySelector('[data-role="toast"]');
   favoriteModal = doc.querySelector('[data-role="favorite-modal"]');
