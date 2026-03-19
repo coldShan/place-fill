@@ -279,7 +279,7 @@ test("background opens the data manager page with a normalized scope", () => {
     globalThis: {
       ChromeTestDataDataManagerBridge: {
         buildDataManagerPageUrl(baseUrl, scope) {
-          return baseUrl + "data-manager.html?scope=" + String(scope || "").trim().toLowerCase();
+          return baseUrl + "data-manager.html?scope=" + String(scope || "").trim().toLowerCase() + "&view=favorites";
         }
       },
       ChromeTestDataFieldVisibility: {
@@ -323,5 +323,5 @@ test("background opens the data manager page with a normalized scope", () => {
 
   assert.equal(typeof onMessageListener, "function");
   onMessageListener({ type: "open-data-manager-page", scope: " Example.COM " }, {}, function () {});
-  assert.equal(createdTab && createdTab.url, "chrome-extension://testing/data-manager.html?scope=example.com");
+  assert.equal(createdTab && createdTab.url, "chrome-extension://testing/data-manager.html?scope=example.com&view=favorites");
 });

@@ -23,12 +23,20 @@ var ChromeTestDataDataManagerBridgeBundle = (function() {
     return normalized;
   }
   const DATA_MANAGER_PAGE_PATH = "data-manager.html";
-  function buildDataManagerPageUrl(baseUrl, scope) {
+  function normalizeDataManagerView(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    return normalized === "history" ? "history" : "favorites";
+  }
+  function buildDataManagerPageUrl(baseUrl, scope, view) {
     const url = new URL(DATA_MANAGER_PAGE_PATH, baseUrl);
     const normalizedScope = normalizeScopeKey(scope);
+    const normalizedView = normalizeDataManagerView(view);
     if (normalizedScope) {
       url.searchParams.set("scope", normalizedScope);
+    } else {
+      url.searchParams.delete("scope");
     }
+    url.searchParams.set("view", normalizedView);
     return url.toString();
   }
   const api = {
