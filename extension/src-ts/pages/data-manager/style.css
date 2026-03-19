@@ -337,73 +337,8 @@ select:focus-visible {
   white-space: nowrap;
 }
 
-.dm-favorite-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
-}
-
-.dm-card {
-  position: relative;
-  display: grid;
-  gap: 18px;
-  padding: 22px;
-  border: 1px solid rgba(25, 76, 109, 0.1);
-  border-radius: var(--dm-radius-lg);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(243, 248, 251, 0.82)),
-    linear-gradient(135deg, rgba(99, 164, 214, 0.08), transparent 45%);
-  box-shadow: var(--dm-shadow-sm);
-  transition:
-    transform var(--dm-motion-fast) ease,
-    box-shadow var(--dm-motion-fast) ease,
-    border-color var(--dm-motion-fast) ease;
-}
-
-.dm-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(25, 76, 109, 0.18);
-  box-shadow: var(--dm-shadow-md);
-}
-
-.dm-card-topline {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-}
-
-.dm-card-time,
-.dm-card-label {
-  color: var(--dm-ink-3);
-  font-size: 12px;
-}
-
-.dm-card-title {
-  font-size: 30px;
-  line-height: 1.02;
-}
-
-.dm-card-summary {
-  display: grid;
-  gap: 12px;
-}
-
-.dm-card-summary div {
-  display: grid;
-  gap: 4px;
-}
-
-.dm-card-summary strong {
-  font-size: 16px;
-  color: var(--dm-ink-1);
-}
-
-.dm-card-actions,
-.dm-modal-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+.dm-favorites-shell {
+  width: 100%;
 }
 
 .dm-primary-btn,
@@ -439,15 +374,15 @@ select:focus-visible {
   background: rgba(255, 255, 255, 0.9);
 }
 
+.dm-table-btn.is-danger {
+  color: var(--dm-danger);
+}
+
 .dm-primary-btn:hover,
 .dm-subtle-btn:hover,
 .dm-table-btn:hover,
 .dm-icon-btn:hover {
   transform: translateY(-1px);
-}
-
-.dm-subtle-btn.is-danger {
-  color: var(--dm-danger);
 }
 
 .dm-empty-state {
@@ -528,6 +463,23 @@ select:focus-visible {
 .dm-table td:nth-child(4),
 .dm-table td:nth-child(5) {
   font-variant-numeric: tabular-nums;
+}
+
+.dm-favorites-table td:first-child,
+.dm-favorites-table th:first-child {
+  width: 230px;
+}
+
+.dm-favorites-name-cell strong {
+  display: inline-block;
+  color: var(--dm-ink-1);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.dm-favorites-time-cell {
+  color: var(--dm-ink-2);
+  white-space: nowrap;
 }
 
 .dm-table-actions {
@@ -696,8 +648,7 @@ select:focus-visible {
     width: 100%;
   }
 
-  .dm-modal-grid,
-  .dm-favorite-grid {
+  .dm-modal-grid {
     grid-template-columns: 1fr;
   }
 

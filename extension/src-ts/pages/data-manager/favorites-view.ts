@@ -16,30 +16,28 @@ export function renderFavoritesView(scope: string, entries: FavoriteEntry[]): st
     "  </div>",
     entries.length
       ? [
-          '<div class="dm-favorite-grid">',
-          entries
-            .map(function (entry) {
-              return [
-                '<article class="dm-card">',
-                '  <div class="dm-card-topline">',
-                '    <p class="dm-card-kicker">Template</p>',
-                '    <span class="dm-card-time">更新于 ' + escapeHtml(formatDisplayTime(entry.updatedAt)) + "</span>",
-                "  </div>",
-                '  <h2 class="dm-card-title">' + escapeHtml(entry.name) + "</h2>",
-                '  <div class="dm-card-summary">',
-                '    <div><span class="dm-card-label">姓名</span><strong>' + escapeHtml(entry.profile.fullName || "未填写") + "</strong></div>",
-                '    <div><span class="dm-card-label">公司</span><strong>' + escapeHtml(entry.profile.companyName || "未填写") + "</strong></div>",
-                '    <div><span class="dm-card-label">手机</span><strong>' + escapeHtml(entry.profile.mobile || "未填写") + "</strong></div>",
-                "  </div>",
-                '  <div class="dm-card-actions">',
-                '    <button type="button" class="dm-subtle-btn" data-action="favorite-copy" data-id="' + escapeHtml(entry.id) + '">复制整组</button>',
-                '    <button type="button" class="dm-subtle-btn" data-action="favorite-edit" data-id="' + escapeHtml(entry.id) + '">编辑</button>',
-                '    <button type="button" class="dm-subtle-btn is-danger" data-action="favorite-delete" data-id="' + escapeHtml(entry.id) + '">删除</button>',
-                "  </div>",
-                "</article>"
-              ].join("");
-            })
-            .join(""),
+          '<div class="dm-table-shell dm-favorites-shell">',
+          '  <table class="dm-table dm-favorites-table">',
+          "    <thead><tr><th>模板名称</th><th>姓名</th><th>公司</th><th>手机</th><th>更新时间</th><th>操作</th></tr></thead>",
+          "    <tbody>",
+          entries.map(function (entry) {
+            return [
+              "<tr>",
+              '  <td class="dm-favorites-name-cell"><strong>' + escapeHtml(entry.name) + "</strong></td>",
+              "  <td>" + escapeHtml(entry.profile.fullName || "未填写") + "</td>",
+              "  <td>" + escapeHtml(entry.profile.companyName || "未填写") + "</td>",
+              "  <td>" + escapeHtml(entry.profile.mobile || "未填写") + "</td>",
+              '  <td class="dm-favorites-time-cell">' + escapeHtml(formatDisplayTime(entry.updatedAt)) + "</td>",
+              '  <td class="dm-table-actions">',
+              '    <button type="button" class="dm-table-btn" data-action="favorite-copy" data-id="' + escapeHtml(entry.id) + '">复制整组</button>',
+              '    <button type="button" class="dm-table-btn" data-action="favorite-edit" data-id="' + escapeHtml(entry.id) + '">编辑</button>',
+              '    <button type="button" class="dm-table-btn is-danger" data-action="favorite-delete" data-id="' + escapeHtml(entry.id) + '">删除</button>',
+              "  </td>",
+              "</tr>"
+            ].join("");
+          }).join(""),
+          "    </tbody>",
+          "  </table>",
           "</div>"
         ].join("")
       : [

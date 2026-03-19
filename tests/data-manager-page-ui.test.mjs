@@ -30,6 +30,13 @@ test("favorite create and edit share a modal form instead of an inline persisten
   assert.doesNotMatch(pageSource, /data-action="favorite-reset"/);
 });
 
+test("favorites view renders as a regular table instead of cards", () => {
+  assert.match(pageSource, /dm-favorites-table/);
+  assert.match(pageSource, /模板名称/);
+  assert.doesNotMatch(pageSource, /dm-favorite-grid/);
+  assert.doesNotMatch(pageSource, /dm-card-summary/);
+});
+
 test("history table stays single-row only and does not render a detail row", () => {
   assert.doesNotMatch(pageSource, /dm-table-detail-row/);
   assert.doesNotMatch(pageSource, /dm-detail-grid/);
