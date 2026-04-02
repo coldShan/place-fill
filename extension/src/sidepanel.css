@@ -306,8 +306,13 @@
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: none;
-  cursor: pointer;
+  cursor: grab;
   transform-origin: right center;
+}
+
+.ctdp-root[data-dragging="true"] .ctdp-dock {
+  cursor: grabbing;
+  transition: none;
 }
 
 .ctdp-panel {

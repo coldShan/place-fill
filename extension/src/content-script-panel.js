@@ -45,8 +45,13 @@
     let dockBtn = null;
     let autoFillAborted = false;
     let autoFillRunning = false;
+    let dockDragJustEnded = false;
 
     const FOCUS_STYLE_STORAGE_KEY = "ctdp.focusStyle.v1";
+    const DOCK_TOP_STORAGE_KEY = "ctdp.dockTop.v1";
+    const DOCK_DEFAULT_TOP = 112;
+    const DOCK_HEIGHT = 72;
+    const CTDP_ROOT_TOP = 18;
 
     const state = {
       copiedFieldKey: null,
@@ -54,7 +59,8 @@
       profile: generators.generateProfile(),
       siteFeatureEnabled: siteFeatureToggleApi.getDefaultSiteFeatureEnabled(),
       visibleFieldKeys: fieldVisibilityApi.getDefaultVisibleFieldKeys(),
-      focusStyle: "subtle"
+      focusStyle: "subtle",
+      dockTop: DOCK_DEFAULT_TOP
     };
 
     function updatePanelState() {
@@ -225,6 +231,68 @@
         entry[FOCUS_STYLE_STORAGE_KEY] = state.focusStyle;
         await chrome.storage.local.set(entry);
       } catch (_) {}
+    }
+
+    function applyDockTop() {
+      if (!dockBtn) return;
+      dockBtn.style.top = state.dockTop + "px";
+    }
+
+    async function loadDockTop() {
+      try {
+        const stored = await chrome.storage.local.get(DOCK_TOP_STORAGE_KEY);
+        const val = stored && stored[DOCK_TOP_STORAGE_KEY];
+        if (typeof val === "number" && val >= 0) {
+          const viewH = win ? win.innerHeight : (doc.documentElement.clientHeight || 600);
+          state.dockTop = Math.min(val, viewH - CTDP_ROOT_TOP - DOCK_HEIGHT);
+        }
+      } catch (_) {}
+      applyDockTop();
+    }
+
+    async function saveDockTop() {
+      try {
+        const entry = {};
+        entry[DOCK_TOP_STORAGE_KEY] = state.dockTop;
+        await chrome.storage.local.set(entry);
+      } catch (_) {}
+    }
+
+    function setupDockDrag() {
+      if (!dockBtn) return;
+      let dragStartY = 0;
+      let dragStartTop = 0;
+      let dragging = false;
+
+      function onMouseMove(e) {
+        if (!dragging) return;
+        const dy = e.clientY - dragStartY;
+        if (Math.abs(dy) > 3) dockDragJustEnded = true;
+        const viewH = win ? win.innerHeight : (doc.documentElement.clientHeight || 600);
+        const maxTop = viewH - CTDP_ROOT_TOP - DOCK_HEIGHT;
+        state.dockTop = Math.max(0, Math.min(dragStartTop + dy, maxTop));
+        applyDockTop();
+      }
+
+      function onMouseUp() {
+        if (!dragging) return;
+        dragging = false;
+        if (root) root.removeAttribute("data-dragging");
+        doc.removeEventListener("mousemove", onMouseMove);
+        doc.removeEventListener("mouseup", onMouseUp);
+        if (dockDragJustEnded) saveDockTop();
+      }
+
+      dockBtn.addEventListener("mousedown", function (e) {
+        if (e.button !== 0) return;
+        dragStartY = e.clientY;
+        dragStartTop = state.dockTop;
+        dragging = true;
+        dockDragJustEnded = false;
+        if (root) root.setAttribute("data-dragging", "true");
+        doc.addEventListener("mousemove", onMouseMove);
+        doc.addEventListener("mouseup", onMouseUp);
+      });
     }
 
     function identityTemplate(key, value) {
@@ -904,6 +972,7 @@
           return;
         }
         if (role === "expand") {
+          if (dockDragJustEnded) { dockDragJustEnded = false; return; }
           expand();
         }
       });
@@ -952,12 +1021,14 @@
         }
       });
 
+      setupDockDrag();
       render();
       recordGeneratedProfile();
       hideGithubControls();
       loadSiteFeatureEnabled();
       loadFocusStyle();
       loadVisibleFieldKeys();
+      loadDockTop();
       sendRuntimeMessage({ type: "check-github-reachable" }).then(function (res) {
         if (res && res.reachable) revealGithubControls();
       });
