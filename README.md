@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/版本-v0.6.0-4a6fa5?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/版本-v0.6.1-4a6fa5?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/Chrome-MV3-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="chrome mv3">
   <img src="https://img.shields.io/badge/渐进迁移-JS%20%2B%20TS-21e985?style=flat-square" alt="js and ts">
 </p>
@@ -77,7 +77,7 @@
 
 ### 从 Release 安装
 
-1. 前往 [GitHub Releases](https://github.com/coldShan/place-fill/releases) 下载最新的 `place-fill-v0.6.0.zip`
+1. 前往 [GitHub Releases](https://github.com/coldShan/place-fill/releases) 下载最新的 `place-fill-v0.6.1.zip`
 2. 解压到本地任意目录
 3. 打开 `chrome://extensions`，开启右上角**开发者模式**
 4. 点击**加载已解压的扩展程序**，选择解压后的目录
@@ -149,3 +149,8 @@ place-fill/
 2. 执行 `pnpm build`
 3. 打开 `chrome://extensions`
 4. 选择 `extension/` 目录作为 unpacked extension
+
+### 本地复现页
+
+- 基础表单靶场：`mock-form/index.html`
+- Element UI 霓虹边框复现页：`mock-form/element-ui-demo.html`

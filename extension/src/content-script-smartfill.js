@@ -12,10 +12,9 @@
     const getVisibleFieldKeys = typeof opts.getVisibleFieldKeys === "function" ? opts.getVisibleFieldKeys : function () { return smartFillApi.getSupportedFieldKeys(); };
     const isEnabled = typeof opts.isEnabled === "function" ? opts.isEnabled : function () { return true; };
     const onFieldFilled = typeof opts.onFieldFilled === "function" ? opts.onFieldFilled : function () {};
-    const FOCUS_RING_FADE_OUT_MS = 520;
+    const FOCUS_RING_FADE_OUT_MS = 120;
 
     let smartButton = null;
-    let focusRing = null;
     let activeSmartTarget = null;
     let activeSmartFieldKey = null;
     let lastContextTarget = null;
@@ -43,8 +42,10 @@
     function clearFocusTargetMarker(target) {
       if (!target || typeof target.removeAttribute !== "function") return;
       if (target.style && typeof target.style.removeProperty === "function") {
+        target.style.removeProperty("--ctdp-focus-radius");
         target.style.removeProperty("--ctdp-smartfocus-surface");
       }
+      target.removeAttribute("data-ctdp-smartfocus-visible");
       target.removeAttribute("data-ctdp-smartfocus-target");
     }
 
@@ -58,10 +59,19 @@
       cancelFocusTargetMarkerClear();
       if (!target) return;
       focusTargetClearTimer = win.setTimeout(function () {
-        if (focusRing && focusRing.getAttribute("data-visible") === "true" && activeSmartTarget === target) return;
+        if (target.getAttribute && target.getAttribute("data-ctdp-smartfocus-visible") === "true" && activeSmartTarget === target) return;
         clearFocusTargetMarker(target);
         focusTargetClearTimer = null;
       }, FOCUS_RING_FADE_OUT_MS);
+    }
+
+    function resolveFocusTargetRadius(target) {
+      if (!target || !win || typeof win.getComputedStyle !== "function") return "14px";
+      try {
+        return win.getComputedStyle(target).borderRadius || "14px";
+      } catch (_) {
+        return "14px";
+      }
     }
 
     function syncFocusTargetMarker(target) {
@@ -69,9 +79,11 @@
       if (activeSmartTarget && activeSmartTarget !== target) clearFocusTargetMarker(activeSmartTarget);
       if (!target || typeof target.setAttribute !== "function") return;
       if (target.style && typeof target.style.setProperty === "function") {
+        target.style.setProperty("--ctdp-focus-radius", resolveFocusTargetRadius(target));
         target.style.setProperty("--ctdp-smartfocus-surface", resolveFocusTargetSurfaceColor(target));
       }
       target.setAttribute("data-ctdp-smartfocus-target", "true");
+      target.setAttribute("data-ctdp-smartfocus-visible", "true");
     }
 
     function renderSmartFillMenuItemMarkup(fieldKey) {
@@ -119,39 +131,10 @@
       smartButton.style.top = top + scrollY + "px";
     }
 
-    function getFocusRingRadius(target) {
-      if (!target || !win || typeof win.getComputedStyle !== "function") return "14px";
-      try {
-        return win.getComputedStyle(target).borderRadius || "14px";
-      } catch (_) {
-        return "14px";
-      }
-    }
-
-    function setFocusRingPosition(target) {
-      if (!focusRing || !target || typeof target.getBoundingClientRect !== "function") return;
-      const rect = target.getBoundingClientRect();
-      const scrollX = win.pageXOffset || 0;
-      const scrollY = win.pageYOffset || 0;
-      const inset = 1;
-      focusRing.style.left = Math.max(rect.left + scrollX - inset, 0) + "px";
-      focusRing.style.top = Math.max(rect.top + scrollY - inset, 0) + "px";
-      focusRing.style.width = rect.width + inset * 2 + "px";
-      focusRing.style.height = rect.height + inset * 2 + "px";
-      focusRing.style.setProperty("--ctdp-focus-radius", getFocusRingRadius(target));
-    }
-
     function scheduleSmartButtonPosition() {
       if (!smartButton || !activeSmartTarget || smartButton.hidden) return;
       win.requestAnimationFrame(function () {
         setSmartButtonPosition(activeSmartTarget);
-      });
-    }
-
-    function scheduleFocusRingPosition() {
-      if (!focusRing || !activeSmartTarget || focusRing.getAttribute("data-visible") !== "true") return;
-      win.requestAnimationFrame(function () {
-        setFocusRingPosition(activeSmartTarget);
       });
     }
 
@@ -161,17 +144,9 @@
       scheduleSmartButtonPosition();
     }
 
-    function showFocusRing(target) {
-      if (!focusRing || !target) return;
-      syncFocusTargetMarker(target);
-      focusRing.setAttribute("data-visible", "true");
-      setFocusRingPosition(target);
-      scheduleFocusRingPosition();
-    }
-
-    function hideFocusRing() {
-      if (!focusRing) return;
-      focusRing.setAttribute("data-visible", "false");
+    function hideFocusTargetMarker() {
+      if (!activeSmartTarget || typeof activeSmartTarget.removeAttribute !== "function") return;
+      activeSmartTarget.removeAttribute("data-ctdp-smartfocus-visible");
       scheduleFocusTargetMarkerClear(activeSmartTarget);
     }
 
@@ -180,7 +155,7 @@
       smartButton.hidden = true;
       smartButton.setAttribute("data-visible", "false");
       smartButton.setAttribute("data-expanded", "false");
-      hideFocusRing();
+      hideFocusTargetMarker();
       activeSmartTarget = null;
       activeSmartFieldKey = null;
     }
@@ -196,7 +171,7 @@
       activeSmartFieldKey = fieldKey;
       smartButton.hidden = false;
       smartButton.setAttribute("data-visible", "true");
-      showFocusRing(target);
+      syncFocusTargetMarker(target);
       smartButton.innerHTML = renderSmartFillMenuMarkup(fieldKey);
       smartButton.setAttribute("aria-label", fieldKey ? "智能填充" + smartFillApi.formatSmartFillButtonLabel(fieldKey) : "选择测试数据类型");
       smartButton.title = fieldKey ? smartFillApi.formatSmartFillButtonLabel(fieldKey) : "选择测试数据类型";
@@ -271,17 +246,10 @@
 
     function refreshPosition() {
       if (activeSmartTarget && smartButton && !smartButton.hidden) scheduleSmartButtonPosition();
-      if (activeSmartTarget && focusRing && focusRing.getAttribute("data-visible") === "true") scheduleFocusRingPosition();
     }
 
     function mount() {
       if (smartButton || !doc || !doc.documentElement) return;
-      focusRing = doc.createElement("div");
-      focusRing.className = "ctdp-smartfocus";
-      focusRing.setAttribute("data-visible", "false");
-      focusRing.setAttribute("aria-hidden", "true");
-      doc.documentElement.appendChild(focusRing);
-
       smartButton = doc.createElement("div");
       smartButton.className = "ctdp-smartfill";
       smartButton.hidden = true;

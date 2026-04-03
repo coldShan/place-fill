@@ -116,9 +116,10 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(smartfillScript, /function renderSmartFillMenuMarkup\(primaryFieldKey\)/);
   assert.match(smartfillScript, /function resolveFocusTargetSurfaceColor\(target\)/);
   assert.match(smartfillScript, /--ctdp-smartfocus-surface/);
-  assert.match(smartfillScript, /const FOCUS_RING_FADE_OUT_MS = 520/);
+  assert.match(smartfillScript, /const FOCUS_RING_FADE_OUT_MS = 120/);
   assert.match(smartfillScript, /function scheduleFocusTargetMarkerClear\(target\)/);
-  assert.match(smartfillScript, /hideFocusRing\(\)\s*\{[\s\S]*?scheduleFocusTargetMarkerClear\(activeSmartTarget\)/);
+  assert.match(smartfillScript, /target\.setAttribute\("data-ctdp-smartfocus-visible", "true"\)/);
+  assert.match(smartfillScript, /target\.removeAttribute\("data-ctdp-smartfocus-visible"\)/);
   assert.match(smartfillScript, /const isEnabled = typeof opts\.isEnabled === "function"/);
   assert.match(smartfillScript, /if \(!isEnabled\(\)\) \{\s*hideSmartButton\(\);\s*return;\s*\}/);
   assert.match(smartfillScript, /getSmartFillMenuFieldKeys\(primaryFieldKey,\s*visibleFieldKeys\)/);
@@ -141,6 +142,9 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(orchestratorScript, /smartFillController\.fillTarget\(target,\s*message\.fieldKey\)/);
   assert.match(orchestratorScript, /clearManualFieldOverride/);
   assert.match(orchestratorScript, /syncTarget/);
+  assert.doesNotMatch(smartfillScript, /focusRing\.className\s*=\s*"ctdp-smartfocus"/);
+  assert.doesNotMatch(smartfillScript, /function setFocusRingPosition/);
+  assert.doesNotMatch(smartfillScript, /function showFocusRing/);
   assert.doesNotMatch(smartfillScript, /let smartCollapseTimer = null/);
   assert.doesNotMatch(smartfillScript, /function scheduleSmartButtonCollapse\(\)/);
   assert.doesNotMatch(smartfillScript, /function cancelSmartButtonCollapse\(\)/);

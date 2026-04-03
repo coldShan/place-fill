@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Element UI 霓虹边框复现页</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css" />
+    <style>
+      :root {
+        --bg: #f3efe7;
+        --panel: rgba(255, 251, 244, 0.88);
+        --ink: #1b1a18;
+        --muted: #6f675f;
+        --line: rgba(27, 26, 24, 0.12);
+        --accent: #c86a3a;
+        --accent-soft: rgba(200, 106, 58, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(200, 106, 58, 0.18), transparent 28%),
+          linear-gradient(135deg, #f8f4ed, var(--bg));
+        font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      }
+
+      .page {
+        width: min(1180px, calc(100% - 40px));
+        margin: 28px auto;
+        padding: 28px;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: var(--panel);
+        box-shadow: 0 24px 56px rgba(45, 33, 20, 0.12);
+      }
+
+      .hero {
+        display: grid;
+        gap: 12px;
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-family: "Baskerville", "Palatino Linotype", "Noto Serif SC", serif;
+        font-size: clamp(32px, 5vw, 48px);
+        line-height: 1.04;
+      }
+
+      .hero p,
+      .hero li,
+      .meta,
+      .case-note,
+      .switch-note {
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .meta {
+        padding: 14px 16px;
+        border-left: 4px solid var(--accent);
+        border-radius: 14px;
+        background: var(--accent-soft);
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 20px;
+      }
+
+      .switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.72);
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .switch input {
+        margin: 0;
+      }
+
+      .cases {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 18px;
+        margin-top: 24px;
+      }
+
+      .case {
+        display: grid;
+        gap: 14px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .case h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .case-tag {
+        display: inline-flex;
+        width: fit-content;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(24, 144, 255, 0.12);
+        color: #0f5ea8;
+        font-size: 12px;
+        letter-spacing: 0.06em;
+      }
+
+      .case-tag.warn {
+        background: rgba(200, 106, 58, 0.14);
+        color: #9d4b22;
+      }
+
+      .case-tag.danger {
+        background: rgba(226, 82, 65, 0.14);
+        color: #ad3428;
+      }
+
+      .stress-host {
+        position: relative;
+        padding: 22px 18px;
+        border: 1px dashed rgba(27, 26, 24, 0.2);
+        border-radius: 18px;
+        background:
+          linear-gradient(160deg, rgba(255, 255, 255, 0.82), rgba(250, 243, 236, 0.96));
+      }
+
+      .stress-host.is-transform {
+        transform: translateZ(0);
+      }
+
+      .stress-host.is-filter {
+        filter: saturate(1);
+      }
+
+      .stress-host.is-opacity {
+        opacity: 0.999;
+      }
+
+      .stress-host::before {
+        content: "Potential stacking context host";
+        position: absolute;
+        top: -10px;
+        left: 14px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #fff5ef;
+        color: #9d4b22;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+      }
+
+      .demo-row {
+        display: grid;
+        gap: 12px;
+      }
+
+      .debug-list {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .status {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .status-chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: rgba(27, 26, 24, 0.08);
+        color: var(--ink);
+        font-size: 12px;
+      }
+
+      .status-chip.active {
+        background: rgba(200, 106, 58, 0.14);
+        color: #9d4b22;
+      }
+
+      .footer {
+        margin-top: 24px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+      }
+
+      .el-input__inner {
+        min-height: 42px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" class="page">
+      <section class="hero">
+        <h1>Element UI 输入框霓虹边框复现页</h1>
+        <p>这个页面专门验证扩展的输入框霓虹边框在 Element UI 场景下是否会出现“视觉层盖在输入框上面，但由于 <code>pointer-events: none</code> 仍可点击输入”的问题。</p>
+        <div class="meta">
+          打开扩展后，先聚焦左侧对照组，再聚焦右侧复现组。右侧容器可动态开启常见的 stacking context 触发条件。
+        </div>
+      </section>
+
+      <section class="controls">
+        <label class="switch">
+          <input v-model="stress.transform" type="checkbox" />
+          <span>开启 <code>transform: translateZ(0)</code></span>
+        </label>
+        <label class="switch">
+          <input v-model="stress.filter" type="checkbox" />
+          <span>开启 <code>filter: saturate(1)</code></span>
+        </label>
+        <label class="switch">
+          <input v-model="stress.opacity" type="checkbox" />
+          <span>开启 <code>opacity: 0.999</code></span>
+        </label>
+      </section>
+
+      <p class="switch-note">推荐先只开 <code>transform</code>，它最容易稳定制造局部 stacking context。</p>
+
+      <section class="cases">
+        <article class="case">
+          <span class="case-tag">Control</span>
+          <h2>正常 Element UI 输入框</h2>
+          <p class="case-note">这个输入框不放进额外 stacking context。它应该是观察霓虹边框正常表现的基线。</p>
+          <div class="demo-row">
+            <el-input v-model="control.name" placeholder="正常场景：姓名"></el-input>
+            <el-input v-model="control.email" placeholder="正常场景：邮箱"></el-input>
+          </div>
+          <ul class="debug-list">
+            <li>预期：霓虹边框在输入框外沿，不会盖到输入框视觉层。</li>
+            <li>如果这里都异常，说明问题不依赖 Element UI stacking context。</li>
+          </ul>
+        </article>
+
+        <article class="case">
+          <span class="case-tag warn">Stress</span>
+          <h2>放进 stacking context 的 Element UI 输入框</h2>
+          <p class="case-note">这个容器会按上方开关动态附加 <code>transform</code> / <code>filter</code> / <code>opacity</code>。如果扩展的霓虹层挂在根层，而 Element UI 输入框被困在局部上下文里，就容易复现“边框压在上面”的现象。</p>
+          <div class="status">
+            <span class="status-chip" :class="{ active: stress.transform }">transform</span>
+            <span class="status-chip" :class="{ active: stress.filter }">filter</span>
+            <span class="status-chip" :class="{ active: stress.opacity }">opacity</span>
+          </div>
+          <div class="stress-host" :class="stressHostClass">
+            <div class="demo-row">
+              <el-input v-model="stressForm.mobile" placeholder="压力场景：手机号"></el-input>
+              <el-input v-model="stressForm.company" placeholder="压力场景：公司名称"></el-input>
+            </div>
+          </div>
+          <ul class="debug-list">
+            <li>如果只在这里出现覆盖感，基本就是 stacking context 问题。</li>
+            <li>如果去掉全部开关后恢复正常，说明复现成功。</li>
+          </ul>
+        </article>
+
+        <article class="case">
+          <span class="case-tag danger">Debug</span>
+          <h2>定位提示</h2>
+          <ul class="debug-list">
+            <li>DevTools 看输入框祖先链上是否出现 <code>transform</code>、<code>filter</code>、<code>opacity</code>、<code>contain</code>、<code>isolation</code>、<code>will-change</code>。</li>
+            <li>确认扩展打标的节点是不是 <code>.el-input__inner</code>，而不是外层 <code>.el-input</code>。</li>
+            <li>把扩展里的 <code>.ctdp-smartfocus</code> 临时去掉 <code>pointer-events: none</code>，如果输入框立刻点不动，就说明 glow 层真实在上面。</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="footer">
+        <p class="meta">CDN 方式基于 Element UI 官方文档的最小浏览器引入：Vue 2 + Element UI CSS/JS。</p>
+      </section>
+    </div>
+
+    <script src="https://unpkg.com/vue@2/dist/vue.js"></script>
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <script>
+      new Vue({
+        el: "#app",
+        data: function () {
+          return {
+            control: {
+              name: "",
+              email: ""
+            },
+            stress: {
+              transform: true,
+              filter: false,
+              opacity: false
+            },
+            stressForm: {
+              mobile: "",
+              company: ""
+            }
+          };
+        },
+        computed: {
+          stressHostClass: function () {
+            return {
+              "is-transform": this.stress.transform,
+              "is-filter": this.stress.filter,
+              "is-opacity": this.stress.opacity
+            };
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
