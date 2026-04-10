@@ -68,9 +68,19 @@ test("generateChineseIdNumber returns legal birthday and checksum", () => {
   const month = Number(birth.slice(4, 6));
   const day = Number(birth.slice(6, 8));
 
-  assert.equal(year >= 1980 && year <= 2004, true);
+  assert.equal(year >= 1940 && year <= 2010, true);
   assert.equal(month >= 1 && month <= 12, true);
   assert.equal(day >= 1 && day <= 31, true);
+});
+
+test("generateChineseIdNumber uses the configured birth year boundaries", () => {
+  const minYearIdNumber = generateChineseIdNumber(createRng([0, 0, 0, 0]));
+  const maxYearIdNumber = generateChineseIdNumber(createRng([0, 0.999999, 0, 0]));
+
+  assert.equal(minYearIdNumber.slice(6, 10), "1940");
+  assert.equal(maxYearIdNumber.slice(6, 10), "2010");
+  assert.equal(validateChineseIdNumber(minYearIdNumber), true);
+  assert.equal(validateChineseIdNumber(maxYearIdNumber), true);
 });
 
 test("generateBankCardNumber returns number with luhn checksum", () => {

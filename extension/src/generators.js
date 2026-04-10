@@ -42,6 +42,8 @@
   const COMPANY_SUFFIXES = ["有限公司", "有限责任公司", "集团有限公司", "科技有限公司"];
   const FAMILY_NAMES = ["赵", "钱", "孙", "李", "周", "吴", "郑", "王", "冯", "陈", "褚", "卫", "蒋", "沈", "韩", "杨", "朱", "秦", "许", "何", "吕", "张", "孔", "曹", "严", "华", "金", "魏", "陶", "姜"];
   const GIVEN_NAME_CHARS = ["安", "北", "晨", "岱", "恩", "帆", "歌", "禾", "嘉", "岚", "朗", "铭", "宁", "沛", "清", "然", "舒", "童", "唯", "熙", "言", "予", "舟", "知", "子", "远", "修", "祺", "衡", "悦"];
+  const ID_CARD_BIRTH_YEAR_START = 1940;
+  const ID_CARD_BIRTH_YEAR_END = 2010;
   const fieldMetaApi = getFieldMetaApi();
   const GeneratedFieldLabels = Object.freeze(
     Object.fromEntries(
@@ -142,7 +144,7 @@
 
   function generateChineseIdNumber(rng) {
     const region = pick(REGION_CODES, rng);
-    const year = 1980 + randomInt(25, rng);
+    const year = ID_CARD_BIRTH_YEAR_START + randomInt(ID_CARD_BIRTH_YEAR_END - ID_CARD_BIRTH_YEAR_START + 1, rng);
     const month = 1 + randomInt(12, rng);
     const day = 1 + randomInt(daysInMonth(year, month), rng);
     const serial = String(100 + randomInt(900, rng));
