@@ -552,11 +552,9 @@
   }
 
   function getSmartFillMenuFieldKeys(primaryFieldKey, visibleFieldKeys) {
-    const fieldKeys = getSupportedFieldKeys(visibleFieldKeys);
-    if (!fieldKeys.includes(primaryFieldKey)) return fieldKeys.slice();
-    return fieldKeys.filter(function (fieldKey) {
-      return fieldKey !== primaryFieldKey;
-    });
+    void primaryFieldKey;
+    void visibleFieldKeys;
+    return [];
   }
 
   const api = {

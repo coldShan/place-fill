@@ -134,31 +134,16 @@ test("smart fill exposes field icon mapping for all supported field types", () =
   );
 });
 
-test("smart fill menu lists only the other field types in stable order", () => {
-  assert.deepEqual(
-    getSmartFillMenuFieldKeys("mobile"),
-    getFieldKeys().filter(function (fieldKey) {
-      return fieldKey !== "mobile";
-    })
-  );
-  assert.deepEqual(
-    getSmartFillMenuFieldKeys("idNumber"),
-    getFieldKeys().filter(function (fieldKey) {
-      return fieldKey !== "idNumber";
-    })
-  );
-  assert.deepEqual(
-    getSmartFillMenuFieldKeys("companyName"),
-    getFieldKeys().filter(function (fieldKey) {
-      return fieldKey !== "companyName";
-    })
-  );
+test("smart fill menu does not expose alternate field actions", () => {
+  assert.deepEqual(getSmartFillMenuFieldKeys("mobile"), []);
+  assert.deepEqual(getSmartFillMenuFieldKeys("idNumber"), []);
+  assert.deepEqual(getSmartFillMenuFieldKeys("companyName"), []);
 });
 
 test("smart fill exposes supported field keys for menu creation", () => {
   assert.deepEqual(getSupportedFieldKeys(), getFieldKeys());
   assert.deepEqual(getSupportedFieldKeys(["companyName", "mobile", "unknown"]), ["companyName", "mobile"]);
-  assert.deepEqual(getSmartFillMenuFieldKeys("companyName", ["companyName", "mobile", "address"]), ["mobile", "address"]);
+  assert.deepEqual(getSmartFillMenuFieldKeys("companyName", ["companyName", "mobile", "address"]), []);
 });
 
 test("manual smart fill override takes precedence over heuristic inference", () => {

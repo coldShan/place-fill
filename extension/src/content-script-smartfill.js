@@ -2,7 +2,6 @@
   "use strict";
 
   const MAX_RECOMMENDATION_ITEMS = 10;
-  const RECOMMENDATION_SUCCESS_MESSAGE = "已填充推荐数据";
 
   function escapeHtml(value) {
     return String(value || "")
@@ -71,8 +70,6 @@
     let recommendationRequestId = 0;
     let preserveFocusOut = false;
     let preserveFocusOutTimer = null;
-    let statusMessage = "";
-    let statusTimer = null;
 
     function isTransparentColor(value) {
       return !value || value === "transparent" || value === "rgba(0, 0, 0, 0)";
@@ -139,20 +136,10 @@
       target.setAttribute("data-ctdp-smartfocus-visible", "true");
     }
 
-    function renderSmartFillMenuItemMarkup(fieldKey) {
-      const label = smartFillApi.formatSmartFillButtonLabel(fieldKey);
-      const iconName = smartFillApi.getFieldIconName(fieldKey);
-      return [
-        '<button class="ctdp-smartfill-item" type="button" data-role="smart-fill-item" data-key="' + fieldKey + '" aria-label="填充' + label + '" title="' + label + '">',
-        "  " + iconAssetsApi.renderIconMarkup(iconName, "ctdp-smartfill-item-icon", label),
-        "</button>"
-      ].join("");
-    }
-
     function renderRecommendationTriggerMarkup() {
       return [
         '<button class="ctdp-smartfill-recommend-trigger" type="button" data-role="smart-fill-recommend-trigger" aria-label="推荐数据" title="推荐数据">',
-        '  <span class="ctdp-smartfill-recommend-trigger-text" aria-hidden="true">推荐数据</span>',
+        '  ' + iconAssetsApi.renderIconMarkup("star", "ctdp-smartfill-recommend-icon", "推荐数据"),
         "</button>"
       ].join("");
     }
@@ -199,30 +186,17 @@
       ].join("");
     }
 
-    function renderStatusMarkup() {
-      if (!statusMessage) return "";
-      return '<div class="ctdp-smartfill-status" data-role="smart-fill-status">' + escapeHtml(statusMessage) + "</div>";
-    }
-
     function renderSmartFillMenuMarkup(primaryFieldKey) {
       const triggerLabel = primaryFieldKey ? smartFillApi.formatSmartFillButtonLabel(primaryFieldKey) : "选择测试数据类型";
       const triggerIconName = primaryFieldKey ? smartFillApi.getFieldIconName(primaryFieldKey) : iconAssetsApi.PRIMARY_LOGO_ICON;
-      const visibleFieldKeys = getVisibleFieldKeys();
       return [
         '<button class="ctdp-smartfill-trigger" type="button" data-role="smart-fill-trigger" aria-label="' + triggerLabel + '" title="' + triggerLabel + '">',
         "  " + iconAssetsApi.renderIconMarkup(triggerIconName, "ctdp-smartfill-icon", triggerLabel),
         "</button>",
         '<div class="ctdp-smartfill-menu" data-role="smart-fill-menu">',
         renderRecommendationTriggerMarkup(),
-        smartFillApi
-          .getSmartFillMenuFieldKeys(primaryFieldKey, visibleFieldKeys)
-          .map(function (fieldKey) {
-            return renderSmartFillMenuItemMarkup(fieldKey);
-          })
-          .join(""),
         "</div>",
-        renderRecommendationPanelMarkup(),
-        renderStatusMarkup()
+        renderRecommendationPanelMarkup()
       ].join("");
     }
 
@@ -267,14 +241,6 @@
       scheduleFocusTargetMarkerClear(activeSmartTarget);
     }
 
-    function clearStatusMessage() {
-      if (statusTimer) {
-        win.clearTimeout(statusTimer);
-        statusTimer = null;
-      }
-      statusMessage = "";
-    }
-
     function holdFocusOutSync() {
       preserveFocusOut = true;
       if (preserveFocusOutTimer) win.clearTimeout(preserveFocusOutTimer);
@@ -282,18 +248,6 @@
         preserveFocusOut = false;
         preserveFocusOutTimer = null;
       }, 180);
-    }
-
-    function showStatusMessage(message) {
-      clearStatusMessage();
-      statusMessage = String(message || "").trim();
-      renderSmartButton();
-      if (!statusMessage) return;
-      statusTimer = win.setTimeout(function () {
-        statusMessage = "";
-        statusTimer = null;
-        renderSmartButton();
-      }, 1400);
     }
 
     function resetRecommendationState() {
@@ -307,7 +261,6 @@
     function hideSmartButton() {
       if (!smartButton) return;
       resetRecommendationState();
-      clearStatusMessage();
       smartButton.hidden = true;
       smartButton.setAttribute("data-visible", "false");
       smartButton.setAttribute("data-expanded", "false");
@@ -362,7 +315,6 @@
       });
       if (!item) return;
       fillCurrentTargetValue(item.primaryText);
-      showStatusMessage(RECOMMENDATION_SUCCESS_MESSAGE);
     }
 
     function focusFirstRecommendationItem() {
@@ -517,11 +469,6 @@
         const trigger = event.target.closest("[data-role]");
         if (!trigger) return;
         const role = trigger.getAttribute("data-role");
-        if (role === "smart-fill-item") {
-          closeRecommendationPanel();
-          fillCurrentTarget(trigger.getAttribute("data-key"));
-          return;
-        }
         if (role === "smart-fill-recommend-trigger") {
           toggleRecommendationPanel();
           return;

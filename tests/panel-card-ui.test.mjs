@@ -22,11 +22,12 @@ test("panel cards are whole-card copy targets with a single copied-state marker"
 test("dock and smart-fill buttons use icon markup instead of visible text labels", () => {
   assert.match(panelScript, /renderIconMarkup\(iconAssetsApi\.PRIMARY_LOGO_ICON/);
   assert.match(smartfillScript, /data-role="smart-fill-trigger"/);
-  assert.match(smartfillScript, /data-role="smart-fill-item"/);
   assert.match(smartfillScript, /data-role="smart-fill-recommend-trigger"/);
   assert.match(smartfillScript, /data-role="smart-fill-recommend-panel"/);
   assert.match(smartfillScript, /data-role="smart-fill-recommend-item"/);
-  assert.match(smartfillScript, /推荐数据/);
+  assert.match(smartfillScript, /renderIconMarkup\("star",\s*"ctdp-smartfill-recommend-icon",\s*"推荐数据"\)/);
+  assert.doesNotMatch(smartfillScript, /data-role="smart-fill-item"/);
+  assert.doesNotMatch(smartfillScript, /ctdp-smartfill-recommend-trigger-text/);
   assert.doesNotMatch(smartfillScript, /ctdp-smartfill-item-label/);
   assert.doesNotMatch(smartfillScript, /ctdp-smartfill-item-hint/);
   assert.doesNotMatch(panelScript, /展开测试数据面板">测试数据<\/button>/);
@@ -126,7 +127,6 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(smartfillScript, /target\.removeAttribute\("data-ctdp-smartfocus-visible"\)/);
   assert.match(smartfillScript, /const isEnabled = typeof opts\.isEnabled === "function"/);
   assert.match(smartfillScript, /if \(!isEnabled\(\)\) \{\s*hideSmartButton\(\);\s*return;\s*\}/);
-  assert.match(smartfillScript, /getSmartFillMenuFieldKeys\(primaryFieldKey,\s*visibleFieldKeys\)/);
   assert.match(smartfillScript, /fillCurrentTarget\(fieldKey\)[\s\S]*?onFieldFilled\(fieldKey\)/);
   assert.match(smartfillScript, /function fillTarget\(target,\s*fieldKey\)/);
   assert.match(smartfillScript, /function buildRecommendationItems\(fieldKey,\s*favoriteProfiles\)/);
@@ -137,6 +137,10 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(smartfillScript, /if \(role === "smart-fill-trigger"\) \{[\s\S]*?fillCurrentTarget\(activeSmartFieldKey\)/);
   assert.match(smartfillScript, /if \(role === "smart-fill-recommend-trigger"\)/);
   assert.match(smartfillScript, /if \(role === "smart-fill-recommend-item"\)/);
+  assert.doesNotMatch(smartfillScript, /if \(role === "smart-fill-item"\)/);
+  assert.doesNotMatch(smartfillScript, /已填充推荐数据/);
+  assert.doesNotMatch(smartfillScript, /data-role="smart-fill-status"/);
+  assert.doesNotMatch(smartfillScript, /function showStatusMessage\(/);
   assert.match(smartfillScript, /smartButton\.addEventListener\("mouseenter", function \(\) \{\s*setSmartButtonExpanded\(true\);/);
   assert.match(smartfillScript, /smartButton\.addEventListener\("mouseleave", function \(\) \{\s*setSmartButtonExpanded\(false\);/);
   assert.match(smartfillScript, /smartButton\.addEventListener\("focusin", function \(\) \{\s*setSmartButtonExpanded\(true\);/);

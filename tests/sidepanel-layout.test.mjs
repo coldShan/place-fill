@@ -21,6 +21,7 @@ test("collapsed dock is anchored to the viewport edge while panel keeps a right 
 test("toolbar keeps a left settings slot and a right-aligned action cluster", () => {
   assert.match(stylesheet, /\.ctdp-toolbar\s*\{[\s\S]*?justify-content:\s*space-between;/);
   assert.match(stylesheet, /\.ctdp-toolbar\s*\{[\s\S]*?padding:\s*12px;/);
+  assert.match(stylesheet, /\.ctdp-toolbar-group-left\s*\{[\s\S]*?gap:\s*10px;/);
   assert.match(stylesheet, /\.ctdp-toolbar-group-right\s*\{[\s\S]*?gap:\s*10px;/);
   assert.match(stylesheet, /\.ctdp-btn-primary,\s*\.ctdp-btn-strong,\s*\.ctdp-btn-ghost\s*\{[\s\S]*?width:\s*42px;/);
   assert.match(stylesheet, /\.ctdp-btn-primary,\s*\.ctdp-btn-strong,\s*\.ctdp-btn-ghost\s*\{[\s\S]*?height:\s*42px;/);

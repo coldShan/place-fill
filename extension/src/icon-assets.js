@@ -19,6 +19,7 @@
     "refresh-cw": "assets/icons/lucide/refresh-cw.svg",
     settings: "assets/icons/lucide/settings.svg",
     smartphone: "assets/icons/lucide/smartphone.svg",
+    star: "assets/icons/lucide/star.svg",
     shield: "assets/icons/lucide/shield.svg",
     upload: "assets/icons/lucide/upload.svg",
     "user-round": "assets/icons/lucide/user-round.svg",

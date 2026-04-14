@@ -166,45 +166,12 @@
   pointer-events: auto;
 }
 
-.ctdp-smartfill-item {
+.ctdp-smartfill-recommend-trigger {
   width: 42px;
   height: 42px;
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.44);
-  border-radius: 999px;
-  color: var(--ctdp-ink);
-  background: rgba(255, 255, 255, 0.26);
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
-  box-shadow:
-    0 10px 24px rgba(15, 30, 80, 0.10),
-    inset 0 1px 0 rgba(255, 255, 255, 0.42);
-  cursor: pointer;
-  transition:
-    transform 160ms ease,
-    box-shadow 160ms ease,
-    background-color 160ms ease;
-}
-
-.ctdp-smartfill-item:hover,
-.ctdp-smartfill-item:focus-visible {
-  outline: none;
-  transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.38);
-  box-shadow:
-    0 14px 28px rgba(15, 30, 80, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.52);
-}
-
-.ctdp-smartfill-recommend-trigger {
-  min-width: 72px;
-  height: 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 12px;
   border: 1px solid rgba(255, 255, 255, 0.44);
   border-radius: 999px;
   color: var(--ctdp-ink);
@@ -229,13 +196,6 @@
   box-shadow:
     0 14px 28px rgba(15, 30, 80, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.52);
-}
-
-.ctdp-smartfill-recommend-trigger-text {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  white-space: nowrap;
 }
 
 .ctdp-smartfill-recommend-panel {
@@ -293,10 +253,8 @@
 .ctdp-smartfill-recommend-item:hover,
 .ctdp-smartfill-recommend-item:focus-visible {
   outline: none;
-  transform: translateY(-1px);
   border-color: rgba(74, 111, 165, 0.34);
   background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 10px 20px rgba(15, 30, 80, 0.1);
 }
 
 .ctdp-smartfill-recommend-item-primary {
@@ -477,6 +435,10 @@
 .ctdp-toolbar-group {
   display: flex;
   align-items: center;
+}
+
+.ctdp-toolbar-group-left {
+  gap: 10px;
 }
 
 .ctdp-toolbar-group-right {
@@ -1389,7 +1351,7 @@
   color: rgba(25, 40, 80, 0.90);
 }
 
-.ctdp-smartfill-item-icon {
+.ctdp-smartfill-recommend-icon {
   width: 16px;
   height: 16px;
   color: rgba(25, 40, 80, 0.82);
