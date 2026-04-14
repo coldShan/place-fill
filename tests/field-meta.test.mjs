@@ -17,7 +17,7 @@ test("field metadata exposes stable ordered definitions for all supported fields
     definitions.map(function (item) {
       return item.key;
     }),
-    ["creditCode", "companyName", "fullName", "idNumber", "bankCard", "mobile", "email", "landline", "address"]
+    ["creditCode", "companyName", "fullName", "idNumber", "bankCard", "account", "mobile", "email", "landline", "address"]
   );
   assert.deepEqual(definitions[0], {
     key: "creditCode",
@@ -36,7 +36,9 @@ test("field metadata returns cloned field definitions and derived helper lookups
   definitions[0].label = "changed";
 
   assert.equal(getFieldDefinitions()[0].label, "统一社会信用代码");
-  assert.deepEqual(getFieldKeys(), ["creditCode", "companyName", "fullName", "idNumber", "bankCard", "mobile", "email", "landline", "address"]);
+  assert.deepEqual(getFieldKeys(), ["creditCode", "companyName", "fullName", "idNumber", "bankCard", "account", "mobile", "email", "landline", "address"]);
+  assert.equal(getFieldLabel("account"), "账号");
+  assert.equal(getFieldIconName("account"), "badge-check");
   assert.equal(getFieldLabel("email"), "邮箱");
   assert.equal(getFieldIconName("landline"), "phone");
   assert.equal(getFieldLabel("unknown"), "");

@@ -35,6 +35,7 @@ function buildProfile(index: number) {
   return {
     address: "上海市徐汇区测试路 " + index + " 号",
     bankCard: "6222020202020" + String(index).padStart(3, "0"),
+    account: String(100000 + index),
     companyName: "测试企业 " + index,
     creditCode: "91310000TEST" + String(index).padStart(6, "0"),
     email: "user" + index + "@example.com",
@@ -99,6 +100,7 @@ test("favorite profiles support create update and delete within a scope", async 
 
   assert.equal(updated?.name, "常用数据 B");
   assert.equal(updated?.profile.fullName, "测试用户2");
+  assert.equal(updated?.profile.account, "100002");
 
   const listAfterUpdate = await readFavoriteProfiles("alpha.example.com", { storageArea });
   assert.equal(listAfterUpdate.length, 1);

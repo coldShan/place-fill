@@ -20,6 +20,7 @@
 
     const fieldKeys = fieldMetaApi.getFieldKeys();
     const IDENTITY_FIELD_KEYS = ["fullName", "companyName"];
+    const HIDDEN_BIZCARD_FIELD_KEYS = ["account"];
     const MOBILE_KEY = "mobile";
     const panelState = panelStateApi.createPanelState();
     const runtimeApi = typeof chrome !== "undefined" ? chrome.runtime : null;
@@ -347,7 +348,7 @@
       });
       const mobileVisible = state.visibleFieldKeys.indexOf(MOBILE_KEY) !== -1;
       const visBodyKeys = state.visibleFieldKeys.filter(function (k) {
-        return IDENTITY_FIELD_KEYS.indexOf(k) === -1 && k !== MOBILE_KEY;
+        return IDENTITY_FIELD_KEYS.indexOf(k) === -1 && k !== MOBILE_KEY && HIDDEN_BIZCARD_FIELD_KEYS.indexOf(k) === -1;
       });
 
       if (visIdentityKeys.length === 0 && !mobileVisible && visBodyKeys.length === 0) {

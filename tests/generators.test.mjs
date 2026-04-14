@@ -8,6 +8,7 @@ const {
   GeneratedFieldLabels,
   formatProfileForCopy,
   generateAddress,
+  generateAccountNumber,
   generateFieldValue,
   generateBankCardNumber,
   generateCompanyName,
@@ -90,6 +91,12 @@ test("generateBankCardNumber returns number with luhn checksum", () => {
   assert.equal(validateBankCardNumber(bankCard), true);
 });
 
+test("generateAccountNumber returns a 6 to 12 digit numeric account", () => {
+  const account = generateAccountNumber(createRng([0.31, 0.42, 0.58, 0.67, 0.74, 0.86, 0.93]));
+
+  assert.match(account, /^\d{6,12}$/);
+});
+
 test("generateMobileNumber returns a mainland mobile number", () => {
   const mobile = generateMobileNumber(createRng([0.08, 0.33, 0.49, 0.61, 0.75, 0.94]));
 
@@ -123,6 +130,7 @@ test("generateProfile returns all fixed fields and formatProfileForCopy keeps st
   assert.match(profile.companyName, /^[\u4e00-\u9fa5]{4,}(有限责任公司|有限公司|集团有限公司|科技有限公司)$/);
   assert.equal(validateChineseIdNumber(profile.idNumber), true);
   assert.equal(validateBankCardNumber(profile.bankCard), true);
+  assert.match(profile.account, /^\d{6,12}$/);
   assert.match(profile.fullName, /^[\u4e00-\u9fa5]{2,3}$/);
   assert.match(profile.mobile, /^1[3-9]\d{9}$/);
   assert.match(profile.email, /^[a-z][a-z0-9]{4,10}@(qq\.com|163\.com|gmail\.com|outlook\.com)$/);
@@ -150,6 +158,7 @@ test("generateFieldValue regenerates only the requested field shape", () => {
   const mobile = generateFieldValue("mobile", createRng([0.08, 0.33, 0.49, 0.61, 0.75, 0.94]));
   const email = generateFieldValue("email", createRng([0.07, 0.18, 0.29, 0.41, 0.55, 0.68, 0.82]));
   const landline = generateFieldValue("landline", createRng([0.09, 0.22, 0.37, 0.44, 0.58, 0.63, 0.79, 0.91]));
+  const account = generateFieldValue("account", createRng([0.31, 0.42, 0.58, 0.67, 0.74, 0.86, 0.93]));
   const address = generateFieldValue("address", createRng([0.03, 0.16, 0.28, 0.35, 0.47, 0.59, 0.66, 0.74, 0.83, 0.95]));
   const idNumber = generateFieldValue("idNumber", createRng([0.05, 0.17, 0.39, 0.44, 0.62, 0.86, 0.21]));
   const creditCode = generateFieldValue("creditCode", createRng([0.02, 0.14, 0.31, 0.48, 0.52, 0.67, 0.73, 0.89]));
@@ -158,6 +167,7 @@ test("generateFieldValue regenerates only the requested field shape", () => {
   assert.match(mobile, /^1[3-9]\d{9}$/);
   assert.match(email, /^[a-z][a-z0-9]{4,10}@(qq\.com|163\.com|gmail\.com|outlook\.com)$/);
   assert.match(landline, /^0\d{2,3}-\d{7,8}$/);
+  assert.match(account, /^\d{6,12}$/);
   assert.match(address, /^[\u4e00-\u9fa5]{2,6}路\d{1,3}号[\u4e00-\u9fa5]{2,6}小区\d{1,2}栋\d{1,2}单元\d{2,4}室$/);
   assert.equal(validateChineseIdNumber(idNumber), true);
   assert.equal(validateUnifiedSocialCreditCode(creditCode), true);

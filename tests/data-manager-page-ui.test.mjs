@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pageDir = join(here, "../extension/src-ts/pages/data-manager");
+const sharedFieldMetaSource = readFileSync(join(here, "../extension/src-ts/shared/field-meta.ts"), "utf8");
 const pageSource = readdirSync(pageDir)
   .filter(function (fileName) {
     return fileName.endsWith(".ts");
@@ -39,6 +40,8 @@ test("favorite create and edit share a modal form instead of an inline persisten
   assert.match(pageSource, /data-role="favorite-modal"/);
   assert.match(pageSource, /data-role="favorite-modal-title"/);
   assert.match(pageSource, /data-action="open-create-favorite"/);
+  assert.match(pageSource, /FIELD_KEYS\.map/);
+  assert.match(sharedFieldMetaSource, /key:\s*"account"/);
   assert.doesNotMatch(pageSource, /data-action="favorite-reset"/);
 });
 

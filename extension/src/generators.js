@@ -181,6 +181,13 @@
     return base + getLuhnCheckDigit(base);
   }
 
+  function generateAccountNumber(rng) {
+    const length = 6 + randomInt(7, rng);
+    let account = "";
+    while (account.length < length) account += String(randomInt(10, rng));
+    return account;
+  }
+
   function generateMobileNumber(rng) {
     let mobile = pick(MOBILE_PREFIXES, rng);
     while (mobile.length < 11) mobile += String(randomInt(10, rng));
@@ -218,6 +225,7 @@
     if (fieldKey === "fullName") return generateChineseName(rng);
     if (fieldKey === "idNumber") return generateChineseIdNumber(rng);
     if (fieldKey === "bankCard") return generateBankCardNumber(rng);
+    if (fieldKey === "account") return generateAccountNumber(rng);
     if (fieldKey === "mobile") return generateMobileNumber(rng);
     if (fieldKey === "email") return generateEmailAddress(rng);
     if (fieldKey === "landline") return generateLandlineNumber(rng);
@@ -247,6 +255,7 @@
     GeneratedFieldLabels,
     formatProfileForCopy,
     generateAddress,
+    generateAccountNumber,
     generateBankCardNumber,
     generateCompanyName,
     generateChineseIdNumber,

@@ -43,6 +43,11 @@
       patterns: [/银行卡/u, /卡号/u, /bank\s*card/i, /\bcard\s*(?:no|number)?\b/i]
     },
     {
+      fieldKey: "account",
+      exact: ["account", "accountname", "accountno", "accountnumber", "loginaccount", "loginname", "userid", "useraccount", "username", "zhanghao", "zh"],
+      patterns: [/账号/u, /账户/u, /登录账号/u, /\baccount\b/i, /\buser[\s_-]*name\b/i, /\blogin[\s_-]*(?:account|name|id)?\b/i]
+    },
+    {
       fieldKey: "mobile",
       exact: ["mobile", "mobilephone", "phone", "phonenumber", "telephone", "tel", "contactphone", "shouji", "shoujihao", "shoujihaoma", "sj", "sjh"],
       patterns: [/手机号/u, /手机号码/u, /联系电话/u, /手机/u, /\bmobile\b/i, /\bphone\b/i, /\btel\b/i]
@@ -64,7 +69,7 @@
     },
     {
       fieldKey: "fullName",
-      exact: ["name", "fullname", "realname", "contactname", "username", "xingming", "xm"],
+      exact: ["name", "fullname", "realname", "contactname", "xingming", "xm"],
       patterns: [/姓名/u, /联系人/u, /真实姓名/u, /\bfull\s*name\b/i, /\breal\s*name\b/i, /\bname\b/i]
     },
     {

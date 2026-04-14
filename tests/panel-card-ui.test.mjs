@@ -101,6 +101,7 @@ test("panel footer adds a settings entry and the panel includes a dedicated sett
 test("panel renders and copies only the currently visible field keys", () => {
   assert.match(panelScript, /visibleFieldKeys:\s*fieldVisibilityApi\.getDefaultVisibleFieldKeys\(\)/);
   assert.match(panelScript, /state\.visibleFieldKeys\.filter/);
+  assert.match(panelScript, /HIDDEN_BIZCARD_FIELD_KEYS\s*=\s*\["account"\]/);
   assert.match(panelScript, /fieldVisibilityApi\.writeVisibleFieldKeys/);
   assert.match(panelScript, /loadVisibleFieldKeys/);
   assert.match(panelScript, /onVisibleFieldKeysChanged\(state\.visibleFieldKeys\)/);

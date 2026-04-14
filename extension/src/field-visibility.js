@@ -20,7 +20,11 @@
 
   const STORAGE_KEY = "ctdp.visibleFieldKeys.v1";
   const fieldMetaApi = getFieldMetaApi();
-  const DEFAULT_VISIBLE_FIELD_KEYS = Object.freeze(fieldMetaApi.getFieldKeys().slice(0, 6));
+  const DEFAULT_VISIBLE_FIELD_KEYS = Object.freeze(
+    fieldMetaApi.getFieldKeys().filter(function (fieldKey) {
+      return ["creditCode", "companyName", "fullName", "idNumber", "bankCard", "account", "mobile"].includes(fieldKey);
+    })
+  );
 
   function getDefaultVisibleFieldKeys() {
     return DEFAULT_VISIBLE_FIELD_KEYS.slice();

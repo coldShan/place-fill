@@ -7,6 +7,7 @@
     { key: "fullName", label: "姓名", iconName: "user-round" },
     { key: "idNumber", label: "身份证号", iconName: "id-card" },
     { key: "bankCard", label: "银行卡号", iconName: "credit-card" },
+    { key: "account", label: "账号", iconName: "badge-check" },
     { key: "mobile", label: "手机号", iconName: "smartphone" },
     { key: "email", label: "邮箱", iconName: "mail" },
     { key: "landline", label: "固定电话", iconName: "phone" },

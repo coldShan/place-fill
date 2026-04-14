@@ -16,6 +16,7 @@ function createFavorite(id, profile) {
       fullName: "",
       idNumber: "",
       bankCard: "",
+      account: "",
       mobile: "",
       email: "",
       landline: "",
@@ -54,4 +55,18 @@ test("recommendation items are capped at ten records", () => {
   assert.equal(items.length, MAX_RECOMMENDATION_ITEMS);
   assert.equal(items[0]?.id, "mobile-0");
   assert.equal(items[MAX_RECOMMENDATION_ITEMS - 1]?.id, "mobile-9");
+});
+
+test("recommendation items support account values", () => {
+  assert.deepEqual(
+    buildRecommendationItems("account", [
+      createFavorite("account-1", { account: "00123456", fullName: "张唯", companyName: "星海科技" }),
+      createFavorite("account-2", { account: "" }),
+      createFavorite("account-3", { account: "987654321012" })
+    ]),
+    [
+      { id: "account-1", primaryText: "00123456", secondaryText: "张唯 / 星海科技" },
+      { id: "account-3", primaryText: "987654321012", secondaryText: "" }
+    ]
+  );
 });

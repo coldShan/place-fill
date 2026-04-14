@@ -82,6 +82,7 @@ test("smart fill infers phone, id card, name, bank card and credit code from com
   assert.equal(inferFieldKeyForSmartFill(createElement({ placeholder: "请输入公司名称" })), "companyName");
   assert.equal(inferFieldKeyForSmartFill(createElement({ ariaLabel: "企业名称联系人姓名" })), "fullName");
   assert.equal(inferFieldKeyForSmartFill(createElement({ id: "bankCardNo" })), "bankCard");
+  assert.equal(inferFieldKeyForSmartFill(createElement({ name: "loginAccount" })), "account");
   assert.equal(inferFieldKeyForSmartFill(createElement({ name: "unifiedSocialCreditCode" })), "creditCode");
 });
 
@@ -98,6 +99,8 @@ test("smart fill infers pinyin aliases and initials for supported fields", () =>
   assert.equal(inferFieldKeyForSmartFill(createElement({ name: "sfzh" })), "idNumber");
   assert.equal(inferFieldKeyForSmartFill(createElement({ id: "zjhm" })), "idNumber");
   assert.equal(inferFieldKeyForSmartFill(createElement({ name: "yhkh" })), "bankCard");
+  assert.equal(inferFieldKeyForSmartFill(createElement({ id: "zhanghao" })), "account");
+  assert.equal(inferFieldKeyForSmartFill(createElement({ name: "username" })), "account");
   assert.equal(inferFieldKeyForSmartFill(createElement({ id: "sjh" })), "mobile");
   assert.equal(inferFieldKeyForSmartFill(createElement({ name: "gddh" })), "landline");
   assert.equal(inferFieldKeyForSmartFill(createElement({ id: "dizhi" })), "address");
@@ -111,6 +114,7 @@ test("smart fill returns null for unsupported or ambiguous fields", () => {
 
 test("smart fill button label only uses the matched field name", () => {
   assert.equal(formatSmartFillButtonLabel("companyName"), "公司名称");
+  assert.equal(formatSmartFillButtonLabel("account"), "账号");
   assert.equal(formatSmartFillButtonLabel("mobile"), "手机号");
   assert.equal(formatSmartFillButtonLabel("email"), "邮箱");
   assert.equal(formatSmartFillButtonLabel("landline"), "固定电话");

@@ -6,6 +6,7 @@ var ChromeTestDataDataRecordsBundle = (function() {
     { key: "fullName", label: "姓名" },
     { key: "idNumber", label: "身份证号" },
     { key: "bankCard", label: "银行卡号" },
+    { key: "account", label: "账号" },
     { key: "mobile", label: "手机号" },
     { key: "email", label: "邮箱" },
     { key: "landline", label: "固定电话" },

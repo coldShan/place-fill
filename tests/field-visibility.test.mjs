@@ -37,8 +37,8 @@ function createStorageArea(initialState) {
   };
 }
 
-test("field visibility defaults to the first six core fill items", () => {
-  assert.deepEqual(getDefaultVisibleFieldKeys(), ["creditCode", "companyName", "fullName", "idNumber", "bankCard", "mobile"]);
+test("field visibility defaults include account smart fill support", () => {
+  assert.deepEqual(getDefaultVisibleFieldKeys(), ["creditCode", "companyName", "fullName", "idNumber", "bankCard", "account", "mobile"]);
 });
 
 test("field visibility falls back to defaults when storage is empty or invalid", async () => {
