@@ -1,6 +1,43 @@
 (function (rootScope) {
   "use strict";
 
+  const MAX_RECOMMENDATION_ITEMS = 10;
+  const RECOMMENDATION_SUCCESS_MESSAGE = "已填充推荐数据";
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function buildRecommendationContext(profile) {
+    const parts = [];
+    const fullName = profile && typeof profile.fullName === "string" ? profile.fullName.trim() : "";
+    const companyName = profile && typeof profile.companyName === "string" ? profile.companyName.trim() : "";
+    if (fullName) parts.push(fullName);
+    if (companyName) parts.push(companyName);
+    return parts.join(" / ");
+  }
+
+  function buildRecommendationItems(fieldKey, favoriteProfiles) {
+    if (!fieldKey || !Array.isArray(favoriteProfiles)) return [];
+    return favoriteProfiles
+      .map(function (entry) {
+        const profile = entry && entry.profile && typeof entry.profile === "object" ? entry.profile : null;
+        const primaryText = profile && typeof profile[fieldKey] === "string" ? profile[fieldKey].trim() : "";
+        if (!primaryText) return null;
+        return {
+          id: String(entry && entry.id ? entry.id : ""),
+          primaryText: primaryText,
+          secondaryText: buildRecommendationContext(profile)
+        };
+      })
+      .filter(Boolean)
+      .slice(0, MAX_RECOMMENDATION_ITEMS);
+  }
+
   function createContentScriptSmartFillController(options) {
     const opts = options || {};
     const editableTargetApi = opts.editableTargetApi;
@@ -9,8 +46,15 @@
     const doc = opts.document;
     const win = opts.window;
     const getFieldValue = typeof opts.getFieldValue === "function" ? opts.getFieldValue : function () { return ""; };
+    const getCurrentScope = typeof opts.getCurrentScope === "function" ? opts.getCurrentScope : function () { return ""; };
     const getVisibleFieldKeys = typeof opts.getVisibleFieldKeys === "function" ? opts.getVisibleFieldKeys : function () { return smartFillApi.getSupportedFieldKeys(); };
     const isEnabled = typeof opts.isEnabled === "function" ? opts.isEnabled : function () { return true; };
+    const listRecommendedProfiles = typeof opts.listRecommendedProfiles === "function"
+      ? opts.listRecommendedProfiles
+      : function () { return Promise.resolve([]); };
+    const openDataManagerPage = typeof opts.openDataManagerPage === "function"
+      ? opts.openDataManagerPage
+      : function () { return Promise.resolve(); };
     const onFieldFilled = typeof opts.onFieldFilled === "function" ? opts.onFieldFilled : function () {};
     const FOCUS_RING_FADE_OUT_MS = 120;
 
@@ -20,6 +64,15 @@
     let lastContextTarget = null;
     let focusTargetClearTimer = null;
     let fillInProgress = false;
+    let recommendationOpen = false;
+    let recommendationLoading = false;
+    let recommendationItems = [];
+    let recommendationMessage = "";
+    let recommendationRequestId = 0;
+    let preserveFocusOut = false;
+    let preserveFocusOutTimer = null;
+    let statusMessage = "";
+    let statusTimer = null;
 
     function isTransparentColor(value) {
       return !value || value === "transparent" || value === "rgba(0, 0, 0, 0)";
@@ -96,6 +149,61 @@
       ].join("");
     }
 
+    function renderRecommendationTriggerMarkup() {
+      return [
+        '<button class="ctdp-smartfill-recommend-trigger" type="button" data-role="smart-fill-recommend-trigger" aria-label="推荐数据" title="推荐数据">',
+        '  <span class="ctdp-smartfill-recommend-trigger-text" aria-hidden="true">推荐数据</span>',
+        "</button>"
+      ].join("");
+    }
+
+    function renderRecommendationItemsMarkup() {
+      if (recommendationLoading) {
+        return '<div class="ctdp-smartfill-recommend-state" data-role="smart-fill-recommend-state">正在读取推荐数据</div>';
+      }
+      if (!recommendationItems.length) {
+        return [
+          '<div class="ctdp-smartfill-recommend-empty" data-role="smart-fill-recommend-empty">',
+          '  <p class="ctdp-smartfill-recommend-empty-text">' + escapeHtml(recommendationMessage) + "</p>",
+          recommendationMessage === "当前站点还没有常用数据"
+            ? '  <button class="ctdp-smartfill-recommend-link" type="button" data-role="smart-fill-open-data-manager">去数据管理页</button>'
+            : "",
+          "</div>"
+        ].join("");
+      }
+      return [
+        '<div class="ctdp-smartfill-recommend-list" data-role="smart-fill-recommend-list">',
+        recommendationItems
+          .map(function (item) {
+            return [
+              '<button class="ctdp-smartfill-recommend-item" type="button" data-role="smart-fill-recommend-item" data-id="' + escapeHtml(item.id) + '" aria-label="填充推荐数据" title="' + escapeHtml(item.primaryText) + '">',
+              '  <span class="ctdp-smartfill-recommend-item-primary">' + escapeHtml(item.primaryText) + "</span>",
+              item.secondaryText
+                ? '  <span class="ctdp-smartfill-recommend-item-secondary">' + escapeHtml(item.secondaryText) + "</span>"
+                : "",
+              "</button>"
+            ].join("");
+          })
+          .join(""),
+        "</div>"
+      ].join("");
+    }
+
+    function renderRecommendationPanelMarkup() {
+      if (!recommendationOpen) return "";
+      return [
+        '<section class="ctdp-smartfill-recommend-panel" data-role="smart-fill-recommend-panel" aria-label="推荐数据">',
+        '  <div class="ctdp-smartfill-recommend-title">推荐数据</div>',
+        renderRecommendationItemsMarkup(),
+        "</section>"
+      ].join("");
+    }
+
+    function renderStatusMarkup() {
+      if (!statusMessage) return "";
+      return '<div class="ctdp-smartfill-status" data-role="smart-fill-status">' + escapeHtml(statusMessage) + "</div>";
+    }
+
     function renderSmartFillMenuMarkup(primaryFieldKey) {
       const triggerLabel = primaryFieldKey ? smartFillApi.formatSmartFillButtonLabel(primaryFieldKey) : "选择测试数据类型";
       const triggerIconName = primaryFieldKey ? smartFillApi.getFieldIconName(primaryFieldKey) : iconAssetsApi.PRIMARY_LOGO_ICON;
@@ -105,13 +213,16 @@
         "  " + iconAssetsApi.renderIconMarkup(triggerIconName, "ctdp-smartfill-icon", triggerLabel),
         "</button>",
         '<div class="ctdp-smartfill-menu" data-role="smart-fill-menu">',
+        renderRecommendationTriggerMarkup(),
         smartFillApi
           .getSmartFillMenuFieldKeys(primaryFieldKey, visibleFieldKeys)
           .map(function (fieldKey) {
             return renderSmartFillMenuItemMarkup(fieldKey);
           })
           .join(""),
-        "</div>"
+        "</div>",
+        renderRecommendationPanelMarkup(),
+        renderStatusMarkup()
       ].join("");
     }
 
@@ -144,14 +255,59 @@
       scheduleSmartButtonPosition();
     }
 
+    function renderSmartButton() {
+      if (!smartButton) return;
+      smartButton.innerHTML = renderSmartFillMenuMarkup(activeSmartFieldKey);
+      scheduleSmartButtonPosition();
+    }
+
     function hideFocusTargetMarker() {
       if (!activeSmartTarget || typeof activeSmartTarget.removeAttribute !== "function") return;
       activeSmartTarget.removeAttribute("data-ctdp-smartfocus-visible");
       scheduleFocusTargetMarkerClear(activeSmartTarget);
     }
 
+    function clearStatusMessage() {
+      if (statusTimer) {
+        win.clearTimeout(statusTimer);
+        statusTimer = null;
+      }
+      statusMessage = "";
+    }
+
+    function holdFocusOutSync() {
+      preserveFocusOut = true;
+      if (preserveFocusOutTimer) win.clearTimeout(preserveFocusOutTimer);
+      preserveFocusOutTimer = win.setTimeout(function () {
+        preserveFocusOut = false;
+        preserveFocusOutTimer = null;
+      }, 180);
+    }
+
+    function showStatusMessage(message) {
+      clearStatusMessage();
+      statusMessage = String(message || "").trim();
+      renderSmartButton();
+      if (!statusMessage) return;
+      statusTimer = win.setTimeout(function () {
+        statusMessage = "";
+        statusTimer = null;
+        renderSmartButton();
+      }, 1400);
+    }
+
+    function resetRecommendationState() {
+      recommendationOpen = false;
+      recommendationLoading = false;
+      recommendationItems = [];
+      recommendationMessage = "";
+      recommendationRequestId += 1;
+    }
+
     function hideSmartButton() {
       if (!smartButton) return;
+      resetRecommendationState();
+      clearStatusMessage();
       smartButton.hidden = true;
       smartButton.setAttribute("data-visible", "false");
       smartButton.setAttribute("data-expanded", "false");
@@ -172,26 +328,100 @@
       smartButton.hidden = false;
       smartButton.setAttribute("data-visible", "true");
       syncFocusTargetMarker(target);
-      smartButton.innerHTML = renderSmartFillMenuMarkup(fieldKey);
+      resetRecommendationState();
+      renderSmartButton();
       smartButton.setAttribute("aria-label", fieldKey ? "智能填充" + smartFillApi.formatSmartFillButtonLabel(fieldKey) : "选择测试数据类型");
       smartButton.title = fieldKey ? smartFillApi.formatSmartFillButtonLabel(fieldKey) : "选择测试数据类型";
       setSmartButtonExpanded(false);
       scheduleSmartButtonPosition();
     }
 
-    function fillCurrentTarget(fieldKey) {
+    function fillCurrentTargetValue(value) {
       if (!isEnabled()) {
         hideSmartButton();
         return;
       }
       const target = editableTargetApi.findEditableTarget(activeSmartTarget) || editableTargetApi.findEditableTarget(doc.activeElement);
-      const value = getFieldValue(fieldKey);
-      if (!target || !fieldKey || typeof value !== "string") return;
+      if (!target || typeof value !== "string") return;
       fillInProgress = true;
       editableTargetApi.fillEditableTarget(target, value);
       fillInProgress = false;
+      showSmartButton(target, smartFillApi.inferFieldKeyForSmartFill(target) || activeSmartFieldKey);
+    }
+
+    function fillCurrentTarget(fieldKey) {
+      const value = getFieldValue(fieldKey);
+      if (!fieldKey || typeof value !== "string") return;
+      fillCurrentTargetValue(value);
       onFieldFilled(fieldKey);
-      showSmartButton(target, smartFillApi.inferFieldKeyForSmartFill(target));
+    }
+
+    function fillRecommendedValue(id) {
+      const item = recommendationItems.find(function (entry) {
+        return entry.id === id;
+      });
+      if (!item) return;
+      fillCurrentTargetValue(item.primaryText);
+      showStatusMessage(RECOMMENDATION_SUCCESS_MESSAGE);
+    }
+
+    function focusFirstRecommendationItem() {
+      if (!smartButton || !recommendationOpen) return;
+      const firstItem = smartButton.querySelector('[data-role="smart-fill-recommend-item"]');
+      if (firstItem && typeof firstItem.focus === "function") firstItem.focus();
+    }
+
+    async function openRecommendationPanel() {
+      if (!activeSmartFieldKey) return;
+      recommendationOpen = true;
+      recommendationLoading = true;
+      recommendationItems = [];
+      recommendationMessage = "";
+      renderSmartButton();
+      setSmartButtonExpanded(true);
+      const requestId = recommendationRequestId + 1;
+      recommendationRequestId = requestId;
+      let favorites = [];
+      try {
+        favorites = await listRecommendedProfiles(getCurrentScope());
+      } catch (_) {
+        favorites = [];
+      }
+      if (!smartButton || requestId !== recommendationRequestId || !recommendationOpen) return;
+      recommendationItems = buildRecommendationItems(activeSmartFieldKey, favorites);
+      recommendationLoading = false;
+      recommendationMessage = favorites.length
+        ? "没有可用于当前字段的推荐数据"
+        : "当前站点还没有常用数据";
+      renderSmartButton();
+      if (recommendationItems.length) focusFirstRecommendationItem();
+    }
+
+    function closeRecommendationPanel() {
+      if (!recommendationOpen && !recommendationLoading && !recommendationItems.length && !recommendationMessage) return;
+      resetRecommendationState();
+      renderSmartButton();
+    }
+
+    function toggleRecommendationPanel() {
+      if (recommendationOpen) {
+        closeRecommendationPanel();
+        return;
+      }
+      openRecommendationPanel();
+    }
+
+    function moveRecommendationFocus(step) {
+      if (!smartButton || !recommendationOpen) return;
+      const items = Array.from(smartButton.querySelectorAll('[data-role="smart-fill-recommend-item"]'));
+      if (!items.length) return;
+      const activeElement = doc.activeElement;
+      const currentIndex = items.indexOf(activeElement);
+      const nextIndex = currentIndex === -1
+        ? 0
+        : (currentIndex + step + items.length) % items.length;
+      const nextItem = items[nextIndex];
+      if (nextItem && typeof nextItem.focus === "function") nextItem.focus();
     }
 
     function fillTarget(target, fieldKey) {
@@ -208,11 +438,8 @@
       if (!editableTarget || !fieldKey || typeof value !== "string") return;
       activeSmartTarget = editableTarget;
       activeSmartFieldKey = fieldKey;
-      fillInProgress = true;
-      editableTargetApi.fillEditableTarget(editableTarget, value);
-      fillInProgress = false;
+      fillCurrentTargetValue(value);
       onFieldFilled(fieldKey);
-      showSmartButton(editableTarget, smartFillApi.inferFieldKeyForSmartFill(editableTarget));
     }
 
     function syncTarget(target) {
@@ -259,7 +486,10 @@
       doc.documentElement.appendChild(smartButton);
 
       smartButton.addEventListener("mousedown", function (event) {
-        if (event.target.closest("[data-role]")) event.preventDefault();
+        if (event.target.closest("[data-role]")) {
+          holdFocusOutSync();
+          event.preventDefault();
+        }
       });
 
       smartButton.addEventListener("mouseenter", function () {
@@ -268,6 +498,7 @@
 
       smartButton.addEventListener("mouseleave", function () {
         setSmartButtonExpanded(false);
+        closeRecommendationPanel();
       });
 
       smartButton.addEventListener("focusin", function () {
@@ -276,6 +507,10 @@
 
       smartButton.addEventListener("focusout", function () {
         setSmartButtonExpanded(false);
+        win.setTimeout(function () {
+          if (smartButton && typeof smartButton.contains === "function" && smartButton.contains(doc.activeElement)) return;
+          closeRecommendationPanel();
+        }, 0);
       });
 
       smartButton.addEventListener("click", function (event) {
@@ -283,7 +518,20 @@
         if (!trigger) return;
         const role = trigger.getAttribute("data-role");
         if (role === "smart-fill-item") {
+          closeRecommendationPanel();
           fillCurrentTarget(trigger.getAttribute("data-key"));
+          return;
+        }
+        if (role === "smart-fill-recommend-trigger") {
+          toggleRecommendationPanel();
+          return;
+        }
+        if (role === "smart-fill-recommend-item") {
+          fillRecommendedValue(trigger.getAttribute("data-id"));
+          return;
+        }
+        if (role === "smart-fill-open-data-manager") {
+          openDataManagerPage();
           return;
         }
         if (role === "smart-fill-trigger") {
@@ -291,7 +539,27 @@
             setSmartButtonExpanded(true);
             return;
           }
+          closeRecommendationPanel();
           fillCurrentTarget(activeSmartFieldKey);
+        }
+      });
+
+      smartButton.addEventListener("keydown", function (event) {
+        if (!recommendationOpen) return;
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          moveRecommendationFocus(1);
+          return;
+        }
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          moveRecommendationFocus(-1);
+          return;
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeRecommendationPanel();
+          setSmartButtonExpanded(true);
         }
       });
     }
@@ -299,15 +567,23 @@
     return {
       fillTarget,
       hide: hideSmartButton,
+      isInteractionTarget(node) {
+        return !!(smartButton && node && typeof smartButton.contains === "function" && smartButton.contains(node));
+      },
       mount,
       refreshPosition,
       resolveManualOverrideTarget,
       setContextTarget,
+      shouldPreserveOnFocusOut() {
+        return preserveFocusOut || recommendationOpen || recommendationLoading;
+      },
       syncTarget
     };
   }
 
   const api = {
+    MAX_RECOMMENDATION_ITEMS,
+    buildRecommendationItems,
     createContentScriptSmartFillController
   };
 

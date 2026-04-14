@@ -9,6 +9,7 @@
   const fieldVisibilityApi = globalThis.ChromeTestDataFieldVisibility;
   const siteFeatureToggleApi = globalThis.ChromeTestDataSiteFeatureToggle;
   const smartFillApi = globalThis.ChromeTestDataSmartFill;
+  const dataRecordsApi = globalThis.ChromeTestDataDataRecords;
   const panelControllerApi = globalThis.ChromeTestDataContentScriptPanel;
   const smartFillControllerApi = globalThis.ChromeTestDataContentScriptSmartFill;
 
@@ -31,6 +32,24 @@
   const canRenderPanel = window.top === window;
   const runtimeApi = typeof chrome !== "undefined" ? chrome.runtime : null;
   let smartFillController = null;
+
+  function getCurrentScope() {
+    if (!window || !window.location || typeof window.location.hostname !== "string") return "";
+    return String(window.location.hostname || "").trim().toLowerCase();
+  }
+
+  function sendRuntimeMessage(message) {
+    return new Promise(function (resolve) {
+      if (!runtimeApi || typeof runtimeApi.sendMessage !== "function") {
+        resolve({});
+        return;
+      }
+      runtimeApi.sendMessage(message, function (response) {
+        void runtimeApi.lastError;
+        resolve(response || {});
+      });
+    });
+  }
 
   function syncSiteFeatureContextMenu(enabled) {
     if (!runtimeApi || typeof runtimeApi.sendMessage !== "function") return;
@@ -91,10 +110,23 @@
     document,
     editableTargetApi,
     getFieldValue: panelController.getFieldValue,
+    getCurrentScope: getCurrentScope,
     getVisibleFieldKeys: panelController.getVisibleFieldKeys,
     iconAssetsApi,
     isEnabled: panelController.isSiteFeatureEnabled,
+    listRecommendedProfiles: function (scope) {
+      if (!dataRecordsApi || typeof dataRecordsApi.readFavoriteProfiles !== "function") return Promise.resolve([]);
+      return dataRecordsApi.readFavoriteProfiles(scope).then(function (entries) {
+        return Array.isArray(entries) ? entries : [];
+      });
+    },
     onFieldFilled: panelController.consumeFieldValue,
+    openDataManagerPage: function () {
+      return sendRuntimeMessage({
+        type: "open-data-manager-page",
+        scope: getCurrentScope()
+      });
+    },
     smartFillApi,
     window
   });
@@ -106,6 +138,9 @@
     "focusin",
     function (event) {
       panelController.handleDocumentFocusIn(event.target);
+      if (smartFillController && typeof smartFillController.isInteractionTarget === "function" && smartFillController.isInteractionTarget(event.target)) {
+        return;
+      }
       smartFillController.syncTarget(event.target);
     },
     true
@@ -115,6 +150,9 @@
     "focusout",
     function () {
       window.setTimeout(function () {
+        if (smartFillController && typeof smartFillController.shouldPreserveOnFocusOut === "function" && smartFillController.shouldPreserveOnFocusOut()) {
+          return;
+        }
         smartFillController.syncTarget(document.activeElement);
       }, 0);
     },
