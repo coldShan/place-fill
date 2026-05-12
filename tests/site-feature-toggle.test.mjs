@@ -36,16 +36,17 @@ function createStorageArea(initialState) {
   };
 }
 
-test("site feature toggle defaults to enabled when storage is empty or invalid", async () => {
-  assert.equal(getDefaultSiteFeatureEnabled(), true);
-  assert.equal(isSiteFeatureEnabled(undefined), true);
+test("site feature toggle defaults to disabled when storage is empty or invalid", async () => {
+  assert.equal(getDefaultSiteFeatureEnabled(), false);
+  assert.equal(isSiteFeatureEnabled(undefined), false);
   assert.equal(isSiteFeatureEnabled(false), false);
+  assert.equal(isSiteFeatureEnabled(true), true);
   assert.equal(
     await readSiteFeatureEnabled({
       location: { hostname: "alpha.example.com" },
       storageArea: createStorageArea()
     }),
-    true
+    false
   );
   assert.equal(
     await readSiteFeatureEnabled({
@@ -54,7 +55,7 @@ test("site feature toggle defaults to enabled when storage is empty or invalid",
         "ctdp.siteFeatureEnabled.v1": "broken"
       })
     }),
-    true
+    false
   );
 });
 
@@ -65,7 +66,7 @@ test("site feature toggle persists boolean state by hostname", async () => {
 
   assert.equal(await writeSiteFeatureEnabled(false, alphaEnv), false);
   assert.equal(await readSiteFeatureEnabled(alphaEnv), false);
-  assert.equal(await readSiteFeatureEnabled(betaEnv), true);
+  assert.equal(await readSiteFeatureEnabled(betaEnv), false);
   assert.equal(await writeSiteFeatureEnabled(true, alphaEnv), true);
   assert.equal(await readSiteFeatureEnabled(alphaEnv), true);
 });

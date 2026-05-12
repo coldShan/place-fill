@@ -87,6 +87,8 @@ test("panel footer adds a settings entry and the panel includes a dedicated sett
   assert.match(panelScript, /data-role="settings-back" aria-label="返回主面板" title="返回主面板"/);
   assert.match(panelScript, /data-role="site-feature-toggle"/);
   assert.match(panelScript, /data-role="site-feature-status"/);
+  assert.match(panelScript, /data-site-feature-enabled/);
+  assert.match(panelScript, /root\.setAttribute\("data-site-feature-enabled",\s*String\(state\.siteFeatureEnabled\)\)/);
   assert.match(panelScript, /当前站点已启用智能识别和右键标注/);
   assert.match(panelScript, /当前站点已停用智能识别和右键标注/);
   assert.doesNotMatch(panelScript, /关闭后，当前站点不启用智能识别和右键标注，其余功能不受影响/);

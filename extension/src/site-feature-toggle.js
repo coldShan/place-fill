@@ -4,11 +4,11 @@
   const STORAGE_KEY = "ctdp.siteFeatureEnabled.v1";
 
   function getDefaultSiteFeatureEnabled() {
-    return true;
+    return false;
   }
 
   function isSiteFeatureEnabled(value) {
-    return value !== false;
+    return value === true;
   }
 
   function getStorageArea(env) {
@@ -36,7 +36,7 @@
     return Object.fromEntries(
       Object.entries(rawValue)
         .map(function ([hostname, enabled]) {
-          return [String(hostname || "").trim().toLowerCase(), enabled === false ? false : true];
+          return [String(hostname || "").trim().toLowerCase(), enabled === true];
         })
         .filter(function ([hostname]) {
           return Boolean(hostname);

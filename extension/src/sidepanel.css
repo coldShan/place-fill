@@ -338,6 +338,12 @@
   pointer-events: auto;
 }
 
+.ctdp-root[data-site-feature-enabled="false"] .ctdp-dock {
+  opacity: 0;
+  transform: translateX(10px) scale(0.86);
+  pointer-events: none;
+}
+
 .ctdp-root[data-visible="true"][data-collapsed="false"] .ctdp-panel {
   opacity: 1;
   transform: translateX(0) scale(1);

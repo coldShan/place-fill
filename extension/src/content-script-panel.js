@@ -70,6 +70,7 @@
       root.setAttribute("data-visible", String(snap.visible));
       root.setAttribute("data-collapsed", String(snap.collapsed));
       root.setAttribute("data-view", state.panelView);
+      root.setAttribute("data-site-feature-enabled", String(state.siteFeatureEnabled));
     }
 
     function updatePanelView() {
@@ -748,11 +749,11 @@
       }, 0);
     }
 
-    function exportOverrides(mode) {
+    async function exportOverrides(mode) {
       const isSanitized = mode === "sanitized";
       const payload = isSanitized
-        ? smartFillApi.exportSanitizedManualFieldOverrides()
-        : smartFillApi.exportManualFieldOverrides();
+        ? await smartFillApi.exportSanitizedManualFieldOverrides()
+        : await smartFillApi.exportManualFieldOverrides();
       const count = isSanitized ? payload.entries.length : Object.keys(payload.overrides).length;
       if (!count) {
         setSettingsStatus("暂无可导出的标注数据", "warning");
@@ -791,7 +792,7 @@
       } catch (_) {
         throw new Error("导入文件不是合法 JSON");
       }
-      const result = smartFillApi.importManualFieldOverrides(payload);
+      const result = await smartFillApi.importManualFieldOverrides(payload);
       syncImportedOverrideState();
       setSettingsStatus("已导入 " + result.importedCount + " 条标注", "success");
     }
@@ -802,6 +803,7 @@
       root.className = "ctdp-root";
       root.setAttribute("data-visible", "false");
       root.setAttribute("data-collapsed", "false");
+      root.setAttribute("data-site-feature-enabled", String(state.siteFeatureEnabled));
       root.innerHTML = [
         '<button class="ctdp-dock" type="button" data-role="expand" aria-label="展开测试数据面板" title="展开测试数据面板">' +
           iconAssetsApi.renderIconMarkup(iconAssetsApi.PRIMARY_LOGO_ICON, "ctdp-dock-icon", "测试数据面板") +
@@ -961,7 +963,9 @@
           return;
         }
         if (role === "export-overrides") {
-          exportOverrides("raw");
+          exportOverrides("raw").catch(function () {
+            setSettingsStatus("导出失败", "error");
+          });
           return;
         }
         if (role === "import-overrides") {
@@ -969,7 +973,9 @@
           return;
         }
         if (role === "export-sanitized-overrides") {
-          exportOverrides("sanitized");
+          exportOverrides("sanitized").catch(function () {
+            setSettingsStatus("导出失败", "error");
+          });
           return;
         }
         if (role === "expand") {
@@ -1049,6 +1055,11 @@
 
     function collapse() {
       if (!canRenderPanel) return;
+      if (!state.siteFeatureEnabled && panelState.snapshot().visible) {
+        panelState.toggleVisible();
+        updatePanelState();
+        return;
+      }
       panelState.collapse();
       updatePanelState();
     }

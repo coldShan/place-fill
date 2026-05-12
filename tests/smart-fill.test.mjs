@@ -13,7 +13,7 @@ const {
   getSupportedFieldKeys,
   importManualFieldOverrides,
   inferFieldKeyForSmartFill,
-  migrateLegacyManualFieldOverrides,
+  loadManualFieldOverrides,
   setManualFieldOverride
 } = smartFillPkg;
 const { getFieldDefinitions, getFieldKeys } = fieldMetaPkg;
@@ -40,18 +40,33 @@ function createElement(props) {
   };
 }
 
-function createStorage(initialValue) {
-  const state = new Map();
-  if (initialValue !== undefined) state.set("ctdp.smartFillOverrides.v1", initialValue);
+function createStorageArea(initialState) {
+  const state = { ...(initialState || {}) };
   return {
-    getItem(key) {
-      return state.has(key) ? state.get(key) : null;
+    get(keys, callback) {
+      const result = Array.isArray(keys)
+        ? Object.fromEntries(
+            keys
+              .filter(function (key) {
+                return Object.prototype.hasOwnProperty.call(state, key);
+              })
+              .map(function (key) {
+                return [key, state[key]];
+              })
+          )
+        : { ...state };
+      if (callback) callback(result);
+      return Promise.resolve(result);
     },
-    setItem(key, value) {
-      state.set(key, String(value));
+    set(values, callback) {
+      Object.assign(state, values || {});
+      if (callback) callback();
+      return Promise.resolve();
     },
-    removeItem(key) {
-      state.delete(key);
+    remove(key, callback) {
+      delete state[key];
+      if (callback) callback();
+      return Promise.resolve();
     }
   };
 }
@@ -64,7 +79,11 @@ function createEnv(overrides) {
       search: "?ignored=1",
       hash: "#ignored"
     },
-    localStorage: (overrides && overrides.localStorage) || createStorage(overrides && overrides.storageValue),
+    storageArea: (overrides && overrides.storageArea) || createStorageArea(
+      overrides && Object.prototype.hasOwnProperty.call(overrides, "storageValue")
+        ? { "ctdp.smartFillOverrides.v1": overrides.storageValue }
+        : undefined
+    ),
     document: {
       querySelectorAll() {
         return overrides && overrides.elements ? overrides.elements : [];
@@ -150,127 +169,87 @@ test("smart fill exposes supported field keys for menu creation", () => {
   assert.deepEqual(getSmartFillMenuFieldKeys("companyName", ["companyName", "mobile", "address"]), []);
 });
 
-test("manual smart fill override takes precedence over heuristic inference", () => {
+test("manual smart fill override takes precedence over heuristic inference", async () => {
   const element = createElement({ name: "mobilePhone", id: "contact-input" });
   const env = createEnv({ elements: [element] });
 
-  setManualFieldOverride(element, "companyName", env);
+  await setManualFieldOverride(element, "companyName", env);
 
   assert.equal(inferFieldKeyForSmartFill(element, env), "companyName");
 });
 
-test("manual smart fill override is scoped to the current field fingerprint", () => {
+test("manual smart fill override is scoped to the current field fingerprint", async () => {
   const left = createElement({ name: "contact", placeholder: "请输入内容" });
   const right = createElement({ name: "contact", placeholder: "请输入内容" });
   const env = createEnv({ elements: [left, right] });
 
-  setManualFieldOverride(left, "fullName", env);
+  await setManualFieldOverride(left, "fullName", env);
 
   assert.equal(inferFieldKeyForSmartFill(left, env), "fullName");
   assert.equal(inferFieldKeyForSmartFill(right, env), null);
 });
 
-test("manual smart fill override is shared within the same domain and first-level path", () => {
+test("manual smart fill override is shared within the same domain and first-level path", async () => {
   const element = createElement({ name: "contact", id: "shared-input" });
-  const sharedStorage = createStorage();
-  const envA = createEnv({ elements: [element], pathname: "/apply/form", localStorage: sharedStorage });
-  const envB = createEnv({ elements: [element], pathname: "/apply/step-two", localStorage: sharedStorage });
+  const sharedStorage = createStorageArea();
+  const envA = createEnv({ elements: [element], pathname: "/apply/form", storageArea: sharedStorage });
+  const envB = createEnv({ elements: [element], pathname: "/apply/step-two", storageArea: sharedStorage });
 
-  setManualFieldOverride(element, "fullName", envA);
+  await setManualFieldOverride(element, "fullName", envA);
 
   assert.equal(inferFieldKeyForSmartFill(element, envB), "fullName");
 });
 
-test("manual smart fill override stays isolated across different first-level paths", () => {
+test("manual smart fill override stays isolated across different first-level paths", async () => {
   const element = createElement({ name: "contact", id: "scoped-input" });
-  const sharedStorage = createStorage();
-  const envA = createEnv({ elements: [element], pathname: "/apply/form", localStorage: sharedStorage });
-  const envB = createEnv({ elements: [element], pathname: "/review/form", localStorage: sharedStorage });
+  const sharedStorage = createStorageArea();
+  const envA = createEnv({ elements: [element], pathname: "/apply/form", storageArea: sharedStorage });
+  const envB = createEnv({ elements: [element], pathname: "/review/form", storageArea: sharedStorage });
 
-  setManualFieldOverride(element, "fullName", envA);
+  await setManualFieldOverride(element, "fullName", envA);
 
   assert.equal(inferFieldKeyForSmartFill(element, envB), null);
 });
 
-test("legacy manual override migration folds full page paths into the first-level path and persists it", () => {
-  const storage = createStorage(
-    JSON.stringify({
-      "https://example.com/apply/form::top::tag=input&type=text&id=legacy&name=contact&autocomplete=&placeholder=&aria=&labels=":
+test("manual overrides can be loaded from chrome storage before inference", async () => {
+  const element = createElement({ name: "contact", id: "loaded-input" });
+  const env = createEnv({
+    elements: [element],
+    storageValue: {
+      "https://example.com/apply::top::tag=input&type=text&id=loadedinput&name=contact&autocomplete=&placeholder=&aria=&labels=":
         "fullName"
-    })
-  );
-  const env = createEnv({ localStorage: storage });
-
-  const result = migrateLegacyManualFieldOverrides(env);
-
-  assert.deepEqual(result, { migratedCount: 1, updated: true });
-  assert.deepEqual(JSON.parse(storage.getItem("ctdp.smartFillOverrides.v1")), {
-    "https://example.com/apply::top::tag=input&type=text&id=legacy&name=contact&autocomplete=&placeholder=&aria=&labels=":
-      "fullName"
+    }
   });
+
+  await loadManualFieldOverrides(env);
+
+  assert.equal(inferFieldKeyForSmartFill(element, env), "fullName");
 });
 
-test("legacy manual override migration preserves an existing folded key when legacy keys collide", () => {
-  const storage = createStorage(
-    JSON.stringify({
-      "https://example.com/apply::top::tag=input&type=text&id=shared&name=contact&autocomplete=&placeholder=&aria=&labels=":
-        "companyName",
-      "https://example.com/apply/form-a::top::tag=input&type=text&id=shared&name=contact&autocomplete=&placeholder=&aria=&labels=":
-        "fullName"
-    })
-  );
-  const env = createEnv({ localStorage: storage });
-
-  const result = migrateLegacyManualFieldOverrides(env);
-
-  assert.deepEqual(result, { migratedCount: 1, updated: true });
-  assert.deepEqual(JSON.parse(storage.getItem("ctdp.smartFillOverrides.v1")), {
-    "https://example.com/apply::top::tag=input&type=text&id=shared&name=contact&autocomplete=&placeholder=&aria=&labels=":
-      "companyName"
-  });
-});
-
-test("legacy manual override migration is a no-op when storage already uses the current scope", () => {
-  const storage = createStorage(
-    JSON.stringify({
-      "https://example.com/apply::top::tag=input&type=text&id=current&name=contact&autocomplete=&placeholder=&aria=&labels=":
-        "fullName"
-    })
-  );
-  const env = createEnv({ localStorage: storage });
-
-  const result = migrateLegacyManualFieldOverrides(env);
-
-  assert.deepEqual(result, { migratedCount: 0, updated: false });
-  assert.deepEqual(JSON.parse(storage.getItem("ctdp.smartFillOverrides.v1")), {
-    "https://example.com/apply::top::tag=input&type=text&id=current&name=contact&autocomplete=&placeholder=&aria=&labels=":
-      "fullName"
-  });
-});
-
-test("clearing manual smart fill override falls back to heuristic inference", () => {
+test("clearing manual smart fill override falls back to heuristic inference", async () => {
   const element = createElement({ name: "mobilePhone", id: "contact-input" });
   const env = createEnv({ elements: [element] });
 
-  setManualFieldOverride(element, "companyName", env);
-  clearManualFieldOverride(element, env);
+  await setManualFieldOverride(element, "companyName", env);
+  await clearManualFieldOverride(element, env);
 
   assert.equal(inferFieldKeyForSmartFill(element, env), "mobile");
 });
 
-test("invalid override storage is ignored safely", () => {
+test("invalid override storage is ignored safely", async () => {
   const element = createElement({ name: "mobilePhone", id: "contact-input" });
-  const env = createEnv({ elements: [element], storageValue: "{broken-json" });
+  const env = createEnv({ elements: [element], storageValue: "broken" });
 
+  await loadManualFieldOverrides(env);
   assert.equal(inferFieldKeyForSmartFill(element, env), "mobile");
 });
 
-test("raw override export keeps the full stored override map with metadata", () => {
+test("raw override export keeps the full stored override map with metadata", async () => {
   const element = createElement({ name: "mobilePhone", id: "contact-input" });
   const env = createEnv({ elements: [element] });
-  setManualFieldOverride(element, "companyName", env);
+  await setManualFieldOverride(element, "companyName", env);
 
-  const exported = exportManualFieldOverrides(env);
+  const exported = await exportManualFieldOverrides(env);
 
   assert.equal(exported.format, "ctdp-smart-fill-overrides");
   assert.equal(exported.type, "raw");
@@ -281,12 +260,12 @@ test("raw override export keeps the full stored override map with metadata", () 
   assert.match(Object.keys(exported.overrides)[0], /^https:\/\/example\.com\/apply::top::tag=input/);
 });
 
-test("sanitized override export strips page address and only keeps field fingerprint data", () => {
+test("sanitized override export strips page address and only keeps field fingerprint data", async () => {
   const element = createElement({ name: "mobilePhone", id: "contact-input" });
   const env = createEnv({ elements: [element] });
-  setManualFieldOverride(element, "companyName", env);
+  await setManualFieldOverride(element, "companyName", env);
 
-  const exported = exportSanitizedManualFieldOverrides(env);
+  const exported = await exportSanitizedManualFieldOverrides(env);
 
   assert.equal(exported.format, "ctdp-smart-fill-overrides");
   assert.equal(exported.type, "sanitized");
@@ -301,14 +280,14 @@ test("sanitized override export strips page address and only keeps field fingerp
   assert.doesNotMatch(JSON.stringify(exported), /apply\/form/);
 });
 
-test("raw override import merges data and overwrites the same key", () => {
+test("raw override import merges data and overwrites the same key", async () => {
   const element = createElement({ name: "mobilePhone", id: "contact-input" });
   const env = createEnv({ elements: [element] });
-  setManualFieldOverride(element, "fullName", env);
-  const existing = exportManualFieldOverrides(env);
+  await setManualFieldOverride(element, "fullName", env);
+  const existing = await exportManualFieldOverrides(env);
   const targetKey = Object.keys(existing.overrides)[0];
 
-  const result = importManualFieldOverrides(
+  const result = await importManualFieldOverrides(
     {
       format: "ctdp-smart-fill-overrides",
       type: "raw",
@@ -324,11 +303,11 @@ test("raw override import merges data and overwrites the same key", () => {
   assert.equal(inferFieldKeyForSmartFill(element, env), "companyName");
 });
 
-test("sanitized override import applies to the current site domain without restoring the source path", () => {
+test("sanitized override import applies to the current site domain without restoring the source path", async () => {
   const element = createElement({ name: "mobilePhone", id: "contact-input" });
   const env = createEnv({ elements: [element], pathname: "/another/page" });
 
-  const result = importManualFieldOverrides(
+  const result = await importManualFieldOverrides(
     {
       format: "ctdp-smart-fill-overrides",
       type: "sanitized",
@@ -345,17 +324,17 @@ test("sanitized override import applies to the current site domain without resto
 
   assert.deepEqual(result, { importedCount: 1, type: "sanitized" });
   assert.equal(inferFieldKeyForSmartFill(element, env), "companyName");
-  assert.deepEqual(exportManualFieldOverrides(env).overrides, {
+  assert.deepEqual((await exportManualFieldOverrides(env)).overrides, {
     "https://example.com::*::tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=":
       "companyName"
   });
 });
 
-test("invalid override import payloads fail fast", () => {
+test("invalid override import payloads fail fast", async () => {
   const element = createElement({ name: "mobilePhone", id: "contact-input" });
   const env = createEnv({ elements: [element] });
 
-  assert.throws(
+  await assert.rejects(
     () =>
       importManualFieldOverrides(
         {

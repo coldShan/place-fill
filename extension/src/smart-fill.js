@@ -97,6 +97,8 @@
   const EXPORT_FORMAT = "ctdp-smart-fill-overrides";
   const EXPORT_VERSION = 1;
   const SANITIZED_FRAME_SCOPE = "*";
+  const storageCacheEntries = typeof WeakMap !== "undefined" ? new WeakMap() : null;
+  const fallbackCacheEntry = { loaded: false, loadPromise: null, map: {} };
 
   function normalizeText(value) {
     return String(value || "")
@@ -135,12 +137,95 @@
     return null;
   }
 
-  function getEnvStorage(env) {
-    if (env && env.localStorage) return env.localStorage;
+  function getStorageArea(env) {
+    if (env && Object.prototype.hasOwnProperty.call(env, "storageArea")) return env.storageArea || null;
     try {
-      if (typeof localStorage !== "undefined") return localStorage;
+      if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) return chrome.storage.local;
     } catch (_) {}
     return null;
+  }
+
+  function getCacheEntry(env) {
+    const storageArea = getStorageArea(env);
+    if (!storageArea || !storageCacheEntries) return fallbackCacheEntry;
+    if (!storageCacheEntries.has(storageArea)) {
+      storageCacheEntries.set(storageArea, { loaded: false, loadPromise: null, map: {} });
+    }
+    return storageCacheEntries.get(storageArea);
+  }
+
+  function readStorageValue(storageArea, key) {
+    if (!storageArea || typeof storageArea.get !== "function") return Promise.resolve(undefined);
+    return new Promise(function (resolve) {
+      let settled = false;
+      function done(result) {
+        if (settled) return;
+        settled = true;
+        resolve(result && typeof result === "object" ? result[key] : undefined);
+      }
+      try {
+        const maybePromise = storageArea.get([key], done);
+        if (maybePromise && typeof maybePromise.then === "function") {
+          maybePromise.then(done, function () {
+            done({});
+          });
+        }
+      } catch (_) {
+        done({});
+      }
+    });
+  }
+
+  function writeStorageValue(storageArea, key, value) {
+    if (!storageArea || typeof storageArea.set !== "function") return Promise.resolve(false);
+    return new Promise(function (resolve) {
+      let settled = false;
+      function done(ok) {
+        if (settled) return;
+        settled = true;
+        resolve(ok !== false);
+      }
+      try {
+        const maybePromise = storageArea.set({ [key]: value }, function () {
+          done(true);
+        });
+        if (maybePromise && typeof maybePromise.then === "function") {
+          maybePromise.then(function () {
+            done(true);
+          }, function () {
+            done(false);
+          });
+        }
+      } catch (_) {
+        done(false);
+      }
+    });
+  }
+
+  function removeStorageValue(storageArea, key) {
+    if (!storageArea || typeof storageArea.remove !== "function") return Promise.resolve(false);
+    return new Promise(function (resolve) {
+      let settled = false;
+      function done(ok) {
+        if (settled) return;
+        settled = true;
+        resolve(ok !== false);
+      }
+      try {
+        const maybePromise = storageArea.remove(key, function () {
+          done(true);
+        });
+        if (maybePromise && typeof maybePromise.then === "function") {
+          maybePromise.then(function () {
+            done(true);
+          }, function () {
+            done(false);
+          });
+        }
+      } catch (_) {
+        done(false);
+      }
+    });
   }
 
   function getWindowName(env) {
@@ -303,44 +388,48 @@
     return buildStorageKey(getSiteScope(env), SANITIZED_FRAME_SCOPE, getFieldFingerprint(element, env));
   }
 
-  function readOverrideMap(env) {
-    const storage = getEnvStorage(env);
-    if (!storage || typeof storage.getItem !== "function") return {};
-    try {
-      const raw = storage.getItem(STORAGE_KEY);
-      if (!raw) return {};
-      const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-    } catch (_) {
-      return {};
-    }
-  }
-
-  function writeOverrideMap(nextMap, env) {
-    const storage = getEnvStorage(env);
-    if (!storage || typeof storage.setItem !== "function" || typeof storage.removeItem !== "function") return false;
-    const keys = Object.keys(nextMap || {});
-    try {
-      if (!keys.length) {
-        storage.removeItem(STORAGE_KEY);
-        return true;
-      }
-      storage.setItem(STORAGE_KEY, JSON.stringify(nextMap));
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  function getNormalizedOverrideMap(env) {
+  function normalizeOverrideMap(overrides) {
     const nextMap = {};
-    const overrides = readOverrideMap(env);
+    if (!overrides || typeof overrides !== "object" || Array.isArray(overrides)) return nextMap;
     Object.keys(overrides).forEach(function (key) {
       if (!parseStorageKey(key)) return;
       if (!isSupportedFieldKey(overrides[key])) return;
       nextMap[key] = overrides[key];
     });
     return nextMap;
+  }
+
+  function readOverrideMap(env) {
+    return { ...getCacheEntry(env).map };
+  }
+
+  function writeOverrideMap(nextMap, env) {
+    const storageArea = getStorageArea(env);
+    const cacheEntry = getCacheEntry(env);
+    const normalizedMap = normalizeOverrideMap(nextMap);
+    cacheEntry.loaded = true;
+    cacheEntry.map = normalizedMap;
+    const keys = Object.keys(nextMap || {});
+    if (!keys.length) return removeStorageValue(storageArea, STORAGE_KEY);
+    return writeStorageValue(storageArea, STORAGE_KEY, normalizedMap);
+  }
+
+  function getNormalizedOverrideMap(env) {
+    return normalizeOverrideMap(readOverrideMap(env));
+  }
+
+  function loadManualFieldOverrides(env) {
+    const storageArea = getStorageArea(env);
+    const cacheEntry = getCacheEntry(env);
+    if (cacheEntry.loaded) return Promise.resolve(getNormalizedOverrideMap(env));
+    if (cacheEntry.loadPromise) return cacheEntry.loadPromise;
+    cacheEntry.loadPromise = readStorageValue(storageArea, STORAGE_KEY).then(function (stored) {
+      cacheEntry.map = normalizeOverrideMap(stored);
+      cacheEntry.loaded = true;
+      cacheEntry.loadPromise = null;
+      return { ...cacheEntry.map };
+    });
+    return cacheEntry.loadPromise;
   }
 
   function getManualFieldOverride(element, env) {
@@ -371,39 +460,43 @@
   }
 
   function exportManualFieldOverrides(env) {
-    return {
-      format: EXPORT_FORMAT,
-      storageKey: STORAGE_KEY,
-      type: "raw",
-      version: EXPORT_VERSION,
-      overrides: getNormalizedOverrideMap(env)
-    };
+    return loadManualFieldOverrides(env).then(function () {
+      return {
+        format: EXPORT_FORMAT,
+        storageKey: STORAGE_KEY,
+        type: "raw",
+        version: EXPORT_VERSION,
+        overrides: getNormalizedOverrideMap(env)
+      };
+    });
   }
 
   function exportSanitizedManualFieldOverrides(env) {
-    const entries = [];
-    const seenFingerprints = new Map();
+    return loadManualFieldOverrides(env).then(function () {
+      const entries = [];
+      const seenFingerprints = new Map();
 
-    Object.entries(getNormalizedOverrideMap(env)).forEach(function ([key, fieldKey]) {
-      const parsed = parseStorageKey(key);
-      if (!parsed) return;
-      seenFingerprints.set(parsed.fieldFingerprint, fieldKey);
-    });
-
-    Array.from(seenFingerprints.entries())
-      .sort(function (left, right) {
-        return left[0].localeCompare(right[0]);
-      })
-      .forEach(function ([fieldFingerprint, fieldKey]) {
-        entries.push({ fieldFingerprint, fieldKey });
+      Object.entries(getNormalizedOverrideMap(env)).forEach(function ([key, fieldKey]) {
+        const parsed = parseStorageKey(key);
+        if (!parsed) return;
+        seenFingerprints.set(parsed.fieldFingerprint, fieldKey);
       });
 
-    return {
-      entries,
-      format: EXPORT_FORMAT,
-      type: "sanitized",
-      version: EXPORT_VERSION
-    };
+      Array.from(seenFingerprints.entries())
+        .sort(function (left, right) {
+          return left[0].localeCompare(right[0]);
+        })
+        .forEach(function ([fieldFingerprint, fieldKey]) {
+          entries.push({ fieldFingerprint, fieldKey });
+        });
+
+      return {
+        entries,
+        format: EXPORT_FORMAT,
+        type: "sanitized",
+        version: EXPORT_VERSION
+      };
+    });
   }
 
   function assertImportPackageShape(payload) {
@@ -427,7 +520,7 @@
     }
   }
 
-  function importRawOverrides(payload, env) {
+  async function importRawOverrides(payload, env) {
     if (!payload.overrides || typeof payload.overrides !== "object" || Array.isArray(payload.overrides)) {
       throw new Error("Invalid raw override payload");
     }
@@ -440,11 +533,11 @@
       overrides[key] = fieldKey;
     });
 
-    if (!writeOverrideMap(overrides, env)) throw new Error("Failed to persist override import");
+    if (!(await writeOverrideMap(overrides, env))) throw new Error("Failed to persist override import");
     return { importedCount: entries.length, type: "raw" };
   }
 
-  function importSanitizedOverrides(payload, env) {
+  async function importSanitizedOverrides(payload, env) {
     if (!Array.isArray(payload.entries)) throw new Error("Invalid sanitized override payload");
     const siteScope = getSiteScope(env);
     if (!siteScope) throw new Error("Cannot infer current site scope");
@@ -461,52 +554,15 @@
       overrides[buildStorageKey(siteScope, SANITIZED_FRAME_SCOPE, entry.fieldFingerprint)] = entry.fieldKey;
     });
 
-    if (!writeOverrideMap(overrides, env)) throw new Error("Failed to persist override import");
+    if (!(await writeOverrideMap(overrides, env))) throw new Error("Failed to persist override import");
     return { importedCount: payload.entries.length, type: "sanitized" };
   }
 
-  function importManualFieldOverrides(payload, env) {
+  async function importManualFieldOverrides(payload, env) {
     assertImportPackageShape(payload);
+    await loadManualFieldOverrides(env);
     if (payload.type === "raw") return importRawOverrides(payload, env);
     return importSanitizedOverrides(payload, env);
-  }
-
-  // Temporary migration helper for recent releases only.
-  // Remove it after legacy full-path override keys have naturally aged out.
-  function migrateLegacyManualFieldOverrides(env) {
-    const overrides = getNormalizedOverrideMap(env);
-    const nextMap = {};
-    const migratedEntries = [];
-
-    Object.entries(overrides).forEach(function ([key, fieldKey]) {
-      const parsed = parseStorageKey(key);
-      if (!parsed) return;
-      const foldedPageScope = foldPageScopeToFirstLevelPath(parsed.pageScope);
-      const nextKey = buildStorageKey(foldedPageScope, parsed.frameScope, parsed.fieldFingerprint);
-
-      if (nextKey === key) {
-        nextMap[key] = fieldKey;
-        return;
-      }
-
-      migratedEntries.push([nextKey, fieldKey]);
-    });
-
-    if (!migratedEntries.length) {
-      return { migratedCount: 0, updated: false };
-    }
-
-    migratedEntries.forEach(function ([nextKey, fieldKey]) {
-      if (!Object.prototype.hasOwnProperty.call(nextMap, nextKey)) {
-        nextMap[nextKey] = fieldKey;
-      }
-    });
-
-    if (!writeOverrideMap(nextMap, env)) {
-      throw new Error("Failed to persist migrated overrides");
-    }
-
-    return { migratedCount: migratedEntries.length, updated: true };
   }
 
   function inferByAutocomplete(element) {
@@ -572,7 +628,7 @@
     getSupportedFieldKeys,
     importManualFieldOverrides,
     inferFieldKeyForSmartFill,
-    migrateLegacyManualFieldOverrides,
+    loadManualFieldOverrides,
     setManualFieldOverride
   };
 

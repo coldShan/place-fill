@@ -131,79 +131,90 @@
     window
   });
 
-  panelController.mount();
-  smartFillController.mount();
+  function startContentScript() {
+    panelController.mount();
+    smartFillController.mount();
 
-  document.addEventListener(
-    "focusin",
-    function (event) {
-      panelController.handleDocumentFocusIn(event.target);
-      if (smartFillController && typeof smartFillController.isInteractionTarget === "function" && smartFillController.isInteractionTarget(event.target)) {
-        return;
-      }
-      smartFillController.syncTarget(event.target);
-    },
-    true
-  );
-
-  document.addEventListener(
-    "focusout",
-    function () {
-      window.setTimeout(function () {
-        if (smartFillController && typeof smartFillController.shouldPreserveOnFocusOut === "function" && smartFillController.shouldPreserveOnFocusOut()) {
+    document.addEventListener(
+      "focusin",
+      function (event) {
+        panelController.handleDocumentFocusIn(event.target);
+        if (smartFillController && typeof smartFillController.isInteractionTarget === "function" && smartFillController.isInteractionTarget(event.target)) {
           return;
         }
-        smartFillController.syncTarget(document.activeElement);
-      }, 0);
-    },
-    true
-  );
+        smartFillController.syncTarget(event.target);
+      },
+      true
+    );
 
-  document.addEventListener(
-    "contextmenu",
-    function (event) {
-      syncSiteFeatureContextMenu(panelController.isSiteFeatureEnabled());
-      smartFillController.setContextTarget(event.target);
-    },
-    true
-  );
+    document.addEventListener(
+      "focusout",
+      function () {
+        window.setTimeout(function () {
+          if (smartFillController && typeof smartFillController.shouldPreserveOnFocusOut === "function" && smartFillController.shouldPreserveOnFocusOut()) {
+            return;
+          }
+          smartFillController.syncTarget(document.activeElement);
+        }, 0);
+      },
+      true
+    );
 
-  document.addEventListener(
-    "pointerdown",
-    function (event) {
-      panelController.handleDocumentPointerDown(event.target);
-    },
-    true
-  );
+    document.addEventListener(
+      "contextmenu",
+      function (event) {
+        syncSiteFeatureContextMenu(panelController.isSiteFeatureEnabled());
+        smartFillController.setContextTarget(event.target);
+      },
+      true
+    );
 
-  window.addEventListener("scroll", function () {
-    smartFillController.refreshPosition();
-  });
+    document.addEventListener(
+      "pointerdown",
+      function (event) {
+        panelController.handleDocumentPointerDown(event.target);
+      },
+      true
+    );
 
-  window.addEventListener("resize", function () {
-    smartFillController.refreshPosition();
-  });
+    window.addEventListener("scroll", function () {
+      smartFillController.refreshPosition();
+    });
 
-  chrome.runtime.onMessage.addListener(function (message) {
-    if (!message) return;
-    if (message.type === "toggle-test-data-panel") {
-      panelController.toggleVisible();
-      return;
-    }
-    if (message.type === "apply-smart-fill-override") {
-      const target = smartFillController.resolveManualOverrideTarget();
-      if (!target) return;
-      smartFillApi.setManualFieldOverride(target, message.fieldKey);
-      panelController.loadVisibleFieldKeys().then(function () {
-        smartFillController.fillTarget(target, message.fieldKey);
-      });
-      return;
-    }
-    if (message.type === "clear-smart-fill-override") {
-      const target = smartFillController.resolveManualOverrideTarget();
-      if (!target) return;
-      smartFillApi.clearManualFieldOverride(target);
-      smartFillController.syncTarget(target);
-    }
-  });
+    window.addEventListener("resize", function () {
+      smartFillController.refreshPosition();
+    });
+
+    chrome.runtime.onMessage.addListener(function (message) {
+      if (!message) return;
+      if (message.type === "toggle-test-data-panel") {
+        panelController.toggleVisible();
+        return;
+      }
+      if (message.type === "apply-smart-fill-override") {
+        const target = smartFillController.resolveManualOverrideTarget();
+        if (!target) return;
+        Promise.resolve(smartFillApi.setManualFieldOverride(target, message.fieldKey)).then(function (ok) {
+          if (ok === false) return;
+          panelController.loadVisibleFieldKeys().then(function () {
+            smartFillController.fillTarget(target, message.fieldKey);
+          });
+        });
+        return;
+      }
+      if (message.type === "clear-smart-fill-override") {
+        const target = smartFillController.resolveManualOverrideTarget();
+        if (!target) return;
+        Promise.resolve(smartFillApi.clearManualFieldOverride(target)).then(function () {
+          smartFillController.syncTarget(target);
+        });
+      }
+    });
+  }
+
+  if (typeof smartFillApi.loadManualFieldOverrides === "function") {
+    Promise.resolve(smartFillApi.loadManualFieldOverrides()).then(startContentScript, startContentScript);
+  } else {
+    startContentScript();
+  }
 })();
