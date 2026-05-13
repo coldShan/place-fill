@@ -1,6 +1,28 @@
 (function (rootScope) {
   "use strict";
 
+  function escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function sampleFavoriteProfiles(favoriteProfiles, count, randomFn) {
+    const random = typeof randomFn === "function" ? randomFn : Math.random;
+    const pool = Array.isArray(favoriteProfiles)
+      ? favoriteProfiles.filter(function (entry) { return entry && entry.profile && typeof entry.profile === "object"; }).slice()
+      : [];
+    const samples = [];
+    while (samples.length < count && pool.length > 0) {
+      const index = Math.max(0, Math.min(pool.length - 1, Math.floor(random() * pool.length)));
+      samples.push(pool.splice(index, 1)[0].profile);
+    }
+    return samples;
+  }
+
   function createContentScriptPanelController(options) {
     const opts = options || {};
     const generators = opts.generators;
@@ -56,6 +78,9 @@
 
     const state = {
       copiedFieldKey: null,
+      copiedProfileIndex: null,
+      favoriteCardProfiles: [],
+      favoriteProfiles: [],
       panelView: "main",
       profile: generators.generateProfile(),
       siteFeatureEnabled: siteFeatureToggleApi.getDefaultSiteFeatureEnabled(),
@@ -297,53 +322,52 @@
       });
     }
 
-    function identityTemplate(key, value) {
+    function identityTemplate(key, value, profileIndex) {
       const label = fieldMetaApi.getFieldLabel(key);
       const iconName = fieldMetaApi.getFieldIconName(key);
       return '<article class="ctdp-card ctdp-card-identity" role="button" tabindex="0"'
-        + ' data-role="copy-card" data-key="' + key + '" data-copied="false"'
+        + ' data-role="copy-card" data-key="' + key + '" data-profile-index="' + profileIndex + '" data-copied="false"'
         + ' aria-label="复制' + label + '">'
         + '<div class="ctdp-card-body">'
         + iconAssetsApi.renderIconMarkup(iconName, "ctdp-card-icon")
-        + '<p class="ctdp-card-value">' + value + "</p>"
+        + '<p class="ctdp-card-value">' + escapeHtml(value) + "</p>"
         + "</div></article>";
     }
 
-    function mobileHeaderTemplate(key, value) {
+    function mobileHeaderTemplate(key, value, profileIndex) {
       const label = fieldMetaApi.getFieldLabel(key);
       const iconName = fieldMetaApi.getFieldIconName(key);
       return '<article class="ctdp-card ctdp-card-mobile-header" role="button" tabindex="0"'
-        + ' data-role="copy-card" data-key="' + key + '" data-copied="false"'
+        + ' data-role="copy-card" data-key="' + key + '" data-profile-index="' + profileIndex + '" data-copied="false"'
         + ' aria-label="复制' + label + '">'
         + '<div class="ctdp-card-body">'
         + iconAssetsApi.renderIconMarkup(iconName, "ctdp-card-icon")
-        + '<p class="ctdp-card-value">' + value + "</p>"
+        + '<p class="ctdp-card-value">' + escapeHtml(value) + "</p>"
         + "</div></article>";
     }
 
-    function fieldRowTemplate(key, value) {
+    function fieldRowTemplate(key, value, profileIndex) {
       const label = fieldMetaApi.getFieldLabel(key);
       const iconName = fieldMetaApi.getFieldIconName(key);
       return '<article class="ctdp-card ctdp-card-row" role="button" tabindex="0"'
-        + ' data-role="copy-card" data-key="' + key + '" data-copied="false"'
+        + ' data-role="copy-card" data-key="' + key + '" data-profile-index="' + profileIndex + '" data-copied="false"'
         + ' aria-label="复制' + label + '">'
         + '<div class="ctdp-card-body">'
         + iconAssetsApi.renderIconMarkup(iconName, "ctdp-card-icon")
         + '<div class="ctdp-card-text">'
         + '<p class="ctdp-card-label">' + label + "</p>"
-        + '<p class="ctdp-card-value">' + value + "</p>"
+        + '<p class="ctdp-card-value">' + escapeHtml(value) + "</p>"
         + "</div></div></article>";
     }
 
-    function pairedRowTemplate(key1, val1, key2, val2) {
+    function pairedRowTemplate(key1, val1, key2, val2, profileIndex) {
       return '<div class="ctdp-bizcard-pair">'
-        + fieldRowTemplate(key1, val1)
-        + fieldRowTemplate(key2, val2)
+        + fieldRowTemplate(key1, val1, profileIndex)
+        + fieldRowTemplate(key2, val2, profileIndex)
         + "</div>";
     }
 
-    function renderCards() {
-      if (!fieldGrid) return;
+    function renderProfileCard(profile, profileIndex, cardKind, emptyText) {
       const visIdentityKeys = IDENTITY_FIELD_KEYS.filter(function (k) {
         return state.visibleFieldKeys.indexOf(k) !== -1;
       });
@@ -352,12 +376,16 @@
         return IDENTITY_FIELD_KEYS.indexOf(k) === -1 && k !== MOBILE_KEY && HIDDEN_BIZCARD_FIELD_KEYS.indexOf(k) === -1;
       });
 
-      if (visIdentityKeys.length === 0 && !mobileVisible && visBodyKeys.length === 0) {
-        fieldGrid.innerHTML = "";
-        return;
-      }
+      const parts = [
+        '<section class="ctdp-bizcard" data-card-kind="' + cardKind + '">',
+        '  <div class="ctdp-bizcard-paper">'
+      ];
 
-      const parts = ['<div class="ctdp-bizcard"><div class="ctdp-bizcard-paper">'];
+      if (!profile) {
+        parts.push('<div class="ctdp-bizcard-empty">' + escapeHtml(emptyText) + "</div>");
+        parts.push("</div></section>");
+        return parts.join("");
+      }
 
       const hasHeader = visIdentityKeys.length > 0 || mobileVisible;
       if (hasHeader) {
@@ -365,12 +393,12 @@
         const fullNameVisible = state.visibleFieldKeys.indexOf("fullName") !== -1;
         if (fullNameVisible || mobileVisible) {
           parts.push('<div class="ctdp-bizcard-name-row">');
-          if (fullNameVisible) { parts.push(identityTemplate("fullName", state.profile["fullName"])); }
-          if (mobileVisible) { parts.push(mobileHeaderTemplate(MOBILE_KEY, state.profile[MOBILE_KEY])); }
+          if (fullNameVisible) { parts.push(identityTemplate("fullName", profile["fullName"], profileIndex)); }
+          if (mobileVisible) { parts.push(mobileHeaderTemplate(MOBILE_KEY, profile[MOBILE_KEY], profileIndex)); }
           parts.push("</div>");
         }
         if (state.visibleFieldKeys.indexOf("companyName") !== -1) {
-          parts.push(identityTemplate("companyName", state.profile["companyName"]));
+          parts.push(identityTemplate("companyName", profile["companyName"], profileIndex));
         }
         parts.push("</div>");
       }
@@ -385,53 +413,82 @@
         while (i < visBodyKeys.length) {
           const k = visBodyKeys[i];
           if (k === "email" && i + 1 < visBodyKeys.length && visBodyKeys[i + 1] === "landline") {
-            parts.push(pairedRowTemplate("email", state.profile["email"], "landline", state.profile["landline"]));
+            parts.push(pairedRowTemplate("email", profile["email"], "landline", profile["landline"], profileIndex));
             i += 2;
           } else {
-            parts.push(fieldRowTemplate(k, state.profile[k]));
+            parts.push(fieldRowTemplate(k, profile[k], profileIndex));
             i++;
           }
         }
         parts.push("</div>");
       }
 
-      parts.push("</div></div>");
+      parts.push("</div></section>");
+      return parts.join("");
+    }
+
+    function renderCards() {
+      if (!fieldGrid) return;
+      const hasVisibleFields = state.visibleFieldKeys.some(function (k) {
+        return HIDDEN_BIZCARD_FIELD_KEYS.indexOf(k) === -1;
+      });
+      if (!hasVisibleFields) {
+        fieldGrid.innerHTML = "";
+        return;
+      }
+
+      const parts = ['<div class="ctdp-bizcard-stack">'];
+      parts.push(renderProfileCard(state.profile, 0, "generated", "暂无随机数据"));
+      state.favoriteCardProfiles.forEach(function (profile, index) {
+        parts.push(renderProfileCard(profile, index + 1, index === 0 ? "favorite-a" : "favorite-b", ""));
+      });
+      parts.push("</div>");
       fieldGrid.innerHTML = parts.join("");
       bindBizcardTilt();
     }
 
     function bindBizcardTilt() {
-      var paper = fieldGrid && fieldGrid.querySelector(".ctdp-bizcard-paper");
-      if (!paper) return;
+      var papers = fieldGrid ? fieldGrid.querySelectorAll(".ctdp-bizcard-paper") : [];
 
-      paper.addEventListener("mousemove", function (e) {
-        var rect = paper.getBoundingClientRect();
-        var dx = (e.clientX - (rect.left + rect.width  / 2)) / (rect.width  / 2); // -1..1
-        var dy = (e.clientY - (rect.top  + rect.height / 2)) / (rect.height / 2); // -1..1
-        var px = ((e.clientX - rect.left) / rect.width  * 100).toFixed(1);
-        var py = ((e.clientY - rect.top)  / rect.height * 100).toFixed(1);
+      papers.forEach(function (paper) {
+        paper.addEventListener("mousemove", function (e) {
+          var rect = paper.getBoundingClientRect();
+          var dx = (e.clientX - (rect.left + rect.width  / 2)) / (rect.width  / 2); // -1..1
+          var dy = (e.clientY - (rect.top  + rect.height / 2)) / (rect.height / 2); // -1..1
+          var px = ((e.clientX - rect.left) / rect.width  * 100).toFixed(1);
+          var py = ((e.clientY - rect.top)  / rect.height * 100).toFixed(1);
+          var card = paper.closest(".ctdp-bizcard");
+          const cardKind = card && card.getAttribute("data-card-kind");
 
-        // 3D 倾斜
-        paper.style.transform =
-          "rotateX(" + (-dy * 3).toFixed(2) + "deg) rotateY(" + (dx * 6).toFixed(2) + "deg)";
-        // 白色高光跟随光标
-        paper.style.setProperty("--ctdp-light-x", px + "%");
-        paper.style.setProperty("--ctdp-light-y", py + "%");
-        // 动态阴影：跟随倾斜角度偏移
-        var sx = (dx * -12).toFixed(1);
-        var sy = (dy * -8 + 10).toFixed(1);
-        paper.style.boxShadow =
-          "inset 0 1px 0 rgba(255,255,255,0.08)," +
-          "inset 0 -1px 0 rgba(0,0,0,0.3)," +
-          sx + "px " + sy + "px 30px rgba(0,0,0,0.35)," +
-          "0 2px 8px rgba(0,0,0,0.18)";
-      });
+          // 3D 倾斜
+          paper.style.transform =
+            "rotateX(" + (-dy * 3).toFixed(2) + "deg) rotateY(" + (dx * 6).toFixed(2) + "deg)";
+          // 白色高光跟随光标
+          paper.style.setProperty("--ctdp-light-x", px + "%");
+          paper.style.setProperty("--ctdp-light-y", py + "%");
+          if (cardKind !== "generated") {
+            paper.style.boxShadow =
+              "inset 0 1px 0 rgba(255,255,255,0.92)," +
+              "0 1px 2px rgba(31,41,55,0.08)," +
+              "0 8px 18px rgba(31,41,55,0.08)";
+            return;
+          }
+          // 动态阴影：跟随倾斜角度偏移
+          var sx = (dx * -12).toFixed(1);
+          var sy = (dy * -8 + 10).toFixed(1);
+          paper.style.boxShadow =
+            "inset 0 1px 0 rgba(255,255,255,0.08)," +
+            "inset 0 -1px 0 rgba(0,0,0,0.3)," +
+            sx + "px " + sy + "px 30px rgba(0,0,0,0.35)," +
+            "0 2px 8px rgba(0,0,0,0.18)";
+        });
 
-      paper.addEventListener("mouseleave", function () {
-        paper.style.transform = "";
-        paper.style.removeProperty("--ctdp-light-x");
-        paper.style.removeProperty("--ctdp-light-y");
-        paper.style.boxShadow = "";
+        paper.addEventListener("mouseleave", function () {
+          paper.style.transform = "";
+          paper.style.removeProperty("--ctdp-light-x");
+          paper.style.removeProperty("--ctdp-light-y");
+          paper.style.boxShadow = "";
+        });
       });
     }
 
@@ -448,7 +505,8 @@
       if (!fieldGrid) return;
       fieldGrid.querySelectorAll('[data-role="copy-card"]').forEach(function (card) {
         const key = card.getAttribute("data-key");
-        const copied = state.copiedFieldKey === key;
+        const profileIndex = Number(card.getAttribute("data-profile-index") || "0");
+        const copied = state.copiedFieldKey === key && state.copiedProfileIndex === profileIndex;
         card.setAttribute("data-copied", String(copied));
         const head = card.querySelector(".ctdp-card-head");
         const badge = head && head.querySelector(".ctdp-card-copy-state");
@@ -460,7 +518,7 @@
 
     function syncFieldCardValue(fieldKey) {
       if (!fieldGrid) return;
-      const card = fieldGrid.querySelector('[data-role="copy-card"][data-key="' + fieldKey + '"]');
+      const card = fieldGrid.querySelector('[data-role="copy-card"][data-profile-index="0"][data-key="' + fieldKey + '"]');
       if (!card) return;
       const valueNode = card.querySelector(".ctdp-card-value");
       if (valueNode) valueNode.textContent = state.profile[fieldKey];
@@ -470,10 +528,17 @@
       const nextValue = generators.generateFieldValue(fieldKey);
       if (!nextValue) return "";
       state.profile[fieldKey] = nextValue;
-      if (state.copiedFieldKey === fieldKey) state.copiedFieldKey = null;
+      if (state.copiedFieldKey === fieldKey && state.copiedProfileIndex === 0) {
+        state.copiedFieldKey = null;
+        state.copiedProfileIndex = null;
+      }
       syncFieldCardValue(fieldKey);
       syncCopiedCardState();
       return nextValue;
+    }
+
+    function refreshFavoriteCardProfiles() {
+      state.favoriteCardProfiles = sampleFavoriteProfiles(state.favoriteProfiles, 2);
     }
 
     function render() {
@@ -487,23 +552,35 @@
 
     function regenerateProfile() {
       state.copiedFieldKey = null;
+      state.copiedProfileIndex = null;
       state.profile = generators.generateProfile();
+      refreshFavoriteCardProfiles();
       recordGeneratedProfile();
       hideFallback();
       pulseFlash("regen");
       pulseRefreshGrid();
       render();
+      loadFavoriteProfiles();
     }
 
-    async function copyField(key) {
-      const ok = await copyText(state.profile[key], { flashTone: null, manualFlashTone: null });
+    function getProfileByIndex(profileIndex) {
+      const index = Number(profileIndex || 0);
+      return index === 0 ? state.profile : state.favoriteCardProfiles[index - 1];
+    }
+
+    async function copyField(key, profileIndex) {
+      const profile = getProfileByIndex(profileIndex);
+      if (!profile) return;
+      const ok = await copyText(profile[key], { flashTone: null, manualFlashTone: null });
       state.copiedFieldKey = ok ? key : null;
+      state.copiedProfileIndex = ok ? Number(profileIndex || 0) : null;
       syncCopiedCardState();
     }
 
     async function copyAll() {
       await copyText(generators.formatProfileForCopy(state.profile, state.visibleFieldKeys));
       state.copiedFieldKey = null;
+      state.copiedProfileIndex = null;
       syncCopiedCardState();
     }
 
@@ -685,6 +762,17 @@
       return dataRecordsApi.recordGeneratedProfile(scope, state.profile).catch(function () {
         return [];
       });
+    }
+
+    async function loadFavoriteProfiles() {
+      const scope = getCurrentScopeKey();
+      if (!scope || !dataRecordsApi || typeof dataRecordsApi.readFavoriteProfiles !== "function") return [];
+      state.favoriteProfiles = await dataRecordsApi.readFavoriteProfiles(scope).catch(function () {
+        return [];
+      });
+      refreshFavoriteCardProfiles();
+      renderCards();
+      return state.favoriteProfiles;
     }
 
     async function openRepositoryPage() {
@@ -939,7 +1027,7 @@
           return;
         }
         if (role === "copy-card") {
-          copyField(trigger.getAttribute("data-key"));
+          copyField(trigger.getAttribute("data-key"), trigger.getAttribute("data-profile-index"));
           return;
         }
         if (role === "open-repository") {
@@ -1009,7 +1097,7 @@
         if (!trigger) return;
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
-        copyField(trigger.getAttribute("data-key"));
+        copyField(trigger.getAttribute("data-key"), trigger.getAttribute("data-profile-index"));
       });
 
       flashNode.addEventListener("animationend", function () {
@@ -1031,6 +1119,7 @@
       setupDockDrag();
       render();
       recordGeneratedProfile();
+      loadFavoriteProfiles();
       hideGithubControls();
       loadSiteFeatureEnabled();
       loadFocusStyle();
@@ -1110,7 +1199,8 @@
   }
 
   const api = {
-    createContentScriptPanelController
+    createContentScriptPanelController,
+    sampleFavoriteProfiles
   };
 
   rootScope.ChromeTestDataContentScriptPanel = api;

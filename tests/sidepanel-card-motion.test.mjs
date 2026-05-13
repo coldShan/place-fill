@@ -15,3 +15,12 @@ test("card copied feedback only animates activation, not deactivation transition
   // copied 状态选择器触发 pop 弹跳动画
   assert.match(stylesheet, /\.ctdp-card\[data-copied="true"\]\s*\{[^}]*animation:\s*ctdp-card-pop/);
 });
+
+test("favorite data cards use white surfaces instead of dark colored card backgrounds", () => {
+  assert.match(stylesheet, /\.ctdp-bizcard\[data-card-kind="favorite-a"\],\s*\.ctdp-bizcard\[data-card-kind="favorite-b"\]\s*\{[\s\S]*?--ctdp-bizcard-background:\s*#fff;/);
+  assert.match(stylesheet, /\.ctdp-bizcard\[data-card-kind="favorite-a"\],\s*\.ctdp-bizcard\[data-card-kind="favorite-b"\]\s*\{[\s\S]*?--ctdp-bizcard-value:\s*rgba\(31,\s*41,\s*55,\s*0\.92\);/);
+  assert.match(stylesheet, /\.ctdp-bizcard\[data-card-kind="favorite-a"\]\s+\.ctdp-bizcard-paper,\s*\.ctdp-bizcard\[data-card-kind="favorite-b"\]\s+\.ctdp-bizcard-paper\s*\{[\s\S]*?box-shadow:\s*[\s\S]*?0 8px 18px rgba\(31,\s*41,\s*55,\s*0\.08\);/);
+  assert.doesNotMatch(stylesheet, /\.ctdp-bizcard\[data-card-kind="favorite-a"\]\s+\.ctdp-bizcard-paper,\s*\.ctdp-bizcard\[data-card-kind="favorite-b"\]\s+\.ctdp-bizcard-paper\s*\{[\s\S]*?rgba\(0,\s*0,\s*0,/);
+  assert.doesNotMatch(stylesheet, /\.ctdp-bizcard-badge/);
+  assert.doesNotMatch(stylesheet, /--ctdp-bizcard-accent/);
+});

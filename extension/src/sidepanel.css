@@ -574,25 +574,44 @@
   animation: ctdp-scan-refresh 560ms ease;
 }
 
+.ctdp-bizcard-stack {
+  display: grid;
+  gap: 12px;
+}
+
 /* 名片容器：提供透视上下文 */
 .ctdp-bizcard {
+  --ctdp-bizcard-background:
+    radial-gradient(circle at var(--ctdp-light-x, 50%) var(--ctdp-light-y, 28%), rgba(200, 210, 230, 0.18) 0%, transparent 42%),
+    radial-gradient(ellipse at 15% 20%, rgba(80, 100, 140, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 15%, rgba(100, 90, 130, 0.08) 0%, transparent 45%),
+    radial-gradient(ellipse at 70% 85%, rgba(60, 80, 100, 0.06) 0%, transparent 50%),
+    linear-gradient(165deg, #1e1e28 0%, #141420 40%, #0f0f18 100%);
+  --ctdp-bizcard-name: linear-gradient(135deg, #d0d0d8, #a8a8b4, #dcdce2, #b8b8c4);
+  --ctdp-bizcard-muted: rgba(160, 168, 190, 0.7);
+  --ctdp-bizcard-subtle: rgba(140, 150, 175, 0.55);
+  --ctdp-bizcard-icon: rgba(160, 168, 190, 0.55);
+  --ctdp-bizcard-value: rgba(195, 200, 215, 0.85);
   perspective: 900px;
   perspective-origin: 50% 25%;
+}
+
+.ctdp-bizcard[data-card-kind="favorite-a"],
+.ctdp-bizcard[data-card-kind="favorite-b"] {
+  --ctdp-bizcard-background: #fff;
+  --ctdp-bizcard-name: linear-gradient(135deg, #182033, #38465f);
+  --ctdp-bizcard-muted: rgba(73, 85, 106, 0.82);
+  --ctdp-bizcard-subtle: rgba(103, 116, 138, 0.68);
+  --ctdp-bizcard-icon: rgba(83, 98, 124, 0.70);
+  --ctdp-bizcard-value: rgba(31, 41, 55, 0.92);
 }
 
 /* 3D 名片纸张主体 —— 高级黑金属质感 */
 .ctdp-bizcard-paper {
   position: relative;
   border-radius: 14px;
-  background:
-    /* 光标跟随高光：在深色底上形成钢色光斑 */
-    radial-gradient(circle at var(--ctdp-light-x, 50%) var(--ctdp-light-y, 28%), rgba(200, 210, 230, 0.18) 0%, transparent 42%),
-    /* 固定金属色球 */
-    radial-gradient(ellipse at 15% 20%, rgba(80, 100, 140, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse at 85% 15%, rgba(100, 90, 130, 0.08) 0%, transparent 45%),
-    radial-gradient(ellipse at 70% 85%, rgba(60, 80, 100, 0.06) 0%, transparent 50%),
-    /* 深色底 */
-    linear-gradient(165deg, #1e1e28 0%, #141420 40%, #0f0f18 100%);
+  background: var(--ctdp-bizcard-background);
+  border: 1px solid transparent;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     inset 0 -1px 0 rgba(0, 0, 0, 0.3),
@@ -604,6 +623,27 @@
     transform 0.45s cubic-bezier(0.03, 0.98, 0.52, 0.99),
     box-shadow 0.45s ease;
   overflow: hidden;
+}
+
+.ctdp-bizcard[data-card-kind="favorite-a"] .ctdp-bizcard-paper,
+.ctdp-bizcard[data-card-kind="favorite-b"] .ctdp-bizcard-paper {
+  border-color: rgba(210, 216, 226, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 1px 2px rgba(31, 41, 55, 0.08),
+    0 8px 18px rgba(31, 41, 55, 0.08);
+}
+
+
+.ctdp-bizcard-empty {
+  position: relative;
+  z-index: 1;
+  min-height: 128px;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  color: var(--ctdp-bizcard-muted);
+  font-size: 13px;
 }
 
 /* 金属磨砂纹理：screen 在深色底上显示为亮色微粒 */
@@ -621,6 +661,7 @@
   z-index: 0;
 }
 
+
 /* 顶部金属高光边 */
 .ctdp-bizcard-paper::after {
   content: "";
@@ -633,6 +674,7 @@
   pointer-events: none;
   z-index: 1;
 }
+
 
 /* 名片头部：姓名行 + 公司 */
 .ctdp-bizcard-header {
@@ -724,7 +766,7 @@
   font-size: 21px;
   font-weight: 600;
   font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  background: linear-gradient(135deg, #d0d0d8, #a8a8b4, #dcdce2, #b8b8c4);
+  background: var(--ctdp-bizcard-name);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: 0.03em;
@@ -753,14 +795,14 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  color: rgba(160, 168, 190, 0.5);
+  color: var(--ctdp-bizcard-icon);
 }
 
 .ctdp-card-identity[data-key="companyName"] .ctdp-card-value {
   font-size: 12px;
   font-weight: 400;
   font-family: "Avenir Next Condensed", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  color: rgba(160, 168, 190, 0.7);
+  color: var(--ctdp-bizcard-muted);
   letter-spacing: 0.03em;
   margin: 0;
 }
@@ -788,12 +830,12 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  color: rgba(160, 168, 190, 0.5);
+  color: var(--ctdp-bizcard-icon);
 }
 
 .ctdp-card-mobile-header .ctdp-card-value {
   font-size: 12px;
-  color: rgba(160, 168, 190, 0.7);
+  color: var(--ctdp-bizcard-muted);
   letter-spacing: 0.03em;
   line-height: 1.2;
   margin: 0;
@@ -821,13 +863,13 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  color: rgba(160, 168, 190, 0.55);
+  color: var(--ctdp-bizcard-icon);
 }
 
 /* row label：暗银标签 */
 .ctdp-card-row .ctdp-card-label {
   font-size: 10px;
-  color: rgba(140, 150, 175, 0.55);
+  color: var(--ctdp-bizcard-subtle);
   letter-spacing: 0.04em;
   padding-top: 0;
 }
@@ -835,7 +877,7 @@
 /* row value：银色 */
 .ctdp-card-row .ctdp-card-value {
   font-size: 13px;
-  color: rgba(195, 200, 215, 0.85);
+  color: var(--ctdp-bizcard-value);
   margin-top: 1px;
 }
 

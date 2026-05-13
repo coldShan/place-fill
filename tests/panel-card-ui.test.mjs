@@ -7,6 +7,26 @@ const here = dirname(fileURLToPath(import.meta.url));
 const orchestratorScript = readFileSync(join(here, "../extension/src/content-script.js"), "utf8");
 const panelScript = readFileSync(join(here, "../extension/src/content-script-panel.js"), "utf8");
 const smartfillScript = readFileSync(join(here, "../extension/src/content-script-smartfill.js"), "utf8");
+const panelControllerPkg = await import("../extension/src/content-script-panel.js");
+const { sampleFavoriteProfiles } = panelControllerPkg.default || panelControllerPkg;
+
+function createFavorite(id, fullName) {
+  return {
+    id,
+    profile: {
+      creditCode: "",
+      companyName: fullName + "科技",
+      fullName,
+      idNumber: "",
+      bankCard: "",
+      account: "",
+      mobile: "13300000000",
+      email: "",
+      landline: "",
+      address: ""
+    }
+  };
+}
 
 test("panel cards are whole-card copy targets with a single copied-state marker", () => {
   assert.match(panelScript, /copiedFieldKey:\s*null/);
@@ -17,6 +37,40 @@ test("panel cards are whole-card copy targets with a single copied-state marker"
   assert.match(panelScript, /ctdp-card-text/);
   assert.doesNotMatch(panelScript, /data-role="copy-field"/);
   assert.doesNotMatch(panelScript, /ctdp-card-index/);
+});
+
+test("floating panel samples two common-data cards without mutating favorites", () => {
+  const favorites = [createFavorite("a", "张一"), createFavorite("b", "李二"), createFavorite("c", "王三")];
+  const samples = sampleFavoriteProfiles(favorites, 2, [0.9, 0].shift.bind([0.9, 0]));
+
+  assert.deepEqual(samples.map(function (profile) { return profile && profile.fullName; }), ["王三", "张一"]);
+  assert.deepEqual(favorites.map(function (entry) { return entry.id; }), ["a", "b", "c"]);
+});
+
+test("floating panel renders common-data cards only when favorites exist", () => {
+  assert.deepEqual(
+    sampleFavoriteProfiles([createFavorite("a", "张一")], 2, function () { return 0; }).map(function (profile) { return profile && profile.fullName; }),
+    ["张一"]
+  );
+  assert.deepEqual(sampleFavoriteProfiles([], 2, function () { return 0; }), []);
+});
+
+test("floating panel renders one generated card and two common-data style cards", () => {
+  assert.match(panelScript, /favoriteCardProfiles:\s*\[\]/);
+  assert.match(panelScript, /function refreshFavoriteCardProfiles\(\)/);
+  assert.match(panelScript, /function loadFavoriteProfiles\(\)/);
+  assert.match(panelScript, /renderProfileCard\(state\.profile,\s*0,\s*"generated",\s*"暂无随机数据"/);
+  assert.match(panelScript, /state\.favoriteCardProfiles\.forEach\(function \(profile,\s*index\)/);
+  assert.match(panelScript, /renderProfileCard\(profile,\s*index \+ 1,\s*index === 0 \? "favorite-a" : "favorite-b",\s*""\)/);
+  assert.doesNotMatch(panelScript, /暂无常用数据/);
+  assert.doesNotMatch(panelScript, /ctdp-bizcard-badge/);
+  assert.match(panelScript, /function regenerateProfile\(\) \{[\s\S]*?refreshFavoriteCardProfiles\(\);[\s\S]*?loadFavoriteProfiles\(\);[\s\S]*?\}/);
+  assert.match(panelScript, /if \(role === "regen"\) \{[\s\S]*?regenerateProfile\(\);/);
+});
+
+test("common-data cards keep light hover shadow instead of generated-card dark shadow", () => {
+  assert.match(panelScript, /const cardKind = card && card\.getAttribute\("data-card-kind"\);/);
+  assert.match(panelScript, /if \(cardKind !== "generated"\) \{[\s\S]*?0 8px 18px rgba\(31,41,55,0\.08\)[\s\S]*?return;/);
 });
 
 test("dock and smart-fill buttons use icon markup instead of visible text labels", () => {
@@ -45,13 +99,13 @@ test("panel toolbar keeps settings on the left and github plus two actions on th
 });
 
 test("single-card copy does not trigger panel-wide flash feedback", () => {
-  assert.match(panelScript, /copyText\(state\.profile\[key\],\s*\{\s*flashTone:\s*null,\s*manualFlashTone:\s*null\s*\}\)/);
+  assert.match(panelScript, /copyText\(profile\[key\],\s*\{\s*flashTone:\s*null,\s*manualFlashTone:\s*null\s*\}\)/);
   assert.match(panelScript, /copyText\(generators\.formatProfileForCopy\(state\.profile,\s*state\.visibleFieldKeys\)\)/);
 });
 
 test("single-card copy only syncs copied state instead of rerendering the full grid", () => {
   assert.match(panelScript, /function syncCopiedCardState\(\)/);
-  assert.match(panelScript, /async function copyField\(key\)\s*\{[\s\S]*?syncCopiedCardState\(\);[\s\S]*?\}/);
+  assert.match(panelScript, /async function copyField\(key,\s*profileIndex\)\s*\{[\s\S]*?syncCopiedCardState\(\);[\s\S]*?\}/);
 });
 
 test("panel footer renders version info and update trigger while keeping fallback copy hidden by default", () => {
