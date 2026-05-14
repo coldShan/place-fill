@@ -538,7 +538,7 @@
     }
 
     function refreshFavoriteCardProfiles() {
-      state.favoriteCardProfiles = sampleFavoriteProfiles(state.favoriteProfiles, 2);
+      state.favoriteCardProfiles = sampleFavoriteProfiles(state.favoriteProfiles, 5);
     }
 
     function render() {

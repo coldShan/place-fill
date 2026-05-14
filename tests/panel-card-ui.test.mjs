@@ -39,29 +39,37 @@ test("panel cards are whole-card copy targets with a single copied-state marker"
   assert.doesNotMatch(panelScript, /ctdp-card-index/);
 });
 
-test("floating panel samples two common-data cards without mutating favorites", () => {
-  const favorites = [createFavorite("a", "张一"), createFavorite("b", "李二"), createFavorite("c", "王三")];
-  const samples = sampleFavoriteProfiles(favorites, 2, [0.9, 0].shift.bind([0.9, 0]));
+test("floating panel samples up to five common-data cards without mutating favorites", () => {
+  const favorites = [
+    createFavorite("a", "张一"),
+    createFavorite("b", "李二"),
+    createFavorite("c", "王三"),
+    createFavorite("d", "赵四"),
+    createFavorite("e", "钱五"),
+    createFavorite("f", "孙六")
+  ];
+  const samples = sampleFavoriteProfiles(favorites, 5, [0.9, 0, 0.4, 0.7, 0].shift.bind([0.9, 0, 0.4, 0.7, 0]));
 
-  assert.deepEqual(samples.map(function (profile) { return profile && profile.fullName; }), ["王三", "张一"]);
-  assert.deepEqual(favorites.map(function (entry) { return entry.id; }), ["a", "b", "c"]);
+  assert.deepEqual(samples.map(function (profile) { return profile && profile.fullName; }), ["孙六", "张一", "王三", "钱五", "李二"]);
+  assert.deepEqual(favorites.map(function (entry) { return entry.id; }), ["a", "b", "c", "d", "e", "f"]);
 });
 
 test("floating panel renders common-data cards only when favorites exist", () => {
   assert.deepEqual(
-    sampleFavoriteProfiles([createFavorite("a", "张一")], 2, function () { return 0; }).map(function (profile) { return profile && profile.fullName; }),
+    sampleFavoriteProfiles([createFavorite("a", "张一")], 5, function () { return 0; }).map(function (profile) { return profile && profile.fullName; }),
     ["张一"]
   );
-  assert.deepEqual(sampleFavoriteProfiles([], 2, function () { return 0; }), []);
+  assert.deepEqual(sampleFavoriteProfiles([], 5, function () { return 0; }), []);
 });
 
-test("floating panel renders one generated card and two common-data style cards", () => {
+test("floating panel renders one generated card and up to five common-data style cards", () => {
   assert.match(panelScript, /favoriteCardProfiles:\s*\[\]/);
   assert.match(panelScript, /function refreshFavoriteCardProfiles\(\)/);
   assert.match(panelScript, /function loadFavoriteProfiles\(\)/);
   assert.match(panelScript, /renderProfileCard\(state\.profile,\s*0,\s*"generated",\s*"暂无随机数据"/);
   assert.match(panelScript, /state\.favoriteCardProfiles\.forEach\(function \(profile,\s*index\)/);
   assert.match(panelScript, /renderProfileCard\(profile,\s*index \+ 1,\s*index === 0 \? "favorite-a" : "favorite-b",\s*""\)/);
+  assert.match(panelScript, /sampleFavoriteProfiles\(state\.favoriteProfiles,\s*5\)/);
   assert.doesNotMatch(panelScript, /暂无常用数据/);
   assert.doesNotMatch(panelScript, /ctdp-bizcard-badge/);
   assert.match(panelScript, /function regenerateProfile\(\) \{[\s\S]*?refreshFavoriteCardProfiles\(\);[\s\S]*?loadFavoriteProfiles\(\);[\s\S]*?\}/);
