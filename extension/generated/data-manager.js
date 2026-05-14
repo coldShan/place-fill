@@ -131,8 +131,16 @@ function normalizeFavoriteProfilesMap(rawValue) {
   });
   return nextMap;
 }
+function isSameProfile(left, right) {
+  return FIELD_KEYS.every(function(fieldKey) {
+    return left[fieldKey] === right[fieldKey];
+  });
+}
 async function readGeneratedProfilesMap(env) {
   return normalizeGeneratedProfilesMap(await readStorageValue(getStorageArea(), GENERATED_PROFILES_STORAGE_KEY));
+}
+async function writeGeneratedProfilesMap(nextMap, env) {
+  await writeStorageValue(getStorageArea(), GENERATED_PROFILES_STORAGE_KEY, nextMap);
 }
 async function readFavoriteProfilesMap(env) {
   return normalizeFavoriteProfilesMap(await readStorageValue(getStorageArea(), FAVORITE_PROFILES_STORAGE_KEY));
@@ -210,18 +218,39 @@ async function deleteFavoriteProfile(scope, id, env) {
   return true;
 }
 async function createFavoriteFromHistory(scope, historyId, name = "", env) {
-  const records = await readGeneratedProfiles(scope);
-  const historyEntry = records.find(function(entry) {
-    return entry.id === historyId;
+  const normalizedScope = normalizeScopeKey(scope);
+  if (!normalizedScope || !historyId) return null;
+  const recordsMap = await readGeneratedProfilesMap();
+  const records = recordsMap[normalizedScope] ? recordsMap[normalizedScope].slice() : [];
+  const historyEntry = records.find(function(entry2) {
+    return entry2.id === historyId;
   });
   if (!historyEntry) return null;
-  return createFavoriteProfile(
-    scope,
-    {
-      name: String(name || "").trim(),
-      profile: historyEntry.profile
-    }
-  );
+  recordsMap[normalizedScope] = records.filter(function(entry2) {
+    return entry2.id !== historyId;
+  });
+  const favoritesMap = await readFavoriteProfilesMap();
+  const currentFavorites = favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
+  const existingFavorite = currentFavorites.find(function(entry2) {
+    return isSameProfile(entry2.profile, historyEntry.profile);
+  });
+  if (existingFavorite) {
+    await writeGeneratedProfilesMap(recordsMap);
+    return existingFavorite;
+  }
+  const now = Date.now();
+  const random = Math.random;
+  const entry = {
+    createdAt: String(now),
+    id: createId(now, random),
+    name: String(name || "").trim() || "常用数据",
+    profile: historyEntry.profile,
+    updatedAt: String(now)
+  };
+  favoritesMap[normalizedScope] = [entry].concat(currentFavorites);
+  await writeFavoriteProfilesMap(favoritesMap);
+  await writeGeneratedProfilesMap(recordsMap);
+  return entry;
 }
 function escapeHtml(value) {
   return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

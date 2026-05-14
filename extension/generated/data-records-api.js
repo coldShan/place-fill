@@ -128,6 +128,11 @@ var ChromeTestDataDataRecordsBundle = (function() {
     });
     return nextMap;
   }
+  function isSameProfile(left, right) {
+    return FIELD_KEYS.every(function(fieldKey) {
+      return left[fieldKey] === right[fieldKey];
+    });
+  }
   async function readGeneratedProfilesMap(env) {
     return normalizeGeneratedProfilesMap(await readStorageValue(getStorageArea(env), GENERATED_PROFILES_STORAGE_KEY));
   }
@@ -231,19 +236,39 @@ var ChromeTestDataDataRecordsBundle = (function() {
     return true;
   }
   async function createFavoriteFromHistory(scope, historyId, name = "", env) {
-    const records = await readGeneratedProfiles(scope, env);
-    const historyEntry = records.find(function(entry) {
-      return entry.id === historyId;
+    const normalizedScope = normalizeScopeKey(scope);
+    if (!normalizedScope || !historyId) return null;
+    const recordsMap = await readGeneratedProfilesMap(env);
+    const records = recordsMap[normalizedScope] ? recordsMap[normalizedScope].slice() : [];
+    const historyEntry = records.find(function(entry2) {
+      return entry2.id === historyId;
     });
     if (!historyEntry) return null;
-    return createFavoriteProfile(
-      scope,
-      {
-        name: String(name || "").trim(),
-        profile: historyEntry.profile
-      },
-      env
-    );
+    recordsMap[normalizedScope] = records.filter(function(entry2) {
+      return entry2.id !== historyId;
+    });
+    const favoritesMap = await readFavoriteProfilesMap(env);
+    const currentFavorites = favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
+    const existingFavorite = currentFavorites.find(function(entry2) {
+      return isSameProfile(entry2.profile, historyEntry.profile);
+    });
+    if (existingFavorite) {
+      await writeGeneratedProfilesMap(recordsMap, env);
+      return existingFavorite;
+    }
+    const now = env && typeof env.now === "function" ? env.now() : Date.now();
+    const random = env && typeof env.random === "function" ? env.random : Math.random;
+    const entry = {
+      createdAt: String(now),
+      id: createId(now, random),
+      name: String(name || "").trim() || "常用数据",
+      profile: historyEntry.profile,
+      updatedAt: String(now)
+    };
+    favoritesMap[normalizedScope] = [entry].concat(currentFavorites);
+    await writeFavoriteProfilesMap(favoritesMap, env);
+    await writeGeneratedProfilesMap(recordsMap, env);
+    return entry;
   }
   const dataRecordsApi = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,

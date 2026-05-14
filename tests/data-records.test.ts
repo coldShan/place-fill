@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  createFavoriteFromHistory,
   createFavoriteProfile,
   deleteFavoriteProfile,
   normalizeScopeKey,
@@ -108,4 +109,59 @@ test("favorite profiles support create update and delete within a scope", async 
 
   assert.equal(await deleteFavoriteProfile("alpha.example.com", created.id, { storageArea }), true);
   assert.deepEqual(await readFavoriteProfiles("alpha.example.com", { storageArea }), []);
+});
+
+test("createFavoriteFromHistory moves one generated record into favorites without duplicates", async () => {
+  const storageArea = createStorageArea();
+  const scope = "alpha.example.com";
+  const [historyEntry] = await recordGeneratedProfile(scope, buildProfile(1), {
+    storageArea,
+    now: () => 1200,
+    random: () => 0
+  });
+  assert.ok(historyEntry);
+
+  const firstFavorite = await createFavoriteFromHistory(scope, historyEntry.id, "", {
+    storageArea,
+    now: () => 1300,
+    random: () => 0.1
+  });
+  const duplicateFavorite = await createFavoriteFromHistory(scope, historyEntry.id, "", {
+    storageArea,
+    now: () => 1400,
+    random: () => 0.2
+  });
+
+  assert.equal(firstFavorite?.profile.fullName, "测试用户1");
+  assert.equal(duplicateFavorite, null);
+  assert.equal((await readFavoriteProfiles(scope, { storageArea })).length, 1);
+  assert.deepEqual(await readGeneratedProfiles(scope, { storageArea }), []);
+});
+
+test("createFavoriteFromHistory reuses an existing favorite with the same profile", async () => {
+  const storageArea = createStorageArea();
+  const scope = "alpha.example.com";
+  const existing = await createFavoriteProfile(scope, { name: "已有常用数据", profile: buildProfile(2) }, {
+    storageArea,
+    now: () => 1100,
+    random: () => 0
+  });
+  const [historyEntry] = await recordGeneratedProfile(scope, buildProfile(2), {
+    storageArea,
+    now: () => 1200,
+    random: () => 0.1
+  });
+  assert.ok(historyEntry);
+
+  const favorite = await createFavoriteFromHistory(scope, historyEntry.id, "", {
+    storageArea,
+    now: () => 1300,
+    random: () => 0.2
+  });
+  const favorites = await readFavoriteProfiles(scope, { storageArea });
+
+  assert.equal(favorite?.id, existing.id);
+  assert.equal(favorites.length, 1);
+  assert.equal(favorites[0]?.name, "已有常用数据");
+  assert.deepEqual(await readGeneratedProfiles(scope, { storageArea }), []);
 });

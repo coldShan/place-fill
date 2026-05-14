@@ -143,6 +143,12 @@ function normalizeFavoriteProfilesMap(rawValue: unknown): Record<ScopeKey, Favor
   return nextMap;
 }
 
+function isSameProfile(left: ProfileFieldMap, right: ProfileFieldMap): boolean {
+  return FIELD_KEYS.every(function (fieldKey) {
+    return left[fieldKey] === right[fieldKey];
+  });
+}
+
 async function readGeneratedProfilesMap(env?: DataRecordsEnv): Promise<Record<ScopeKey, HistoryEntry[]>> {
   return normalizeGeneratedProfilesMap(await readStorageValue(getStorageArea(env), GENERATED_PROFILES_STORAGE_KEY));
 }
@@ -280,20 +286,45 @@ export async function createFavoriteFromHistory(
   name = "",
   env?: DataRecordsEnv
 ): Promise<FavoriteEntry | null> {
-  const records = await readGeneratedProfiles(scope, env);
+  const normalizedScope = normalizeScopeKey(scope);
+  if (!normalizedScope || !historyId) return null;
+
+  const recordsMap = await readGeneratedProfilesMap(env);
+  const records = recordsMap[normalizedScope] ? recordsMap[normalizedScope].slice() : [];
   const historyEntry = records.find(function (entry) {
     return entry.id === historyId;
   });
   if (!historyEntry) return null;
 
-  return createFavoriteProfile(
-    scope,
-    {
-      name: String(name || "").trim(),
-      profile: historyEntry.profile
-    },
-    env
-  );
+  recordsMap[normalizedScope] = records.filter(function (entry) {
+    return entry.id !== historyId;
+  });
+
+  const favoritesMap = await readFavoriteProfilesMap(env);
+  const currentFavorites = favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
+  const existingFavorite = currentFavorites.find(function (entry) {
+    return isSameProfile(entry.profile, historyEntry.profile);
+  });
+
+  if (existingFavorite) {
+    await writeGeneratedProfilesMap(recordsMap, env);
+    return existingFavorite;
+  }
+
+  const now = env && typeof env.now === "function" ? env.now() : Date.now();
+  const random = env && typeof env.random === "function" ? env.random : Math.random;
+  const entry: FavoriteEntry = {
+    createdAt: String(now),
+    id: createId(now, random),
+    name: String(name || "").trim() || "常用数据",
+    profile: historyEntry.profile,
+    updatedAt: String(now)
+  };
+
+  favoritesMap[normalizedScope] = [entry].concat(currentFavorites);
+  await writeFavoriteProfilesMap(favoritesMap, env);
+  await writeGeneratedProfilesMap(recordsMap, env);
+  return entry;
 }
 
 export { FIELD_KEYS, formatProfileForCopy, normalizeProfile, type ProfileFieldMap };
