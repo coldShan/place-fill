@@ -194,14 +194,6 @@ async function handleRootClick(event: MouseEvent): Promise<void> {
     return;
   }
 
-  if (action === "favorite-copy") {
-    const entry = state.favoriteProfiles.find(function (item) {
-      return item.id === id;
-    });
-    if (entry) await copyProfile(entry.profile);
-    return;
-  }
-
   if (action === "favorite-edit") {
     openFavoriteModal(id);
     return;

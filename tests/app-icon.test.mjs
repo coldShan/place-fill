@@ -47,6 +47,8 @@ test("icon asset map uses standalone lucide files instead of inline svg markup",
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/shield\.svg/);
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/arrow-left\.svg/);
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/upload\.svg/);
+  assert.match(iconAssetsSource, /assets\/icons\/lucide\/pencil\.svg/);
+  assert.match(iconAssetsSource, /assets\/icons\/lucide\/trash-2\.svg/);
   assert.match(iconAssetsSource, /getURL/);
 });
 

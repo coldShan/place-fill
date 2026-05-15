@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pageDir = join(here, "../extension/src-ts/pages/data-manager");
+const pageHtml = readFileSync(join(here, "../extension/data-manager.html"), "utf8");
 const sharedFieldMetaSource = readFileSync(join(here, "../extension/src-ts/shared/field-meta.ts"), "utf8");
 const pageSource = readdirSync(pageDir)
   .filter(function (fileName) {
@@ -48,6 +49,9 @@ test("favorite create and edit share a modal form instead of an inline persisten
 test("favorites view renders as a regular table instead of cards", () => {
   assert.match(pageSource, /dm-favorites-table/);
   assert.match(pageSource, /<th>姓名<\/th><th>公司<\/th><th>手机<\/th><th>邮箱<\/th><th>操作<\/th>/);
+  assert.doesNotMatch(pageSource, /data-action="favorite-copy"/);
+  assert.match(pageSource, /renderActionButton\("favorite-edit",\s*entry\.id,\s*"edit",\s*"编辑"/);
+  assert.match(pageSource, /renderActionButton\("favorite-delete",\s*entry\.id,\s*"delete",\s*"删除",\s*" is-danger"/);
   assert.doesNotMatch(pageSource, /dm-view-actions/);
   assert.doesNotMatch(pageSource, /模板名称/);
   assert.doesNotMatch(pageSource, /模板/);
@@ -57,8 +61,19 @@ test("favorites view renders as a regular table instead of cards", () => {
 });
 
 test("history table stays single-row only and does not render a detail row", () => {
+  assert.match(pageSource, /renderActionButton\("history-favorite",\s*entry\.id,\s*"favorite",\s*"收藏"/);
+  assert.match(pageSource, /renderActionButton\("history-copy",\s*entry\.id,\s*"copy",\s*"复制"/);
   assert.doesNotMatch(pageSource, /dm-table-detail-row/);
   assert.doesNotMatch(pageSource, /dm-detail-grid/);
+});
+
+test("data manager action buttons use local icon assets and centered layout", () => {
+  assert.match(pageHtml, /<script src="\.\/src\/icon-assets\.js"><\/script>\s*<script type="module" src="\.\/generated\/data-manager\.js">/);
+  assert.match(pageSource, /ChromeTestDataIconAssets/);
+  assert.match(pageSource, /renderIconMarkup\(iconName,\s*"dm-action-icon",\s*""\)/);
+  assert.match(pageStyles, /\.dm-table th:last-child,\s*\.dm-table td:last-child\s*\{[\s\S]*text-align:\s*center/);
+  assert.match(pageStyles, /\.dm-table-actions\s*\{[\s\S]*justify-content:\s*center/);
+  assert.match(pageStyles, /\.dm-action-icon\s*\{[\s\S]*mask:\s*var\(--ctdp-icon-url\)/);
 });
 
 test("page fills the viewport and keeps table scrolling inside the workspace", () => {

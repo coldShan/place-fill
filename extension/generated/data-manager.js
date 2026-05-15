@@ -255,6 +255,28 @@ async function createFavoriteFromHistory(scope, historyId, name = "", env) {
 function escapeHtml(value) {
   return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
+function renderActionButton(action, id, iconKey, label, extraClass = "") {
+  const iconAssets = typeof window !== "undefined" ? window.ChromeTestDataIconAssets : void 0;
+  const iconName = iconAssets?.ACTION_ICONS?.[iconKey] || iconKey;
+  const iconMarkup = iconAssets?.renderIconMarkup ? iconAssets.renderIconMarkup(iconName, "dm-action-icon", "") : "";
+  return [
+    '<button type="button" class="dm-table-btn',
+    escapeHtml(extraClass),
+    '" data-action="',
+    escapeHtml(action),
+    '" data-id="',
+    escapeHtml(id),
+    '" aria-label="',
+    escapeHtml(label),
+    '" title="',
+    escapeHtml(label),
+    '">',
+    iconMarkup,
+    '<span class="dm-action-label">',
+    escapeHtml(label),
+    "</span></button>"
+  ].join("");
+}
 function formatDisplayTime(value) {
   const timestamp = Number(value);
   if (!Number.isFinite(timestamp) || timestamp <= 0) return "时间未知";
@@ -332,9 +354,8 @@ function renderFavoritesView(_scope, entries) {
           "  <td>" + escapeHtml(entry.profile.mobile || "未填写") + "</td>",
           "  <td>" + escapeHtml(entry.profile.email || "未填写") + "</td>",
           '  <td class="dm-table-actions">',
-          '    <button type="button" class="dm-table-btn" data-action="favorite-copy" data-id="' + escapeHtml(entry.id) + '">复制整组</button>',
-          '    <button type="button" class="dm-table-btn" data-action="favorite-edit" data-id="' + escapeHtml(entry.id) + '">编辑</button>',
-          '    <button type="button" class="dm-table-btn is-danger" data-action="favorite-delete" data-id="' + escapeHtml(entry.id) + '">删除</button>',
+          renderActionButton("favorite-edit", entry.id, "edit", "编辑"),
+          renderActionButton("favorite-delete", entry.id, "delete", "删除", " is-danger"),
           "  </td>",
           "</tr>"
         ].join("");
@@ -369,8 +390,8 @@ function renderHistoryView(_scope, entries) {
           "  <td>" + escapeHtml(entry.profile.mobile) + "</td>",
           "  <td>" + escapeHtml(entry.profile.email) + "</td>",
           '  <td class="dm-table-actions">',
-          '    <button type="button" class="dm-table-btn" data-action="history-favorite" data-id="' + escapeHtml(entry.id) + '">收藏</button>',
-          '    <button type="button" class="dm-table-btn" data-action="history-copy" data-id="' + escapeHtml(entry.id) + '">复制</button>',
+          renderActionButton("history-favorite", entry.id, "favorite", "收藏"),
+          renderActionButton("history-copy", entry.id, "copy", "复制"),
           "  </td>",
           "</tr>"
         ].join("");
@@ -548,13 +569,6 @@ async function handleRootClick(event) {
   }
   if (action === "close-favorite-modal") {
     closeFavoriteModal();
-    return;
-  }
-  if (action === "favorite-copy") {
-    const entry = state.favoriteProfiles.find(function(item) {
-      return item.id === id;
-    });
-    if (entry) await copyProfile(entry.profile);
     return;
   }
   if (action === "favorite-edit") {

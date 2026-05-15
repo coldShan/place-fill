@@ -15,12 +15,14 @@
     "list-filter": "assets/icons/lucide/list-filter.svg",
     mail: "assets/icons/lucide/mail.svg",
     "map-pinned": "assets/icons/lucide/map-pinned.svg",
+    pencil: "assets/icons/lucide/pencil.svg",
     phone: "assets/icons/lucide/phone.svg",
     "refresh-cw": "assets/icons/lucide/refresh-cw.svg",
     settings: "assets/icons/lucide/settings.svg",
     smartphone: "assets/icons/lucide/smartphone.svg",
     star: "assets/icons/lucide/star.svg",
     shield: "assets/icons/lucide/shield.svg",
+    "trash-2": "assets/icons/lucide/trash-2.svg",
     upload: "assets/icons/lucide/upload.svg",
     "user-round": "assets/icons/lucide/user-round.svg",
     "wand-sparkles": "assets/icons/lucide/wand-sparkles.svg"
@@ -29,8 +31,12 @@
   const PRIMARY_LOGO_ICON = "app-logo";
   const ACTION_ICONS = {
     back: "arrow-left",
+    copy: "copy",
     copyAll: "copy",
     copied: "badge-check",
+    delete: "trash-2",
+    edit: "pencil",
+    favorite: "star",
     github: "github",
     autoFill: "wand-sparkles",
     regen: "refresh-cw",

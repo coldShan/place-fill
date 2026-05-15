@@ -1,5 +1,5 @@
 import type { FavoriteEntry } from "./page-model";
-import { escapeHtml } from "./view-helpers";
+import { escapeHtml, renderActionButton } from "./view-helpers";
 
 export function renderFavoritesView(_scope: string, entries: FavoriteEntry[]): string {
   return [
@@ -18,9 +18,8 @@ export function renderFavoritesView(_scope: string, entries: FavoriteEntry[]): s
               "  <td>" + escapeHtml(entry.profile.mobile || "未填写") + "</td>",
               "  <td>" + escapeHtml(entry.profile.email || "未填写") + "</td>",
               '  <td class="dm-table-actions">',
-              '    <button type="button" class="dm-table-btn" data-action="favorite-copy" data-id="' + escapeHtml(entry.id) + '">复制整组</button>',
-              '    <button type="button" class="dm-table-btn" data-action="favorite-edit" data-id="' + escapeHtml(entry.id) + '">编辑</button>',
-              '    <button type="button" class="dm-table-btn is-danger" data-action="favorite-delete" data-id="' + escapeHtml(entry.id) + '">删除</button>',
+              renderActionButton("favorite-edit", entry.id, "edit", "编辑"),
+              renderActionButton("favorite-delete", entry.id, "delete", "删除", " is-danger"),
               "  </td>",
               "</tr>"
             ].join("");

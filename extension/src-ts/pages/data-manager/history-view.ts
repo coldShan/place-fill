@@ -1,5 +1,5 @@
 import type { HistoryEntry } from "./page-model";
-import { escapeHtml, formatDisplayTime } from "./view-helpers";
+import { escapeHtml, formatDisplayTime, renderActionButton } from "./view-helpers";
 
 export function renderHistoryView(_scope: string, entries: HistoryEntry[]): string {
   return [
@@ -20,8 +20,8 @@ export function renderHistoryView(_scope: string, entries: HistoryEntry[]): stri
                 "  <td>" + escapeHtml(entry.profile.mobile) + "</td>",
                 "  <td>" + escapeHtml(entry.profile.email) + "</td>",
                 '  <td class="dm-table-actions">',
-                '    <button type="button" class="dm-table-btn" data-action="history-favorite" data-id="' + escapeHtml(entry.id) + '">收藏</button>',
-                '    <button type="button" class="dm-table-btn" data-action="history-copy" data-id="' + escapeHtml(entry.id) + '">复制</button>',
+                renderActionButton("history-favorite", entry.id, "favorite", "收藏"),
+                renderActionButton("history-copy", entry.id, "copy", "复制"),
                 "  </td>",
                 "</tr>"
               ].join("");

@@ -233,6 +233,7 @@ select:focus-visible {
 }
 
 .dm-table-btn {
+  gap: 6px;
   min-height: 34px;
   padding: 0 10px;
   border: 1px solid transparent;
@@ -354,10 +355,24 @@ select:focus-visible {
   width: 150px;
 }
 
+.dm-table th:last-child,
+.dm-table td:last-child {
+  text-align: center;
+}
+
 .dm-table-actions {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  justify-content: center;
+}
+
+.dm-action-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  background: currentColor;
+  mask: var(--ctdp-icon-url) center / contain no-repeat;
 }
 
 .dm-toast {
