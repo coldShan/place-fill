@@ -7,7 +7,7 @@
 <p align="center">面向表单联调、回归测试和演示录制的 Chrome MV3 测试数据填充插件</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/版本-v0.7.2-4a6fa5?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/版本-v0.7.3-4a6fa5?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/Chrome-MV3-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="chrome mv3">
 </p>
 
@@ -22,7 +22,7 @@
 
 ## 安装
 
-1. 在 [GitHub Releases](https://github.com/coldShan/place-fill/releases) 下载最新的 `place-fill-v0.7.2.zip`。
+1. 在 [GitHub Releases](https://github.com/coldShan/place-fill/releases) 下载最新的 `place-fill-v0.7.3.zip`。
 2. 解压后打开 `chrome://extensions`。
 3. 开启右上角“开发者模式”。
 4. 点击“加载已解压的扩展程序”，选择解压后的 `extension/` 目录。
