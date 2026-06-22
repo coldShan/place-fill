@@ -111,6 +111,26 @@ test("favorite profiles support create update and delete within a scope", async 
   assert.deepEqual(await readFavoriteProfiles("alpha.example.com", { storageArea }), []);
 });
 
+test("createFavoriteProfile reuses an existing favorite with the same profile", async () => {
+  const storageArea = createStorageArea();
+  const scope = "alpha.example.com";
+  const first = await createFavoriteProfile(scope, { name: "常用数据 A", profile: buildProfile(1) }, {
+    storageArea,
+    now: () => 1200,
+    random: () => 0
+  });
+  const duplicate = await createFavoriteProfile(scope, { name: "常用数据 B", profile: buildProfile(1) }, {
+    storageArea,
+    now: () => 1300,
+    random: () => 0.1
+  });
+  const favorites = await readFavoriteProfiles(scope, { storageArea });
+
+  assert.equal(duplicate.id, first.id);
+  assert.equal(favorites.length, 1);
+  assert.equal(favorites[0]?.name, "常用数据 A");
+});
+
 test("createFavoriteFromHistory moves one generated record into favorites without duplicates", async () => {
   const storageArea = createStorageArea();
   const scope = "alpha.example.com";

@@ -214,18 +214,24 @@ export async function createFavoriteProfile(
     throw new Error("Invalid scope");
   }
 
+  const normalizedProfile = normalizeProfile(input.profile);
+  const favoritesMap = await readFavoriteProfilesMap(env);
+  const currentEntries = favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
+  const existingFavorite = currentEntries.find(function (entry) {
+    return isSameProfile(entry.profile, normalizedProfile);
+  });
+  if (existingFavorite) return existingFavorite;
+
   const now = env && typeof env.now === "function" ? env.now() : Date.now();
   const random = env && typeof env.random === "function" ? env.random : Math.random;
   const entry: FavoriteEntry = {
     createdAt: String(now),
     id: createId(now, random),
     name: String(input.name || "").trim() || "常用数据",
-    profile: normalizeProfile(input.profile),
+    profile: normalizedProfile,
     updatedAt: String(now)
   };
 
-  const favoritesMap = await readFavoriteProfilesMap(env);
-  const currentEntries = favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
   favoritesMap[normalizedScope] = [entry].concat(currentEntries);
   await writeFavoriteProfilesMap(favoritesMap, env);
   return entry;
@@ -300,31 +306,9 @@ export async function createFavoriteFromHistory(
     return entry.id !== historyId;
   });
 
-  const favoritesMap = await readFavoriteProfilesMap(env);
-  const currentFavorites = favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
-  const existingFavorite = currentFavorites.find(function (entry) {
-    return isSameProfile(entry.profile, historyEntry.profile);
-  });
-
-  if (existingFavorite) {
-    await writeGeneratedProfilesMap(recordsMap, env);
-    return existingFavorite;
-  }
-
-  const now = env && typeof env.now === "function" ? env.now() : Date.now();
-  const random = env && typeof env.random === "function" ? env.random : Math.random;
-  const entry: FavoriteEntry = {
-    createdAt: String(now),
-    id: createId(now, random),
-    name: String(name || "").trim() || "常用数据",
-    profile: historyEntry.profile,
-    updatedAt: String(now)
-  };
-
-  favoritesMap[normalizedScope] = [entry].concat(currentFavorites);
-  await writeFavoriteProfilesMap(favoritesMap, env);
+  const favorite = await createFavoriteProfile(normalizedScope, { name, profile: historyEntry.profile }, env);
   await writeGeneratedProfilesMap(recordsMap, env);
-  return entry;
+  return favorite;
 }
 
 export { FIELD_KEYS, formatProfileForCopy, normalizeProfile, type ProfileFieldMap };
