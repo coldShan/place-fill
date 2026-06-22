@@ -58,6 +58,7 @@
     let flashNode = null;
     let settingsStatus = null;
     let importInput = null;
+    let importMode = "overrides";
     let versionStatus = null;
     let githubBtn = null;
     let checkUpdateBtn = null;
@@ -72,6 +73,22 @@
 
     const FOCUS_STYLE_STORAGE_KEY = "ctdp.focusStyle.v1";
     const DOCK_TOP_STORAGE_KEY = "ctdp.dockTop.v1";
+    const FAVORITE_PROFILES_STORAGE_KEY = "ctdp.favoriteProfiles.v1";
+    const GENERATED_PROFILES_STORAGE_KEY = "ctdp.generatedProfiles.v1";
+    const SMART_FILL_OVERRIDES_STORAGE_KEY = "ctdp.smartFillOverrides.v1";
+    const VISIBLE_FIELD_KEYS_STORAGE_KEY = "ctdp.visibleFieldKeys.v1";
+    const SITE_FEATURE_ENABLED_STORAGE_KEY = "ctdp.siteFeatureEnabled.v1";
+    const FULL_BACKUP_FORMAT = "place-fill-full-backup";
+    const FULL_BACKUP_VERSION = 1;
+    const FULL_BACKUP_STORAGE_KEYS = [
+      FAVORITE_PROFILES_STORAGE_KEY,
+      GENERATED_PROFILES_STORAGE_KEY,
+      SMART_FILL_OVERRIDES_STORAGE_KEY,
+      VISIBLE_FIELD_KEYS_STORAGE_KEY,
+      SITE_FEATURE_ENABLED_STORAGE_KEY,
+      FOCUS_STYLE_STORAGE_KEY,
+      DOCK_TOP_STORAGE_KEY
+    ];
     const DOCK_DEFAULT_TOP = 112;
     const DOCK_HEIGHT = 72;
     const CTDP_ROOT_TOP = 18;
@@ -837,6 +854,109 @@
       }, 0);
     }
 
+    function getLocalStorageArea() {
+      try {
+        if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) return chrome.storage.local;
+      } catch (_) {}
+      return null;
+    }
+
+    function assertLocalStorageAvailable() {
+      const storageArea = getLocalStorageArea();
+      if (!storageArea) throw new Error("本地存储不可用");
+      return storageArea;
+    }
+
+    function hasOwn(object, key) {
+      return Object.prototype.hasOwnProperty.call(object || {}, key);
+    }
+
+    function readStorageValues(keys) {
+      const storageArea = assertLocalStorageAvailable();
+      return new Promise(function (resolve, reject) {
+        let settled = false;
+        function done(result) {
+          if (settled) return;
+          settled = true;
+          resolve(result && typeof result === "object" ? result : {});
+        }
+        function fail(error) {
+          if (settled) return;
+          settled = true;
+          reject(error || new Error("读取本地存储失败"));
+        }
+        try {
+          const maybePromise = storageArea.get(keys, done);
+          if (maybePromise && typeof maybePromise.then === "function") maybePromise.then(done, fail);
+        } catch (error) {
+          fail(error);
+        }
+      });
+    }
+
+    function writeStorageValues(values) {
+      const storageArea = assertLocalStorageAvailable();
+      const keys = Object.keys(values || {});
+      if (!keys.length) return Promise.resolve();
+      return new Promise(function (resolve, reject) {
+        let settled = false;
+        function done() {
+          if (settled) return;
+          settled = true;
+          resolve();
+        }
+        function fail(error) {
+          if (settled) return;
+          settled = true;
+          reject(error || new Error("写入本地存储失败"));
+        }
+        try {
+          const maybePromise = storageArea.set(values, done);
+          if (maybePromise && typeof maybePromise.then === "function") maybePromise.then(done, fail);
+        } catch (error) {
+          fail(error);
+        }
+      });
+    }
+
+    function removeStorageValues(keys) {
+      const storageArea = assertLocalStorageAvailable();
+      const nextKeys = Array.isArray(keys) ? keys.filter(Boolean) : [];
+      if (!nextKeys.length) return Promise.resolve();
+      return new Promise(function (resolve, reject) {
+        let settled = false;
+        function done() {
+          if (settled) return;
+          settled = true;
+          resolve();
+        }
+        function fail(error) {
+          if (settled) return;
+          settled = true;
+          reject(error || new Error("清理本地存储失败"));
+        }
+        try {
+          const maybePromise = storageArea.remove(nextKeys, done);
+          if (maybePromise && typeof maybePromise.then === "function") maybePromise.then(done, fail);
+        } catch (error) {
+          fail(error);
+        }
+      });
+    }
+
+    function buildFullBackupPayload(storedValues) {
+      const storage = {};
+      FULL_BACKUP_STORAGE_KEYS.forEach(function (key) {
+        storage[key] = hasOwn(storedValues, key) ? storedValues[key] : null;
+      });
+      return {
+        exportedAt: new Date().toISOString(),
+        format: FULL_BACKUP_FORMAT,
+        storage,
+        version: FULL_BACKUP_VERSION
+      };
+    }
+
     async function exportOverrides(mode) {
       const isSanitized = mode === "sanitized";
       const payload = isSanitized
@@ -854,6 +974,12 @@
       setSettingsStatus(isSanitized ? "已导出脱敏标注数据" : "已导出标注数据", "success");
     }
 
+    async function exportFullBackup() {
+      const storedValues = await readStorageValues(FULL_BACKUP_STORAGE_KEYS);
+      downloadJsonFile("place-fill-full-backup.json", buildFullBackupPayload(storedValues));
+      setSettingsStatus("已导出全部数据备份", "success");
+    }
+
     function readImportFile(file) {
       return new Promise(function (resolve, reject) {
         const reader = new FileReader();
@@ -869,6 +995,71 @@
 
     function syncImportedOverrideState() {
       onOverridesImported();
+    }
+
+    function assertFullBackupPayload(payload) {
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+        throw new Error("导入文件不是合法备份");
+      }
+      if (payload.format !== FULL_BACKUP_FORMAT) {
+        throw new Error("导入文件不是全量备份");
+      }
+      if (payload.version !== FULL_BACKUP_VERSION) {
+        throw new Error("备份版本不兼容");
+      }
+      if (!payload.storage || typeof payload.storage !== "object" || Array.isArray(payload.storage)) {
+        throw new Error("备份文件缺少本地数据");
+      }
+      if (!FULL_BACKUP_STORAGE_KEYS.some(function (key) { return hasOwn(payload.storage, key); })) {
+        throw new Error("备份文件没有可恢复的数据");
+      }
+    }
+
+    async function refreshAfterFullBackupImport() {
+      await Promise.all([
+        loadSiteFeatureEnabled(),
+        loadFocusStyle(),
+        loadVisibleFieldKeys(),
+        loadDockTop(),
+        loadFavoriteProfiles()
+      ]);
+      syncImportedOverrideState();
+      render();
+    }
+
+    async function importFullBackupFile(file) {
+      if (!file) return;
+      const rawText = await readImportFile(file);
+      let payload = null;
+      try {
+        payload = JSON.parse(rawText);
+      } catch (_) {
+        throw new Error("导入文件不是合法 JSON");
+      }
+      assertFullBackupPayload(payload);
+
+      const values = {};
+      const removeKeys = [];
+      FULL_BACKUP_STORAGE_KEYS.forEach(function (key) {
+        if (key === SMART_FILL_OVERRIDES_STORAGE_KEY || !hasOwn(payload.storage, key)) return;
+        if (payload.storage[key] == null) {
+          removeKeys.push(key);
+          return;
+        }
+        values[key] = payload.storage[key];
+      });
+
+      await removeStorageValues(removeKeys);
+      await writeStorageValues(values);
+      if (hasOwn(payload.storage, SMART_FILL_OVERRIDES_STORAGE_KEY)) {
+        const overrides = payload.storage[SMART_FILL_OVERRIDES_STORAGE_KEY];
+        if (overrides != null && (typeof overrides !== "object" || Array.isArray(overrides))) {
+          throw new Error("备份中的标注数据无效");
+        }
+        await smartFillApi.replaceManualFieldOverrides(overrides || {});
+      }
+      await refreshAfterFullBackupImport();
+      setSettingsStatus("已恢复全部数据", "success");
     }
 
     async function importOverridesFile(file) {
@@ -932,7 +1123,7 @@
           "</button>",
         '      <div class="ctdp-settings-copy">',
         '        <p class="ctdp-settings-title">设置</p>',
-        '        <p class="ctdp-settings-subtitle">选择展示字段，并导入、导出用户标注</p>',
+        '        <p class="ctdp-settings-subtitle">选择展示字段，并导入、导出用户数据</p>',
         "      </div>",
         "    </header>",
         '    <div class="ctdp-settings-list">',
@@ -959,6 +1150,20 @@
         '          <span class="ctdp-settings-card-title">导入标注数据</span>' +
         "        </span>" +
         '        <span class="ctdp-settings-card-note">合并并覆盖同键标注</span>' +
+        "      </button>",
+        '      <button class="ctdp-settings-card" type="button" data-role="export-full-backup">' +
+        '        <span class="ctdp-settings-card-head">' +
+          renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.exportOverrides, "导出全部数据", "ctdp-settings-card-icon") +
+        '          <span class="ctdp-settings-card-title">导出全部数据</span>' +
+        "        </span>" +
+        '        <span class="ctdp-settings-card-note">备份常用数据、标注和站点设置</span>' +
+        "      </button>",
+        '      <button class="ctdp-settings-card" type="button" data-role="import-full-backup">' +
+        '        <span class="ctdp-settings-card-head">' +
+          renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.importOverrides, "导入全部数据", "ctdp-settings-card-icon") +
+        '          <span class="ctdp-settings-card-title">导入全部数据</span>' +
+        "        </span>" +
+        '        <span class="ctdp-settings-card-note">从完整备份恢复并覆盖本地数据</span>' +
         "      </button>",
         '      <button class="ctdp-settings-card" type="button" data-role="export-sanitized-overrides">' +
         '        <span class="ctdp-settings-card-head">' +
@@ -1057,6 +1262,18 @@
           return;
         }
         if (role === "import-overrides") {
+          importMode = "overrides";
+          if (importInput) importInput.click();
+          return;
+        }
+        if (role === "export-full-backup") {
+          exportFullBackup().catch(function (error) {
+            setSettingsStatus(error && error.message ? error.message : "导出失败", "error");
+          });
+          return;
+        }
+        if (role === "import-full-backup") {
+          importMode = "full-backup";
           if (importInput) importInput.click();
           return;
         }
@@ -1108,10 +1325,15 @@
         const file = importInput.files && importInput.files[0];
         if (!file) return;
         try {
-          await importOverridesFile(file);
+          if (importMode === "full-backup") {
+            await importFullBackupFile(file);
+          } else {
+            await importOverridesFile(file);
+          }
         } catch (error) {
           setSettingsStatus(error && error.message ? error.message : "导入失败", "error");
         } finally {
+          importMode = "overrides";
           importInput.value = "";
         }
       });

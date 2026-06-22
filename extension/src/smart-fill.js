@@ -459,6 +459,10 @@
     return writeOverrideMap(overrides, env);
   }
 
+  function replaceManualFieldOverrides(overrides, env) {
+    return writeOverrideMap(normalizeOverrideMap(overrides), env);
+  }
+
   function exportManualFieldOverrides(env) {
     return loadManualFieldOverrides(env).then(function () {
       return {
@@ -629,6 +633,7 @@
     importManualFieldOverrides,
     inferFieldKeyForSmartFill,
     loadManualFieldOverrides,
+    replaceManualFieldOverrides,
     setManualFieldOverride
   };
 

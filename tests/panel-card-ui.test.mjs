@@ -159,7 +159,21 @@ test("panel footer adds a settings entry and the panel includes a dedicated sett
   assert.match(panelScript, /data-role="export-overrides"/);
   assert.match(panelScript, /data-role="import-overrides"/);
   assert.match(panelScript, /data-role="export-sanitized-overrides"/);
+  assert.match(panelScript, /data-role="export-full-backup"/);
+  assert.match(panelScript, /data-role="import-full-backup"/);
   assert.match(panelScript, /data-role="import-file"/);
+});
+
+test("settings view supports full data backup and restore", () => {
+  assert.match(panelScript, /FULL_BACKUP_FORMAT\s*=\s*"place-fill-full-backup"/);
+  assert.match(panelScript, /"ctdp\.favoriteProfiles\.v1"/);
+  assert.match(panelScript, /"ctdp\.generatedProfiles\.v1"/);
+  assert.match(panelScript, /"ctdp\.smartFillOverrides\.v1"/);
+  assert.match(panelScript, /"ctdp\.visibleFieldKeys\.v1"/);
+  assert.match(panelScript, /"ctdp\.siteFeatureEnabled\.v1"/);
+  assert.match(panelScript, /function exportFullBackup\(\)/);
+  assert.match(panelScript, /function importFullBackupFile\(file\)/);
+  assert.match(panelScript, /place-fill-full-backup\.json/);
 });
 
 test("panel renders and copies only the currently visible field keys", () => {

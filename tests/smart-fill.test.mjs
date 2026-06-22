@@ -14,6 +14,7 @@ const {
   importManualFieldOverrides,
   inferFieldKeyForSmartFill,
   loadManualFieldOverrides,
+  replaceManualFieldOverrides,
   setManualFieldOverride
 } = smartFillPkg;
 const { getFieldDefinitions, getFieldKeys } = fieldMetaPkg;
@@ -300,6 +301,19 @@ test("raw override import merges data and overwrites the same key", async () => 
   );
 
   assert.deepEqual(result, { importedCount: 1, type: "raw" });
+  assert.equal(inferFieldKeyForSmartFill(element, env), "companyName");
+});
+
+test("manual override replacement refreshes the in-memory cache", async () => {
+  const element = createElement({ name: "mobilePhone", id: "contact-input" });
+  const env = createEnv({ elements: [element] });
+  await setManualFieldOverride(element, "fullName", env);
+
+  await replaceManualFieldOverrides({
+    "https://example.com/apply::top::tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=":
+      "companyName"
+  }, env);
+
   assert.equal(inferFieldKeyForSmartFill(element, env), "companyName");
 });
 
