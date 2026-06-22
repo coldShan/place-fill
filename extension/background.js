@@ -1,11 +1,12 @@
 "use strict";
 
-importScripts("src/field-meta.js", "src/field-visibility.js", "src/site-feature-toggle.js", "src/smart-fill.js", "generated/data-manager-bridge.js");
+importScripts("src/field-meta.js", "src/field-visibility.js", "src/site-feature-toggle.js", "src/smart-fill.js", "src/storage-mirror.js", "generated/data-manager-bridge.js");
 
 const dataManagerBridgeApi = globalThis.ChromeTestDataDataManagerBridge;
 const fieldVisibilityApi = globalThis.ChromeTestDataFieldVisibility;
 const siteFeatureToggleApi = globalThis.ChromeTestDataSiteFeatureToggle;
 const smartFillApi = globalThis.ChromeTestDataSmartFill;
+const storageMirrorApi = globalThis.ChromeTestDataStorageMirror;
 const MENU_ROOT_ID = "ctdp-manual-annotation-root";
 const MENU_FIELD_PREFIX = "ctdp-manual-annotation:";
 const MENU_CLEAR_ID = "ctdp-manual-annotation:clear";
@@ -161,6 +162,16 @@ async function readSiteFeatureEnabledMap() {
   return siteFeatureEnabledMap;
 }
 
+function mirrorStorageLocal() {
+  if (!storageMirrorApi || typeof storageMirrorApi.mirrorStorageLocalToIndexedDb !== "function") return Promise.resolve(null);
+  return storageMirrorApi.mirrorStorageLocalToIndexedDb();
+}
+
+function restoreStorageLocalMirrorIfEmpty() {
+  if (!storageMirrorApi || typeof storageMirrorApi.restoreStorageLocalFromIndexedDbIfEmpty !== "function") return Promise.resolve({ restored: false });
+  return storageMirrorApi.restoreStorageLocalFromIndexedDbIfEmpty();
+}
+
 function updateRootMenuVisibility(visible) {
   if (!chrome.contextMenus || typeof chrome.contextMenus.update !== "function") return;
   chrome.contextMenus.update(MENU_ROOT_ID, { visible: visible }, function () {
@@ -203,10 +214,15 @@ chrome.action.onClicked.addListener(function (tab) {
 chrome.runtime.onInstalled.addListener(buildContextMenus);
 chrome.runtime.onInstalled.addListener(function () {
   readSiteFeatureEnabledMap().catch(function () {});
+  restoreStorageLocalMirrorIfEmpty().catch(function () {});
 });
 chrome.runtime.onStartup.addListener(buildContextMenus);
 chrome.runtime.onStartup.addListener(function () {
-  readSiteFeatureEnabledMap().catch(function () {});
+  restoreStorageLocalMirrorIfEmpty()
+    .then(readSiteFeatureEnabledMap, function () {
+      return readSiteFeatureEnabledMap();
+    })
+    .catch(function () {});
 });
 if (chrome.storage && chrome.storage.onChanged) {
   chrome.storage.onChanged.addListener(function (changes, areaName) {
@@ -215,6 +231,7 @@ if (chrome.storage && chrome.storage.onChanged) {
       siteFeatureEnabledMap = siteFeatureToggleApi.normalizeSiteFeatureEnabledMap(changes[siteFeatureToggleApi.STORAGE_KEY].newValue);
       syncRootMenuVisibilityForActiveTab();
     }
+    mirrorStorageLocal().catch(function () {});
   });
 }
 
@@ -274,6 +291,26 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
     sendResponse({ ok: true });
     return;
   }
+  if (message.type === "mirror-storage-local") {
+    mirrorStorageLocal()
+      .then(function () {
+        sendResponse({ ok: true });
+      })
+      .catch(function (error) {
+        sendResponse({ error: error && error.message ? error.message : "镜像写入失败", ok: false });
+      });
+    return true;
+  }
+  if (message.type === "restore-storage-local-mirror") {
+    restoreStorageLocalMirrorIfEmpty()
+      .then(function (result) {
+        sendResponse({ ok: true, restored: !!(result && result.restored) });
+      })
+      .catch(function (error) {
+        sendResponse({ error: error && error.message ? error.message : "镜像恢复失败", ok: false, restored: false });
+      });
+    return true;
+  }
   if (message.type === "open-extension-release-page") {
     openExtensionPage(message.url || RELEASES_URL);
     sendResponse({ ok: true });
@@ -317,5 +354,11 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
 });
 
 readSiteFeatureEnabledMap().catch(function () {});
+restoreStorageLocalMirrorIfEmpty()
+  .then(function (result) {
+    if (result && result.restored) return readSiteFeatureEnabledMap();
+    return null;
+  })
+  .catch(function () {});
 buildContextMenus();
 syncRootMenuVisibilityForActiveTab();

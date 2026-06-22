@@ -1058,6 +1058,7 @@
         }
         await smartFillApi.replaceManualFieldOverrides(overrides || {});
       }
+      await sendRuntimeMessage({ type: "mirror-storage-local" });
       await refreshAfterFullBackupImport();
       setSettingsStatus("已恢复全部数据", "success");
     }
