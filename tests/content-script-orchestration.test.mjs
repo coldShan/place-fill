@@ -17,6 +17,7 @@ function createRuntimeEvent() {
 function runContentScriptWithSmartFillStub(overrides) {
   const documentListeners = {};
   const windowListeners = {};
+  const panelFocusInCalls = [];
   const syncTargetCalls = [];
   const smartFillController = {
     fillTarget() {},
@@ -41,6 +42,8 @@ function runContentScriptWithSmartFillStub(overrides) {
 
   const document = {
     activeElement: { id: "active" },
+    body: { id: "body" },
+    documentElement: { id: "html" },
     addEventListener(type, listener) {
       documentListeners[type] = listener;
     }
@@ -101,7 +104,9 @@ function runContentScriptWithSmartFillStub(overrides) {
             getVisibleFieldKeys() {
               return [];
             },
-            handleDocumentFocusIn() {},
+            handleDocumentFocusIn(target) {
+              panelFocusInCalls.push(target);
+            },
             handleDocumentPointerDown() {},
             isSiteFeatureEnabled() {
               return true;
@@ -126,6 +131,7 @@ function runContentScriptWithSmartFillStub(overrides) {
   return {
     document,
     documentListeners,
+    panelFocusInCalls,
     syncTargetCalls
   };
 }
@@ -160,4 +166,12 @@ test("focusin ignores targets that belong to the smart-fill interaction itself",
   runtime.documentListeners.focusin({ target: { id: "recommend-item" } });
 
   assert.deepEqual(runtime.syncTargetCalls, []);
+});
+
+test("focusin on the document shell does not ask the panel to collapse", () => {
+  const runtime = runContentScriptWithSmartFillStub();
+
+  runtime.documentListeners.focusin({ target: runtime.document.body });
+
+  assert.deepEqual(runtime.panelFocusInCalls, []);
 });

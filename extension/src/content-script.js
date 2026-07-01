@@ -64,6 +64,10 @@
     );
   }
 
+  function isDocumentShellTarget(target) {
+    return !target || target === document || target === document.body || target === document.documentElement;
+  }
+
   const panelController = panelControllerApi.createContentScriptPanelController({
     canRenderPanel,
     document,
@@ -138,7 +142,7 @@
     document.addEventListener(
       "focusin",
       function (event) {
-        panelController.handleDocumentFocusIn(event.target);
+        if (!isDocumentShellTarget(event.target)) panelController.handleDocumentFocusIn(event.target);
         if (smartFillController && typeof smartFillController.isInteractionTarget === "function" && smartFillController.isInteractionTarget(event.target)) {
           return;
         }
