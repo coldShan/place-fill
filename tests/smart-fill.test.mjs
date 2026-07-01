@@ -5,6 +5,7 @@ import fieldMetaPkg from "../extension/src/field-meta.js";
 
 const {
   clearManualFieldOverride,
+  clearAiFieldMappings,
   exportManualFieldOverrides,
   exportSanitizedManualFieldOverrides,
   formatSmartFillButtonLabel,
@@ -13,8 +14,10 @@ const {
   getSupportedFieldKeys,
   importManualFieldOverrides,
   inferFieldKeyForSmartFill,
+  loadAiFieldMappings,
   loadManualFieldOverrides,
   replaceManualFieldOverrides,
+  replaceAiFieldMappings,
   setManualFieldOverride
 } = smartFillPkg;
 const { getFieldDefinitions, getFieldKeys } = fieldMetaPkg;
@@ -315,6 +318,83 @@ test("manual override replacement refreshes the in-memory cache", async () => {
   }, env);
 
   assert.equal(inferFieldKeyForSmartFill(element, env), "companyName");
+});
+
+test("ai field mapping can override heuristic inference when confidence is high", async () => {
+  const element = createElement({ name: "mobilePhone", id: "contact-input" });
+  const env = createEnv({ elements: [element] });
+
+  await replaceAiFieldMappings({
+    "https://example.com/apply::top::tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=": {
+      fieldKey: "companyName",
+      confidence: 0.91,
+      localFieldKey: "mobile",
+      updatedAt: "2026-06-23T00:00:00.000Z"
+    }
+  }, env);
+
+  assert.equal(inferFieldKeyForSmartFill(element, env), "companyName");
+});
+
+test("ai field mapping supplements unknown fields but low confidence falls back to local rules", async () => {
+  const unknown = createElement({ name: "contact", id: "contact-input" });
+  const local = createElement({ name: "mobilePhone", id: "mobile-input" });
+  const env = createEnv({ elements: [unknown, local] });
+
+  await replaceAiFieldMappings({
+    "https://example.com/apply::top::tag=input&type=text&id=contactinput&name=contact&autocomplete=&placeholder=&aria=&labels=": {
+      fieldKey: "fullName",
+      confidence: 0.7,
+      localFieldKey: "",
+      updatedAt: "2026-06-23T00:00:00.000Z"
+    },
+    "https://example.com/apply::top::tag=input&type=text&id=mobileinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=": {
+      fieldKey: "companyName",
+      confidence: 0.7,
+      localFieldKey: "mobile",
+      updatedAt: "2026-06-23T00:00:00.000Z"
+    }
+  }, env);
+
+  assert.equal(inferFieldKeyForSmartFill(unknown, env), "fullName");
+  assert.equal(inferFieldKeyForSmartFill(local, env), "mobile");
+});
+
+test("manual field override remains higher priority than ai mapping", async () => {
+  const element = createElement({ name: "mobilePhone", id: "contact-input" });
+  const env = createEnv({ elements: [element] });
+
+  await replaceAiFieldMappings({
+    "https://example.com/apply::top::tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=": {
+      fieldKey: "companyName",
+      confidence: 0.99,
+      localFieldKey: "mobile",
+      updatedAt: "2026-06-23T00:00:00.000Z"
+    }
+  }, env);
+  await setManualFieldOverride(element, "email", env);
+
+  assert.equal(inferFieldKeyForSmartFill(element, env), "email");
+});
+
+test("ai field mappings can be loaded and cleared from storage", async () => {
+  const element = createElement({ name: "contact", id: "contact-input" });
+  const storageArea = createStorageArea({
+    "ctdp.aiFieldMappings.v1": {
+      "https://example.com/apply::top::tag=input&type=text&id=contactinput&name=contact&autocomplete=&placeholder=&aria=&labels=": {
+        fieldKey: "fullName",
+        confidence: 0.66,
+        localFieldKey: "",
+        updatedAt: "2026-06-23T00:00:00.000Z"
+      }
+    }
+  });
+  const env = createEnv({ elements: [element], storageArea });
+
+  await loadAiFieldMappings(env);
+  assert.equal(inferFieldKeyForSmartFill(element, env), "fullName");
+  await clearAiFieldMappings(env);
+  assert.equal(inferFieldKeyForSmartFill(element, env), null);
 });
 
 test("sanitized override import applies to the current site domain without restoring the source path", async () => {

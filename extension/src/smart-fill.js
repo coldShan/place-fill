@@ -94,11 +94,20 @@
     "cc-name": "fullName"
   };
   const STORAGE_KEY = "ctdp.smartFillOverrides.v1";
+  const AI_FIELD_MAPPING_STORAGE_KEY = "ctdp.aiFieldMappings.v1";
+  const AI_OVERRIDE_CONFIDENCE = rootScope.ChromeTestDataAiRecognition && typeof rootScope.ChromeTestDataAiRecognition.AI_OVERRIDE_CONFIDENCE === "number"
+    ? rootScope.ChromeTestDataAiRecognition.AI_OVERRIDE_CONFIDENCE
+    : 0.82;
+  const AI_SUPPLEMENT_CONFIDENCE = rootScope.ChromeTestDataAiRecognition && typeof rootScope.ChromeTestDataAiRecognition.AI_SUPPLEMENT_CONFIDENCE === "number"
+    ? rootScope.ChromeTestDataAiRecognition.AI_SUPPLEMENT_CONFIDENCE
+    : 0.65;
   const EXPORT_FORMAT = "ctdp-smart-fill-overrides";
   const EXPORT_VERSION = 1;
   const SANITIZED_FRAME_SCOPE = "*";
   const storageCacheEntries = typeof WeakMap !== "undefined" ? new WeakMap() : null;
   const fallbackCacheEntry = { loaded: false, loadPromise: null, map: {} };
+  const aiStorageCacheEntries = typeof WeakMap !== "undefined" ? new WeakMap() : null;
+  const fallbackAiCacheEntry = { loaded: false, loadPromise: null, map: {} };
 
   function normalizeText(value) {
     return String(value || "")
@@ -152,6 +161,15 @@
       storageCacheEntries.set(storageArea, { loaded: false, loadPromise: null, map: {} });
     }
     return storageCacheEntries.get(storageArea);
+  }
+
+  function getAiCacheEntry(env) {
+    const storageArea = getStorageArea(env);
+    if (!storageArea || !aiStorageCacheEntries) return fallbackAiCacheEntry;
+    if (!aiStorageCacheEntries.has(storageArea)) {
+      aiStorageCacheEntries.set(storageArea, { loaded: false, loadPromise: null, map: {} });
+    }
+    return aiStorageCacheEntries.get(storageArea);
   }
 
   function readStorageValue(storageArea, key) {
@@ -399,6 +417,26 @@
     return nextMap;
   }
 
+  function normalizeAiFieldMappingMap(mappings) {
+    const nextMap = {};
+    if (!mappings || typeof mappings !== "object" || Array.isArray(mappings)) return nextMap;
+    Object.keys(mappings).forEach(function (key) {
+      const entry = mappings[key];
+      if (!parseStorageKey(key)) return;
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return;
+      if (!isSupportedFieldKey(entry.fieldKey)) return;
+      const confidence = Number(entry.confidence);
+      if (!Number.isFinite(confidence)) return;
+      nextMap[key] = {
+        confidence: Math.max(0, Math.min(1, confidence)),
+        fieldKey: entry.fieldKey,
+        localFieldKey: isSupportedFieldKey(entry.localFieldKey) ? entry.localFieldKey : "",
+        updatedAt: typeof entry.updatedAt === "string" ? entry.updatedAt : ""
+      };
+    });
+    return nextMap;
+  }
+
   function readOverrideMap(env) {
     return { ...getCacheEntry(env).map };
   }
@@ -430,6 +468,77 @@
       return { ...cacheEntry.map };
     });
     return cacheEntry.loadPromise;
+  }
+
+  function readAiFieldMappingMap(env) {
+    return { ...getAiCacheEntry(env).map };
+  }
+
+  function writeAiFieldMappingMap(nextMap, env) {
+    const storageArea = getStorageArea(env);
+    const cacheEntry = getAiCacheEntry(env);
+    const normalizedMap = normalizeAiFieldMappingMap(nextMap);
+    cacheEntry.loaded = true;
+    cacheEntry.map = normalizedMap;
+    const keys = Object.keys(normalizedMap);
+    if (!keys.length) return removeStorageValue(storageArea, AI_FIELD_MAPPING_STORAGE_KEY);
+    return writeStorageValue(storageArea, AI_FIELD_MAPPING_STORAGE_KEY, normalizedMap);
+  }
+
+  function getNormalizedAiFieldMappingMap(env) {
+    return normalizeAiFieldMappingMap(readAiFieldMappingMap(env));
+  }
+
+  function loadAiFieldMappings(env) {
+    const storageArea = getStorageArea(env);
+    const cacheEntry = getAiCacheEntry(env);
+    if (cacheEntry.loaded) return Promise.resolve(getNormalizedAiFieldMappingMap(env));
+    if (cacheEntry.loadPromise) return cacheEntry.loadPromise;
+    cacheEntry.loadPromise = readStorageValue(storageArea, AI_FIELD_MAPPING_STORAGE_KEY).then(function (stored) {
+      cacheEntry.map = normalizeAiFieldMappingMap(stored);
+      cacheEntry.loaded = true;
+      cacheEntry.loadPromise = null;
+      return { ...cacheEntry.map };
+    });
+    return cacheEntry.loadPromise;
+  }
+
+  function replaceAiFieldMappings(mappings, env) {
+    return writeAiFieldMappingMap(normalizeAiFieldMappingMap(mappings), env);
+  }
+
+  function clearAiFieldMappings(env) {
+    return writeAiFieldMappingMap({}, env);
+  }
+
+  function getAiFieldMapping(element, env) {
+    const key = getTargetStorageKey(element, env);
+    const mappings = getNormalizedAiFieldMappingMap(env);
+    const mapping = mappings[key];
+    return mapping && isSupportedFieldKey(mapping.fieldKey) ? mapping : null;
+  }
+
+  function applyAiFieldMappings(fields, env) {
+    const entries = Array.isArray(fields) ? fields : [];
+    const pageScope = getPageScope(env);
+    const frameScope = getFrameScope(env);
+    if (!pageScope || !frameScope) return Promise.resolve(false);
+    const mappings = getNormalizedAiFieldMappingMap(env);
+    const updatedAt = new Date().toISOString();
+    entries.forEach(function (entry) {
+      if (!entry || typeof entry !== "object") return;
+      const fingerprint = String(entry.fingerprint || "").trim();
+      const fieldKey = String(entry.fieldKey || "").trim();
+      const confidence = Number(entry.confidence);
+      if (!fingerprint || !isSupportedFieldKey(fieldKey) || !Number.isFinite(confidence)) return;
+      mappings[buildStorageKey(pageScope, frameScope, fingerprint)] = {
+        confidence: Math.max(0, Math.min(1, confidence)),
+        fieldKey,
+        localFieldKey: isSupportedFieldKey(entry.localFieldKey) ? entry.localFieldKey : "",
+        updatedAt
+      };
+    });
+    return writeAiFieldMappingMap(mappings, env);
   }
 
   function getManualFieldOverride(element, env) {
@@ -574,11 +683,8 @@
     return AUTOCOMPLETE_MAP[autocomplete] || null;
   }
 
-  function inferFieldKeyForSmartFill(element, env) {
+  function inferLocalFieldKeyForSmartFill(element) {
     if (!element) return null;
-
-    const override = getManualFieldOverride(element, env);
-    if (override) return override;
 
     const byAutocomplete = inferByAutocomplete(element);
     if (byAutocomplete) return byAutocomplete;
@@ -608,6 +714,20 @@
     return null;
   }
 
+  function inferFieldKeyForSmartFill(element, env) {
+    if (!element) return null;
+
+    const override = getManualFieldOverride(element, env);
+    if (override) return override;
+
+    const localFieldKey = inferLocalFieldKeyForSmartFill(element);
+    const aiMapping = getAiFieldMapping(element, env);
+    if (aiMapping && localFieldKey && aiMapping.confidence >= AI_OVERRIDE_CONFIDENCE) return aiMapping.fieldKey;
+    if (localFieldKey) return localFieldKey;
+    if (aiMapping && aiMapping.confidence >= AI_SUPPLEMENT_CONFIDENCE) return aiMapping.fieldKey;
+    return null;
+  }
+
   function formatSmartFillButtonLabel(fieldKey) {
     return fieldMetaApi.getFieldLabel(fieldKey) || "智能填充";
   }
@@ -623,16 +743,23 @@
   }
 
   const api = {
+    AI_FIELD_MAPPING_STORAGE_KEY,
+    applyAiFieldMappings,
+    clearAiFieldMappings,
     clearManualFieldOverride,
     exportManualFieldOverrides,
     exportSanitizedManualFieldOverrides,
     formatSmartFillButtonLabel,
     getFieldIconName,
+    getFieldFingerprint,
     getSmartFillMenuFieldKeys,
     getSupportedFieldKeys,
     importManualFieldOverrides,
     inferFieldKeyForSmartFill,
+    inferLocalFieldKeyForSmartFill,
+    loadAiFieldMappings,
     loadManualFieldOverrides,
+    replaceAiFieldMappings,
     replaceManualFieldOverrides,
     setManualFieldOverride
   };

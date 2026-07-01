@@ -14,11 +14,14 @@ function createRuntimeEvent() {
   };
 }
 
-function runContentScriptWithSmartFillStub(overrides) {
+function runContentScriptWithSmartFillStub(overrides, envOverrides) {
+  const env = envOverrides || {};
   const documentListeners = {};
   const windowListeners = {};
   const panelFocusInCalls = [];
   const syncTargetCalls = [];
+  const runtimeMessages = [];
+  let panelOptions = null;
   const smartFillController = {
     fillTarget() {},
     hide() {},
@@ -67,8 +70,9 @@ function runContentScriptWithSmartFillStub(overrides) {
       runtime: {
         lastError: null,
         onMessage: createRuntimeEvent(),
-        sendMessage(_message, callback) {
-          if (callback) callback({});
+        sendMessage(message, callback) {
+          runtimeMessages.push(message);
+          if (callback) callback(typeof env.runtimeResponse === "function" ? env.runtimeResponse(message) : {});
         }
       }
     },
@@ -86,8 +90,19 @@ function runContentScriptWithSmartFillStub(overrides) {
       ChromeTestDataFieldVisibility: {},
       ChromeTestDataSiteFeatureToggle: {},
       ChromeTestDataSmartFill: {
+        applyAiFieldMappings() {
+          return Promise.resolve(true);
+        },
         clearManualFieldOverride() {},
+        getSupportedFieldKeys() {
+          return env.supportedFieldKeys || [];
+        },
         setManualFieldOverride() {}
+      },
+      ChromeTestDataAiFormSnapshot: {
+        buildAiFormSnapshot() {
+          return env.snapshot || { allowedFieldKeys: [], fields: [] };
+        }
       },
       ChromeTestDataDataRecords: {
         readFavoriteProfiles() {
@@ -95,21 +110,22 @@ function runContentScriptWithSmartFillStub(overrides) {
         }
       },
       ChromeTestDataContentScriptPanel: {
-        createContentScriptPanelController() {
+        createContentScriptPanelController(options) {
+          panelOptions = options;
           return {
             consumeFieldValue() {},
             getFieldValue() {
               return "";
             },
             getVisibleFieldKeys() {
-              return [];
+              return env.visibleFieldKeys || [];
             },
             handleDocumentFocusIn(target) {
               panelFocusInCalls.push(target);
             },
             handleDocumentPointerDown() {},
             isSiteFeatureEnabled() {
-              return true;
+              return env.siteFeatureEnabled !== false;
             },
             loadVisibleFieldKeys() {
               return Promise.resolve();
@@ -131,7 +147,9 @@ function runContentScriptWithSmartFillStub(overrides) {
   return {
     document,
     documentListeners,
+    panelOptions,
     panelFocusInCalls,
+    runtimeMessages,
     syncTargetCalls
   };
 }
@@ -174,4 +192,34 @@ test("focusin on the document shell does not ask the panel to collapse", () => {
   runtime.documentListeners.focusin({ target: runtime.document.body });
 
   assert.deepEqual(runtime.panelFocusInCalls, []);
+});
+
+test("content script skips duplicate ai recognition snapshots", async () => {
+  const runtime = runContentScriptWithSmartFillStub({}, {
+    runtimeResponse(message) {
+      return message.type === "classify-form-fields" ? { fields: [] } : {};
+    },
+    snapshot: {
+      allowedFieldKeys: ["mobile"],
+      fields: [{ fingerprint: "field-1", localFieldKey: "mobile", placeholder: "联系电话" }]
+    },
+    supportedFieldKeys: ["mobile"],
+    visibleFieldKeys: ["mobile"]
+  });
+
+  await Promise.resolve();
+  await Promise.resolve();
+  runtime.panelOptions.onSiteFeatureEnabledChanged(true);
+  await Promise.resolve();
+  await Promise.resolve();
+  runtime.panelOptions.onVisibleFieldKeysChanged();
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(
+    runtime.runtimeMessages.filter(function (message) {
+      return message.type === "classify-form-fields";
+    }).length,
+    1
+  );
 });

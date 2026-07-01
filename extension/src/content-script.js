@@ -9,6 +9,7 @@
   const fieldVisibilityApi = globalThis.ChromeTestDataFieldVisibility;
   const siteFeatureToggleApi = globalThis.ChromeTestDataSiteFeatureToggle;
   const smartFillApi = globalThis.ChromeTestDataSmartFill;
+  const aiFormSnapshotApi = globalThis.ChromeTestDataAiFormSnapshot;
   const dataRecordsApi = globalThis.ChromeTestDataDataRecords;
   const panelControllerApi = globalThis.ChromeTestDataContentScriptPanel;
   const smartFillControllerApi = globalThis.ChromeTestDataContentScriptSmartFill;
@@ -22,6 +23,7 @@
     !fieldVisibilityApi ||
     !siteFeatureToggleApi ||
     !smartFillApi ||
+    !aiFormSnapshotApi ||
     !panelControllerApi ||
     !smartFillControllerApi ||
     typeof document === "undefined"
@@ -32,6 +34,8 @@
   const canRenderPanel = window.top === window;
   const runtimeApi = typeof chrome !== "undefined" ? chrome.runtime : null;
   let smartFillController = null;
+  let aiRecognitionPromise = null;
+  let lastAiRecognitionSignature = "";
 
   function getCurrentScope() {
     if (!window || !window.location || typeof window.location.hostname !== "string") return "";
@@ -64,8 +68,87 @@
     );
   }
 
+  function syncActiveSmartTarget() {
+    if (!smartFillController) return;
+    const target = editableTargetApi.findEditableTarget(document.activeElement) || smartFillController.resolveManualOverrideTarget();
+    if (target) {
+      smartFillController.syncTarget(target);
+      return;
+    }
+    smartFillController.hide();
+  }
+
   function isDocumentShellTarget(target) {
     return !target || target === document || target === document.body || target === document.documentElement;
+  }
+
+  function buildAiRecognitionSignature(snapshot) {
+    const currentPath = window && window.location
+      ? String(window.location.origin || "") + String(window.location.pathname || "")
+      : "";
+    return JSON.stringify({
+      allowedFieldKeys: Array.isArray(snapshot.allowedFieldKeys) ? snapshot.allowedFieldKeys.slice() : [],
+      fields: Array.isArray(snapshot.fields)
+        ? snapshot.fields.map(function (field) {
+          return {
+            ariaLabel: field.ariaLabel || "",
+            autocomplete: field.autocomplete || "",
+            fingerprint: field.fingerprint || "",
+            id: field.id || "",
+            labels: Array.isArray(field.labels) ? field.labels.slice() : [],
+            localFieldKey: field.localFieldKey || "",
+            name: field.name || "",
+            nearbyText: field.nearbyText || "",
+            placeholder: field.placeholder || "",
+            tag: field.tag || "",
+            type: field.type || ""
+          };
+        })
+        : [],
+      path: currentPath
+    });
+  }
+
+  function refreshAiRecognition() {
+    if (!panelController || !panelController.isSiteFeatureEnabled()) return Promise.resolve(false);
+    if (aiRecognitionPromise) return aiRecognitionPromise;
+    const visibleFieldKeys = panelController.getVisibleFieldKeys();
+    const supportedFieldKeys = smartFillApi.getSupportedFieldKeys(visibleFieldKeys);
+    const snapshot = aiFormSnapshotApi.buildAiFormSnapshot({
+      allowedFieldKeys: supportedFieldKeys,
+      document,
+      smartFillApi
+    });
+    if (!snapshot.fields.length) return Promise.resolve(false);
+    const snapshotSignature = buildAiRecognitionSignature(snapshot);
+    if (snapshotSignature === lastAiRecognitionSignature) return Promise.resolve(false);
+    lastAiRecognitionSignature = snapshotSignature;
+    aiRecognitionPromise = sendRuntimeMessage({
+      type: "classify-form-fields",
+      snapshot
+    })
+      .then(function (response) {
+        const fields = response && Array.isArray(response.fields) ? response.fields : [];
+        console.info("[place-fill] AI 识别输出", fields);
+        if (!fields.length || typeof smartFillApi.applyAiFieldMappings !== "function") return false;
+        fields.forEach(function (field) {
+          const source = snapshot.fields.find(function (item) {
+            return item.fingerprint === field.fingerprint;
+          });
+          if (source && source.localFieldKey) field.localFieldKey = source.localFieldKey;
+        });
+        return Promise.resolve(smartFillApi.applyAiFieldMappings(fields)).then(function () {
+          syncActiveSmartTarget();
+          return true;
+        });
+      })
+      .catch(function () {
+        return false;
+      })
+      .finally(function () {
+        aiRecognitionPromise = null;
+      });
+    return aiRecognitionPromise;
   }
 
   const panelController = panelControllerApi.createContentScriptPanelController({
@@ -77,9 +160,7 @@
     generators,
     iconAssetsApi,
     onOverridesImported: function () {
-      if (!smartFillController) return;
-      const target = editableTargetApi.findEditableTarget(document.activeElement) || smartFillController.resolveManualOverrideTarget();
-      if (target) smartFillController.syncTarget(target);
+      syncActiveSmartTarget();
     },
     onSiteFeatureEnabledChanged: function (enabled) {
       syncSiteFeatureContextMenu(enabled);
@@ -88,21 +169,12 @@
         smartFillController.hide();
         return;
       }
-      const target = editableTargetApi.findEditableTarget(document.activeElement) || smartFillController.resolveManualOverrideTarget();
-      if (target) {
-        smartFillController.syncTarget(target);
-        return;
-      }
-      smartFillController.hide();
+      refreshAiRecognition();
+      syncActiveSmartTarget();
     },
     onVisibleFieldKeysChanged: function () {
-      if (!smartFillController) return;
-      const target = editableTargetApi.findEditableTarget(document.activeElement) || smartFillController.resolveManualOverrideTarget();
-      if (target) {
-        smartFillController.syncTarget(target);
-        return;
-      }
-      smartFillController.hide();
+      refreshAiRecognition();
+      syncActiveSmartTarget();
     },
     panelStateApi,
     siteFeatureToggleApi,
@@ -132,12 +204,14 @@
       });
     },
     smartFillApi,
+    refreshAiRecognition,
     window
   });
 
   function startContentScript() {
     panelController.mount();
     smartFillController.mount();
+    window.setTimeout(refreshAiRecognition, 250);
 
     document.addEventListener(
       "focusin",
@@ -217,7 +291,10 @@
   }
 
   if (typeof smartFillApi.loadManualFieldOverrides === "function") {
-    Promise.resolve(smartFillApi.loadManualFieldOverrides()).then(startContentScript, startContentScript);
+    Promise.all([
+      Promise.resolve(smartFillApi.loadManualFieldOverrides()),
+      typeof smartFillApi.loadAiFieldMappings === "function" ? Promise.resolve(smartFillApi.loadAiFieldMappings()) : Promise.resolve()
+    ]).then(startContentScript, startContentScript);
   } else {
     startContentScript();
   }

@@ -1,7 +1,8 @@
 "use strict";
 
-importScripts("src/field-meta.js", "src/field-visibility.js", "src/site-feature-toggle.js", "src/smart-fill.js", "src/storage-mirror.js", "generated/data-manager-bridge.js");
+importScripts("src/field-meta.js", "src/field-visibility.js", "src/site-feature-toggle.js", "src/ai-recognition.js", "src/smart-fill.js", "src/storage-mirror.js", "generated/data-manager-bridge.js");
 
+const aiRecognitionApi = globalThis.ChromeTestDataAiRecognition;
 const dataManagerBridgeApi = globalThis.ChromeTestDataDataManagerBridge;
 const fieldVisibilityApi = globalThis.ChromeTestDataFieldVisibility;
 const siteFeatureToggleApi = globalThis.ChromeTestDataSiteFeatureToggle;
@@ -106,6 +107,13 @@ function openDataManagerPage(scope) {
   openExtensionPage(url);
 }
 
+function openAiPermissionPage(origin) {
+  if (!chrome.runtime || typeof chrome.runtime.getURL !== "function") return false;
+  if (!origin) return false;
+  openExtensionPage(chrome.runtime.getURL("ai-permission.html?origin=" + encodeURIComponent(origin)));
+  return true;
+}
+
 async function checkExtensionUpdate() {
   const currentVersion = normalizeVersion(chrome.runtime.getManifest().version);
   const response = await fetch(LATEST_RELEASE_API_URL, {
@@ -170,6 +178,111 @@ function mirrorStorageLocal() {
 function restoreStorageLocalMirrorIfEmpty() {
   if (!storageMirrorApi || typeof storageMirrorApi.restoreStorageLocalFromIndexedDbIfEmpty !== "function") return Promise.resolve({ restored: false });
   return storageMirrorApi.restoreStorageLocalFromIndexedDbIfEmpty();
+}
+
+function getAiOriginPattern(origin) {
+  return origin ? String(origin).replace(/\/+$/g, "") + "/*" : "";
+}
+
+function requestOptionalOriginPermission(origin) {
+  const pattern = getAiOriginPattern(origin);
+  if (!pattern || !chrome.permissions || typeof chrome.permissions.request !== "function") return Promise.resolve(false);
+  return new Promise(function (resolve) {
+    let settled = false;
+    function done(granted) {
+      if (settled) return;
+      settled = true;
+      void chrome.runtime.lastError;
+      resolve(granted === true);
+    }
+    try {
+      const maybePromise = chrome.permissions.request({ origins: [pattern] }, done);
+      if (maybePromise && typeof maybePromise.then === "function") {
+        maybePromise.then(done, function () { done(false); });
+      }
+    } catch (_) {
+      done(false);
+    }
+  });
+}
+
+function containsOptionalOriginPermission(origin) {
+  const pattern = getAiOriginPattern(origin);
+  if (!pattern || !chrome.permissions || typeof chrome.permissions.contains !== "function") return Promise.resolve(false);
+  return new Promise(function (resolve) {
+    let settled = false;
+    function done(granted) {
+      if (settled) return;
+      settled = true;
+      void chrome.runtime.lastError;
+      resolve(granted === true);
+    }
+    try {
+      const maybePromise = chrome.permissions.contains({ origins: [pattern] }, done);
+      if (maybePromise && typeof maybePromise.then === "function") {
+        maybePromise.then(done, function () { done(false); });
+      }
+    } catch (_) {
+      done(false);
+    }
+  });
+}
+
+async function requestAiHostPermission(origin) {
+  if (await containsOptionalOriginPermission(origin)) return true;
+  return requestOptionalOriginPermission(origin);
+}
+
+async function readAiRecognitionConfig() {
+  if (!aiRecognitionApi || typeof aiRecognitionApi.readAiRecognitionConfig !== "function") return null;
+  const config = await aiRecognitionApi.readAiRecognitionConfig();
+  const permissionGranted = config.origin ? await containsOptionalOriginPermission(config.origin) : false;
+  return { ...config, permissionGranted };
+}
+
+async function saveAiRecognitionConfig(inputConfig) {
+  if (!aiRecognitionApi || typeof aiRecognitionApi.normalizeAiRecognitionConfig !== "function") throw new Error("AI 识别不可用");
+  const existingConfig = await aiRecognitionApi.readAiRecognitionConfig();
+  const nextInput = { ...(inputConfig || {}) };
+  if (!String(nextInput.apiKey || "").trim() && existingConfig && existingConfig.apiKey) nextInput.apiKey = existingConfig.apiKey;
+  let config = aiRecognitionApi.normalizeAiRecognitionConfig(nextInput);
+  const permissionGranted = config.enabled && config.origin ? await containsOptionalOriginPermission(config.origin) : false;
+  config = { ...config, permissionGranted };
+  if (typeof aiRecognitionApi.writeAiRecognitionConfig === "function") await aiRecognitionApi.writeAiRecognitionConfig(config);
+  return {
+    config,
+    permissionPageOpened: config.enabled && config.origin && !permissionGranted ? openAiPermissionPage(config.origin) : false
+  };
+}
+
+async function classifyFormFields(snapshot) {
+  if (!aiRecognitionApi || typeof aiRecognitionApi.classifyFormFields !== "function") return { fields: [] };
+  const config = await readAiRecognitionConfig();
+  if (!config) return { fields: [] };
+  const result = await aiRecognitionApi.classifyFormFields({
+    config,
+    fetchFn: fetch,
+    snapshot: snapshot || {},
+    supportedFieldKeys: smartFillApi && typeof smartFillApi.getSupportedFieldKeys === "function" ? smartFillApi.getSupportedFieldKeys() : []
+  });
+  return result;
+}
+
+async function testAiRecognitionConfig(inputConfig) {
+  const existingConfig = await aiRecognitionApi.readAiRecognitionConfig();
+  const nextInput = inputConfig ? { ...inputConfig } : existingConfig;
+  if (nextInput && !String(nextInput.apiKey || "").trim() && existingConfig && existingConfig.apiKey) nextInput.apiKey = existingConfig.apiKey;
+  const config = aiRecognitionApi.normalizeAiRecognitionConfig(nextInput);
+  const result = await aiRecognitionApi.classifyFormFields({
+    config: { ...config, permissionGranted: true },
+    fetchFn: fetch,
+    snapshot: {
+      allowedFieldKeys: ["mobile"],
+      fields: [{ fingerprint: "test-field", label: "手机号", localFieldKey: "mobile", tag: "input", type: "text" }]
+    },
+    supportedFieldKeys: ["mobile"]
+  });
+  return { fields: result.fields, ok: true };
 }
 
 function updateRootMenuVisibility(visible) {
@@ -308,6 +421,56 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
       })
       .catch(function (error) {
         sendResponse({ error: error && error.message ? error.message : "镜像恢复失败", ok: false, restored: false });
+      });
+    return true;
+  }
+  if (message.type === "read-ai-recognition-config") {
+    readAiRecognitionConfig()
+      .then(function (config) {
+        sendResponse({ config: aiRecognitionApi && typeof aiRecognitionApi.getPublicConfig === "function" ? aiRecognitionApi.getPublicConfig(config || {}) : {}, ok: true });
+      })
+      .catch(function (error) {
+        sendResponse({ error: error && error.message ? error.message : "读取 AI 配置失败", ok: false });
+      });
+    return true;
+  }
+  if (message.type === "save-ai-recognition-config") {
+    saveAiRecognitionConfig(message.config)
+      .then(function (result) {
+        sendResponse({ config: aiRecognitionApi.getPublicConfig(result.config), ok: true, permissionPageOpened: result.permissionPageOpened === true });
+      })
+      .catch(function (error) {
+        sendResponse({ error: error && error.message ? error.message : "保存 AI 配置失败", ok: false });
+      });
+    return true;
+  }
+  if (message.type === "request-ai-host-permission") {
+    requestAiHostPermission(message.origin)
+      .then(function (granted) {
+        sendResponse({ granted, ok: true });
+      })
+      .catch(function (error) {
+        sendResponse({ error: error && error.message ? error.message : "AI 接口授权失败", granted: false, ok: false });
+      });
+    return true;
+  }
+  if (message.type === "test-ai-recognition-config") {
+    testAiRecognitionConfig(message.config)
+      .then(function (result) {
+        sendResponse(result);
+      })
+      .catch(function (error) {
+        sendResponse({ error: error && error.message ? error.message : "AI 识别测试失败", ok: false });
+      });
+    return true;
+  }
+  if (message.type === "classify-form-fields") {
+    classifyFormFields(message.snapshot)
+      .then(function (result) {
+        sendResponse({ fields: result.fields || [], ok: true });
+      })
+      .catch(function () {
+        sendResponse({ fields: [], ok: false });
       });
     return true;
   }
