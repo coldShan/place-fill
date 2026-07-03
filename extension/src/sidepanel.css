@@ -1132,6 +1132,61 @@
   line-height: 1.45;
 }
 
+.ctdp-ai-settings {
+  gap: 10px;
+}
+
+.ctdp-ai-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--ctdp-muted);
+  font-size: 12px;
+}
+
+.ctdp-ai-field input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid rgba(74, 111, 165, 0.18);
+  border-radius: 10px;
+  color: var(--ctdp-ink);
+  background: rgba(255, 255, 255, 0.56);
+  font: inherit;
+  outline: none;
+}
+
+.ctdp-ai-field input:focus {
+  border-color: rgba(74, 111, 165, 0.46);
+  background: rgba(255, 255, 255, 0.80);
+}
+
+.ctdp-ai-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.ctdp-ai-action {
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid rgba(74, 111, 165, 0.18);
+  border-radius: 10px;
+  color: var(--ctdp-ink);
+  background: rgba(255, 255, 255, 0.46);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ctdp-ai-action:hover,
+.ctdp-ai-action:focus-visible {
+  outline: none;
+  border-color: rgba(74, 111, 165, 0.36);
+  background: rgba(255, 255, 255, 0.72);
+}
+
 .ctdp-field-visibility-list {
   display: grid;
   gap: 8px;

@@ -66,6 +66,11 @@
     let siteFeatureStatus = null;
     let siteFeatureToggle = null;
     let focusStyleToggle = null;
+    let aiRecognitionToggle = null;
+    let aiBaseUrlInput = null;
+    let aiApiKeyInput = null;
+    let aiModelInput = null;
+    let aiRecognitionStatus = null;
     let dockBtn = null;
     let autoFillAborted = false;
     let autoFillRunning = false;
@@ -101,6 +106,14 @@
       panelView: "main",
       profile: generators.generateProfile(),
       siteFeatureEnabled: siteFeatureToggleApi.getDefaultSiteFeatureEnabled(),
+      aiRecognitionConfig: {
+        baseUrl: "",
+        enabled: false,
+        hasApiKey: false,
+        model: "gpt-4o-mini",
+        origin: "",
+        permissionGranted: false
+      },
       visibleFieldKeys: fieldVisibilityApi.getDefaultVisibleFieldKeys(),
       focusStyle: "subtle",
       dockTop: DOCK_DEFAULT_TOP
@@ -235,6 +248,48 @@
         "    </label>",
         "  </span>",
         '  <span class="ctdp-settings-card-note" data-role="focus-style-note">' + getFocusStyleNoteText() + "</span>",
+        "</section>"
+      ].join("");
+    }
+
+    function getAiRecognitionStatusText() {
+      const config = state.aiRecognitionConfig;
+      if (!config.enabled) return "AI 识别已停用";
+      if (!config.baseUrl || !config.model || !config.hasApiKey) return "请填写 HTTPS Base URL、API Key 和模型名";
+      if (!config.permissionGranted) return "AI 接口域名未授权";
+      return "AI 识别已启用";
+    }
+
+    function renderAiRecognitionMarkup() {
+      const config = state.aiRecognitionConfig;
+      return [
+        '<section class="ctdp-settings-card ctdp-settings-card-static ctdp-ai-settings">',
+        '  <span class="ctdp-settings-card-head">',
+        "    " + renderButtonIcon("wand-sparkles", "AI 识别", "ctdp-settings-card-icon"),
+        '    <span class="ctdp-settings-card-title">AI 识别</span>',
+        '    <label class="ctdp-switch" aria-label="切换 AI 识别">',
+        '      <input class="ctdp-switch-input" type="checkbox" data-role="ai-recognition-toggle"' + (config.enabled ? " checked" : "") + ">",
+        '      <span class="ctdp-switch-track"><span class="ctdp-switch-thumb"></span></span>',
+        "    </label>",
+        "  </span>",
+        '  <label class="ctdp-ai-field">',
+        '    <span>Base URL</span>',
+        '    <input type="url" data-role="ai-base-url" placeholder="https://api.example.com/v1" value="' + escapeHtml(config.baseUrl || "") + '">',
+        "  </label>",
+        '  <label class="ctdp-ai-field">',
+        '    <span>API Key</span>',
+        '    <input type="password" data-role="ai-api-key" placeholder="' + (config.hasApiKey ? "已保存，留空保持不变" : "输入 API Key") + '">',
+        "  </label>",
+        '  <label class="ctdp-ai-field">',
+        '    <span>模型</span>',
+        '    <input type="text" data-role="ai-model" placeholder="gpt-4o-mini" value="' + escapeHtml(config.model || "gpt-4o-mini") + '">',
+        "  </label>",
+        '  <span class="ctdp-ai-actions">',
+        '    <button class="ctdp-ai-action" type="button" data-role="save-ai-recognition">保存并授权</button>',
+        '    <button class="ctdp-ai-action" type="button" data-role="test-ai-recognition">测试连接</button>',
+        '    <button class="ctdp-ai-action" type="button" data-role="clear-ai-cache">清除缓存</button>',
+        "  </span>",
+        '  <span class="ctdp-settings-card-note" data-role="ai-recognition-status">' + escapeHtml(getAiRecognitionStatusText()) + "</span>",
         "</section>"
       ].join("");
     }
@@ -633,6 +688,9 @@
         autoFillAborted = true;
         return;
       }
+      if (typeof opts.refreshAiRecognition === "function") {
+        await Promise.race([opts.refreshAiRecognition(), delay(900)]);
+      }
       var targets = collectAutoFillTargets();
       if (targets.length === 0) return;
 
@@ -690,6 +748,83 @@
     function syncSiteFeatureStatus() {
       if (!siteFeatureStatus) return;
       siteFeatureStatus.textContent = getSiteFeatureStatusText();
+    }
+
+    function getAiRecognitionDraftConfig() {
+      return {
+        enabled: !!(aiRecognitionToggle && aiRecognitionToggle.checked),
+        baseUrl: aiBaseUrlInput ? aiBaseUrlInput.value : "",
+        apiKey: aiApiKeyInput ? aiApiKeyInput.value : "",
+        model: aiModelInput ? aiModelInput.value : ""
+      };
+    }
+
+    function syncAiRecognitionControls() {
+      if (aiRecognitionToggle) aiRecognitionToggle.checked = state.aiRecognitionConfig.enabled;
+      if (aiBaseUrlInput) aiBaseUrlInput.value = state.aiRecognitionConfig.baseUrl || "";
+      if (aiModelInput) aiModelInput.value = state.aiRecognitionConfig.model || "gpt-4o-mini";
+      if (aiApiKeyInput) {
+        aiApiKeyInput.value = "";
+        aiApiKeyInput.placeholder = state.aiRecognitionConfig.hasApiKey ? "已保存，留空保持不变" : "输入 API Key";
+      }
+      if (aiRecognitionStatus) aiRecognitionStatus.textContent = getAiRecognitionStatusText();
+    }
+
+    async function loadAiRecognitionConfig() {
+      const response = await sendRuntimeMessage({ type: "read-ai-recognition-config" });
+      if (response && response.config) {
+        state.aiRecognitionConfig = {
+          baseUrl: response.config.baseUrl || "",
+          enabled: response.config.enabled === true,
+          hasApiKey: response.config.hasApiKey === true,
+          model: response.config.model || "gpt-4o-mini",
+          origin: response.config.origin || "",
+          permissionGranted: response.config.permissionGranted === true
+        };
+      }
+      syncAiRecognitionControls();
+    }
+
+    async function saveAiRecognitionConfig() {
+      setSettingsStatus("正在保存 AI 识别配置", "muted");
+      const response = await sendRuntimeMessage({
+        type: "save-ai-recognition-config",
+        config: getAiRecognitionDraftConfig()
+      });
+      if (!response || response.error) {
+        setSettingsStatus(response && response.error ? response.error : "AI 配置保存失败", "error");
+        return;
+      }
+      if (response.config) state.aiRecognitionConfig = {
+        baseUrl: response.config.baseUrl || "",
+        enabled: response.config.enabled === true,
+        hasApiKey: response.config.hasApiKey === true,
+        model: response.config.model || "gpt-4o-mini",
+        origin: response.config.origin || "",
+        permissionGranted: response.config.permissionGranted === true
+      };
+      syncAiRecognitionControls();
+      setSettingsStatus(
+        response.config && response.config.permissionGranted
+          ? "AI 识别配置已保存并授权"
+          : (response.permissionPageOpened ? "AI 配置已保存，请在授权页点击授权按钮" : "AI 配置已保存，但接口域名未授权"),
+        response.config && response.config.permissionGranted ? "success" : "warning"
+      );
+    }
+
+    async function testAiRecognitionConfig() {
+      setSettingsStatus("正在测试 AI 识别接口", "muted");
+      const response = await sendRuntimeMessage({
+        type: "test-ai-recognition-config",
+        config: getAiRecognitionDraftConfig()
+      });
+      setSettingsStatus(response && response.ok ? "AI 识别测试通过" : (response && response.error ? response.error : "AI 识别测试失败"), response && response.ok ? "success" : "error");
+    }
+
+    async function clearAiRecognitionCache() {
+      if (smartFillApi && typeof smartFillApi.clearAiFieldMappings === "function") await smartFillApi.clearAiFieldMappings();
+      onOverridesImported();
+      setSettingsStatus("已清除 AI 识别缓存", "success");
     }
 
     function syncSiteFeatureEnabled(enabled) {
@@ -1130,6 +1265,7 @@
         '    <div class="ctdp-settings-list">',
         renderSiteFeatureToggleMarkup(),
         renderFocusStyleToggleMarkup(),
+        renderAiRecognitionMarkup(),
         '      <section class="ctdp-settings-card ctdp-settings-card-static">',
         '        <span class="ctdp-settings-card-head">' +
           renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.visibleFields, "填充项选择", "ctdp-settings-card-icon") +
@@ -1213,6 +1349,11 @@
       siteFeatureStatus = root.querySelector('[data-role="site-feature-status"]');
       siteFeatureToggle = root.querySelector('[data-role="site-feature-toggle"]');
       focusStyleToggle = root.querySelector('[data-role="focus-style-toggle"]');
+      aiRecognitionToggle = root.querySelector('[data-role="ai-recognition-toggle"]');
+      aiBaseUrlInput = root.querySelector('[data-role="ai-base-url"]');
+      aiApiKeyInput = root.querySelector('[data-role="ai-api-key"]');
+      aiModelInput = root.querySelector('[data-role="ai-model"]');
+      aiRecognitionStatus = root.querySelector('[data-role="ai-recognition-status"]');
       dockBtn = root.querySelector('[data-role="expand"]');
 
       root.addEventListener("click", function (event) {
@@ -1284,6 +1425,24 @@
           });
           return;
         }
+        if (role === "save-ai-recognition") {
+          saveAiRecognitionConfig().catch(function (error) {
+            setSettingsStatus(error && error.message ? error.message : "AI 配置保存失败", "error");
+          });
+          return;
+        }
+        if (role === "test-ai-recognition") {
+          testAiRecognitionConfig().catch(function (error) {
+            setSettingsStatus(error && error.message ? error.message : "AI 识别测试失败", "error");
+          });
+          return;
+        }
+        if (role === "clear-ai-cache") {
+          clearAiRecognitionCache().catch(function () {
+            setSettingsStatus("AI 识别缓存清除失败", "error");
+          });
+          return;
+        }
         if (role === "expand") {
           if (dockDragJustEnded) { dockDragJustEnded = false; return; }
           expand();
@@ -1345,6 +1504,7 @@
       loadFavoriteProfiles();
       hideGithubControls();
       loadSiteFeatureEnabled();
+      loadAiRecognitionConfig();
       loadFocusStyle();
       loadVisibleFieldKeys();
       loadDockTop();

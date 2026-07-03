@@ -26,11 +26,13 @@ test("manifest enables all-sites editable injection with context menu permission
     "src/field-meta.js",
     "src/field-visibility.js",
     "src/site-feature-toggle.js",
+    "src/ai-recognition.js",
     "src/generators.js",
     "src/panel-state.js",
     "src/editable-target.js",
     "src/icon-assets.js",
     "src/smart-fill.js",
+    "src/ai-form-snapshot.js",
     "generated/data-records-api.js",
     "src/content-script-panel.js",
     "src/content-script-smartfill.js",
@@ -38,6 +40,8 @@ test("manifest enables all-sites editable injection with context menu permission
   ]);
   assert.equal(Array.isArray(manifest.host_permissions), true);
   assert.equal(manifest.host_permissions.includes("https://api.github.com/*"), true);
+  assert.equal(manifest.host_permissions.includes("https://*/*"), false);
+  assert.deepEqual(manifest.optional_host_permissions, ["https://*/*"]);
 });
 
 test("manifest declares local extension icons for toolbar and management pages", () => {
