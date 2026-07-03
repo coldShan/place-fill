@@ -57,6 +57,12 @@ pnpm test
 
 # 打包发布 zip
 node extension/scripts/package-release.mjs
+
+# 发布新版本：更新版本、测试、打包、提交、打 tag、推送并创建 GitHub Release
+pnpm release 0.7.5
+
+# 验证当前 manifest 版本的 README、zip、tag 和 GitHub Release
+pnpm release:verify
 ```
 
 本地调试时，在 `chrome://extensions` 中加载 `extension/` 目录。手动验证页面位于 `mock-form/index.html`。
