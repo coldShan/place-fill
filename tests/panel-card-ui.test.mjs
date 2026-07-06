@@ -116,6 +116,16 @@ test("single-card copy only syncs copied state instead of rerendering the full g
   assert.match(panelScript, /async function copyField\(key,\s*profileIndex\)\s*\{[\s\S]*?syncCopiedCardState\(\);[\s\S]*?\}/);
 });
 
+test("auto fill toggles a page aura overlay while filling targets", () => {
+  assert.match(panelScript, /class="ctdp-autofill-aura" data-role="autofill-aura"/);
+  assert.match(panelScript, /class="ctdp-autofill-status"/);
+  assert.match(panelScript, /data-role="autofill-status-text">Thinking\.\.\./);
+  assert.match(panelScript, /function setAutoFillPageAuraState\(running\)/);
+  assert.match(panelScript, /root\.setAttribute\("data-autofill-running",\s*String\(running\)\)/);
+  assert.match(panelScript, /setAutoFillPageAuraState\(true\)[\s\S]*?try\s*\{/);
+  assert.match(panelScript, /finally\s*\{[\s\S]*?setAutoFillPageAuraState\(false\)/);
+});
+
 test("panel footer renders version info and update trigger while keeping fallback copy hidden by default", () => {
   assert.doesNotMatch(panelScript, /ctdp-status-text/);
   assert.doesNotMatch(panelScript, /ctdp-status-time/);

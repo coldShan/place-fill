@@ -662,6 +662,11 @@
       if (btn) btn.setAttribute("data-running", String(running));
     }
 
+    function setAutoFillPageAuraState(running) {
+      if (!root) return;
+      root.setAttribute("data-autofill-running", String(running));
+    }
+
     function collectAutoFillTargets() {
       if (!editableTargetApi || !smartFillApi) return [];
       var candidates = doc.querySelectorAll('input, textarea, [contenteditable="true"], [contenteditable=""]');
@@ -697,37 +702,42 @@
       autoFillRunning = true;
       autoFillAborted = false;
       setAutoFillButtonState(true);
+      setAutoFillPageAuraState(true);
 
-      for (var i = 0; i < targets.length; i++) {
-        if (autoFillAborted) break;
-        var entry = targets[i];
-        var value = getFieldValue(entry.fieldKey);
-        if (!value) continue;
+      try {
+        for (var i = 0; i < targets.length; i++) {
+          if (autoFillAborted) break;
+          var entry = targets[i];
+          var value = getFieldValue(entry.fieldKey);
+          if (!value) continue;
 
-        entry.target.scrollIntoView({ behavior: "smooth", block: "center" });
-        await delay(120);
-        if (autoFillAborted) break;
+          entry.target.scrollIntoView({ behavior: "smooth", block: "center" });
+          await delay(120);
+          if (autoFillAborted) break;
 
-        editableTargetApi.fillEditableTarget(entry.target, value);
-        hideFallback();
-        pulseFlash("copy");
-        regenerateFieldValue(entry.fieldKey);
+          editableTargetApi.fillEditableTarget(entry.target, value);
+          hideFallback();
+          pulseFlash("copy");
+          regenerateFieldValue(entry.fieldKey);
 
-        if (i < targets.length - 1) await delay(200);
-      }
-
-      var wasAborted = autoFillAborted;
-      autoFillRunning = false;
-      autoFillAborted = false;
-      setAutoFillButtonState(false);
-      if (!wasAborted) {
-        pulseFlash("regen");
-        if (dockBtn) {
-          dockBtn.setAttribute("data-autofill-done", "true");
-          win.setTimeout(function () {
-            if (dockBtn) dockBtn.removeAttribute("data-autofill-done");
-          }, 4000);
+          if (i < targets.length - 1) await delay(200);
         }
+
+        var wasAborted = autoFillAborted;
+        if (!wasAborted) {
+          pulseFlash("regen");
+          if (dockBtn) {
+            dockBtn.setAttribute("data-autofill-done", "true");
+            win.setTimeout(function () {
+              if (dockBtn) dockBtn.removeAttribute("data-autofill-done");
+            }, 4000);
+          }
+        }
+      } finally {
+        autoFillRunning = false;
+        autoFillAborted = false;
+        setAutoFillButtonState(false);
+        setAutoFillPageAuraState(false);
       }
     }
 
@@ -1218,8 +1228,15 @@
       root.className = "ctdp-root";
       root.setAttribute("data-visible", "false");
       root.setAttribute("data-collapsed", "false");
+      root.setAttribute("data-autofill-running", "false");
       root.setAttribute("data-site-feature-enabled", String(state.siteFeatureEnabled));
       root.innerHTML = [
+        '<div class="ctdp-autofill-aura" data-role="autofill-aura" aria-hidden="true">',
+        '  <div class="ctdp-autofill-status" data-role="autofill-status">',
+        '    <span class="ctdp-autofill-dot"></span>',
+        '    <span data-role="autofill-status-text">Thinking...</span>',
+        "  </div>",
+        "</div>",
         '<button class="ctdp-dock" type="button" data-role="expand" aria-label="展开测试数据面板" title="展开测试数据面板">' +
           iconAssetsApi.renderIconMarkup(iconAssetsApi.PRIMARY_LOGO_ICON, "ctdp-dock-icon", "测试数据面板") +
           "</button>",
