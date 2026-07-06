@@ -130,6 +130,29 @@ test("smart fill infers pinyin aliases and initials for supported fields", () =>
   assert.equal(inferFieldKeyForSmartFill(createElement({ name: "tyshxydm" })), "creditCode");
 });
 
+test("smart fill uses offline snapshot context from table headers and sections", () => {
+  const section = { tagName: "SECTION", textContent: "联系人信息" };
+  const header = { tagName: "TH", textContent: "手机号" };
+  const row = {
+    tagName: "TR",
+    querySelectorAll(selector) {
+      return selector === "th" ? [header] : [];
+    }
+  };
+  const cell = { tagName: "TD", parentElement: row, textContent: "" };
+  const input = createElement({
+    name: "field1",
+    parentElement: cell,
+    closest(selector) {
+      if (selector === "td, th") return cell;
+      if (selector === 'section, article, main, form, [role="form"]') return section;
+      return null;
+    }
+  });
+
+  assert.equal(inferFieldKeyForSmartFill(input, createEnv({ elements: [input] })), "mobile");
+});
+
 test("smart fill returns null for unsupported or ambiguous fields", () => {
   assert.equal(inferFieldKeyForSmartFill(createElement({ placeholder: "请输入备注" })), null);
   assert.equal(inferFieldKeyForSmartFill(createElement({ tagName: "TEXTAREA", name: "description" })), null);

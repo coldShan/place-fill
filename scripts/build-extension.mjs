@@ -41,6 +41,20 @@ const buildConfigs = [
     build: {
       ...createBaseBuildConfig().build,
       lib: {
+        entry: resolve(process.cwd(), "extension/src-ts/bridges/offline-form-snapshot-global.ts"),
+        fileName() {
+          return "offline-form-snapshot-api.js";
+        },
+        formats: ["iife"],
+        name: "ChromeTestDataOfflineFormSnapshotBundle"
+      }
+    }
+  },
+  {
+    ...createBaseBuildConfig(),
+    build: {
+      ...createBaseBuildConfig().build,
+      lib: {
         entry: resolve(process.cwd(), "extension/src-ts/bridges/data-records-global.ts"),
         fileName() {
           return "data-records-api.js";

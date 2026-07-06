@@ -65,6 +65,7 @@
         "src/panel-state.js",
         "src/editable-target.js",
         "src/icon-assets.js",
+        "generated/offline-form-snapshot-api.js",
         "src/smart-fill.js",
         "src/ai-form-snapshot.js",
         "generated/data-records-api.js",

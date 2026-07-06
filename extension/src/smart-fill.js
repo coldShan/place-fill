@@ -26,6 +26,19 @@
 
   const fieldMetaApi = getFieldMetaApi();
 
+  function getOfflineFormSnapshotApi() {
+    if (rootScope.ChromeTestDataOfflineFormSnapshot) return rootScope.ChromeTestDataOfflineFormSnapshot;
+    if (typeof require === "function") {
+      try {
+        require("../generated/offline-form-snapshot-api.js");
+        return rootScope.ChromeTestDataOfflineFormSnapshot || null;
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  const offlineFormSnapshotApi = getOfflineFormSnapshotApi();
+
   const FIELD_MATCHERS = [
     {
       fieldKey: "creditCode",
@@ -328,6 +341,13 @@
     return Array.from(doc.querySelectorAll('input, textarea, [contenteditable], [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]')).filter(isEditableCandidate);
   }
 
+  function getOfflineFormField(element, env) {
+    if (!offlineFormSnapshotApi || typeof offlineFormSnapshotApi.buildOfflineFormFieldSnapshot !== "function") return null;
+    return offlineFormSnapshotApi.buildOfflineFormFieldSnapshot(element, {
+      document: getEnvDocument(env)
+    });
+  }
+
   function getLabelTexts(element) {
     if (!Array.isArray(element && element.labels)) return [];
     return element.labels
@@ -337,8 +357,24 @@
       .filter(Boolean);
   }
 
-  function collectHints(element) {
+  function collectHints(element, env) {
     if (!element) return [];
+    const offlineField = getOfflineFormField(element, env);
+    if (offlineField) {
+      return [
+        offlineField.autocomplete,
+        offlineField.name,
+        offlineField.id,
+        offlineField.placeholder,
+        offlineField.ariaLabel,
+        offlineField.contextText
+      ].concat(
+        offlineField.labels || [],
+        offlineField.fieldsetLegends || [],
+        offlineField.sectionHeadings || [],
+        offlineField.tableHeaders || []
+      ).filter(Boolean);
+    }
     const hints = [
       element.getAttribute && element.getAttribute("autocomplete"),
       element.getAttribute && element.getAttribute("name"),
@@ -371,6 +407,8 @@
   }
 
   function getFieldFingerprint(element, env) {
+    const offlineField = getOfflineFormField(element, env);
+    if (offlineField && offlineField.fingerprint) return offlineField.fingerprint;
     const base = getFieldFingerprintBase(element);
     if (!base) return "";
     const matches = getEditableCandidates(env).filter(function (candidate) {
@@ -678,19 +716,24 @@
     return importSanitizedOverrides(payload, env);
   }
 
-  function inferByAutocomplete(element) {
-    const autocomplete = normalizeText(element && element.getAttribute && element.getAttribute("autocomplete"));
+  function inferByAutocomplete(element, env) {
+    const offlineField = getOfflineFormField(element, env);
+    const autocomplete = normalizeText(
+      offlineField
+        ? offlineField.autocomplete
+        : element && element.getAttribute && element.getAttribute("autocomplete")
+    );
     return AUTOCOMPLETE_MAP[autocomplete] || null;
   }
 
-  function inferLocalFieldKeyForSmartFill(element) {
+  function inferLocalFieldKeyForSmartFill(element, env) {
     if (!element) return null;
 
-    const byAutocomplete = inferByAutocomplete(element);
+    const byAutocomplete = inferByAutocomplete(element, env);
     if (byAutocomplete) return byAutocomplete;
 
-    const normalizedHints = collectHints(element).map(normalizeText).filter(Boolean);
-    const rawHints = collectHints(element);
+    const rawHints = collectHints(element, env);
+    const normalizedHints = rawHints.map(normalizeText).filter(Boolean);
 
     for (const matcher of FIELD_MATCHERS) {
       if (
@@ -720,7 +763,7 @@
     const override = getManualFieldOverride(element, env);
     if (override) return override;
 
-    const localFieldKey = inferLocalFieldKeyForSmartFill(element);
+    const localFieldKey = inferLocalFieldKeyForSmartFill(element, env);
     const aiMapping = getAiFieldMapping(element, env);
     if (aiMapping && localFieldKey && aiMapping.confidence >= AI_OVERRIDE_CONFIDENCE) return aiMapping.fieldKey;
     if (localFieldKey) return localFieldKey;
