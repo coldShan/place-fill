@@ -63,7 +63,13 @@ function createDocument(elements: MockElement[], byId: Record<string, MockElemen
 }
 
 test("offline form snapshot collects field context from labels, fieldsets, sections and tables", () => {
-  const section = createElement({ tagName: "SECTION", textContent: "企业信息" });
+  const heading = createElement({ tagName: "H2", textContent: "企业信息" });
+  const section = createElement({
+    tagName: "SECTION",
+    querySelector(selector: string) {
+      return selector === "h1, h2, h3, h4, h5, h6, [role=\"heading\"]" ? heading : null;
+    }
+  });
   const legend = createElement({ tagName: "LEGEND", textContent: "联系人资料" });
   const fieldset = createElement({
     tagName: "FIELDSET",
@@ -151,6 +157,34 @@ test("offline form snapshot collects referenced, sibling and option context", ()
   assert.equal(snapshot.fields[0]?.contextText.includes("联系人姓名"), true);
   assert.equal(snapshot.fields[0]?.contextText.includes("经办人"), true);
   assert.deepEqual(snapshot.fields[1]?.optionTexts, ["请选择", "手机号", "固定电话"]);
+});
+
+test("offline form snapshot does not use an unheaded field grid as section context", () => {
+  const grid = createElement({
+    tagName: "SECTION",
+    textContent: "统一社会信用代码 姓名 身份证号 银行卡号 账号 手机号 邮箱 固定电话 地址",
+    querySelector() {
+      return null;
+    }
+  });
+  const field = createElement({ tagName: "DIV", textContent: "姓名" });
+  const input = createElement({
+    attributes: { id: "fullName" },
+    labels: [{ textContent: "姓名" }],
+    parentElement: field,
+    closest(selector: string) {
+      if (selector === "section, article, main, form, [role=\"form\"]") return grid;
+      return null;
+    }
+  });
+
+  const snapshot = buildOfflineFormSnapshot({
+    document: createDocument([input])
+  });
+
+  assert.deepEqual(snapshot.fields[0]?.sectionHeadings, []);
+  assert.equal(snapshot.fields[0]?.contextText.includes("统一社会信用代码"), false);
+  assert.equal(snapshot.fields[0]?.contextText.includes("姓名"), true);
 });
 
 test("offline form snapshot filters non-fillable controls and caps fields", () => {

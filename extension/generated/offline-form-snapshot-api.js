@@ -110,7 +110,7 @@ var ChromeTestDataOfflineFormSnapshotBundle = (function() {
     const section = typeof element.closest === "function" ? element.closest('section, article, main, form, [role="form"]') : null;
     if (!section) return [];
     const heading = typeof section.querySelector === "function" ? section.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]') : null;
-    return uniqueTexts([getText(heading || section)]);
+    return uniqueTexts([getText(heading)]);
   }
   function findTableHeaders(element) {
     const cell = typeof element.closest === "function" ? element.closest("td, th") : null;
