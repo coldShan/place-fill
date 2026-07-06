@@ -56,6 +56,31 @@ var ChromeTestDataOfflineFormSnapshotBundle = (function() {
       return getText(label);
     }));
   }
+  function getDocument(optionsDocument, element) {
+    return optionsDocument || element.ownerDocument || (typeof document !== "undefined" ? document : null);
+  }
+  function getReferencedTexts(element, attributeName, doc) {
+    const currentDocument = getDocument(doc, element);
+    if (!currentDocument || typeof currentDocument.getElementById !== "function") return [];
+    return uniqueTexts(
+      String(element.getAttribute(attributeName) || "").split(/\s+/).map(function(id) {
+        return id ? getText(currentDocument.getElementById(id)) : "";
+      })
+    );
+  }
+  function getSiblingTexts(element) {
+    return uniqueTexts([
+      getText(element.previousElementSibling),
+      getText(element.nextElementSibling)
+    ]);
+  }
+  function getOptionTexts(element) {
+    const tag = String(element.tagName || "").toLowerCase();
+    if (tag !== "select" || !element.options) return [];
+    return uniqueTexts(Array.from(element.options).map(function(option) {
+      return getText(option) || truncateText(option.label || "");
+    }));
+  }
   function isVisibleElement(element) {
     if (element.hidden || getAttribute(element, "hidden") || getAttribute(element, "aria-hidden") === "true") return false;
     if (typeof element.getClientRects === "function" && element.getClientRects().length === 0) return false;
@@ -107,11 +132,15 @@ var ChromeTestDataOfflineFormSnapshotBundle = (function() {
       "labels=" + field.labels.map(normalizeFingerprintText).join("|")
     ].join("&");
   }
-  function createFieldSnapshot(element) {
+  function createFieldSnapshot(element, doc) {
     const tag = String(element.tagName || "").toLowerCase();
     const labels = getLabelTexts(element);
+    const labelledByTexts = getReferencedTexts(element, "aria-labelledby", doc);
+    const describedByTexts = getReferencedTexts(element, "aria-describedby", doc);
     const fieldsetLegends = findFieldsetLegends(element);
+    const optionTexts = getOptionTexts(element);
     const sectionHeadings = findSectionHeadings(element);
+    const siblingTexts = getSiblingTexts(element);
     const tableHeaders = findTableHeaders(element);
     const nearbyText = getText(element.parentElement, MAX_CONTEXT_TEXT_LENGTH);
     const attributes = {
@@ -128,15 +157,23 @@ var ChromeTestDataOfflineFormSnapshotBundle = (function() {
       ...attributes,
       contextText: uniqueTexts([
         ...labels,
+        ...labelledByTexts,
+        ...describedByTexts,
         ...fieldsetLegends,
+        ...optionTexts,
         ...sectionHeadings,
+        ...siblingTexts,
         ...tableHeaders,
         attributes.ariaLabel,
         attributes.placeholder,
         nearbyText
       ]).join(" "),
+      describedByTexts,
       fieldsetLegends,
+      labelledByTexts,
+      optionTexts,
       sectionHeadings,
+      siblingTexts,
       tableHeaders
     };
   }
@@ -150,7 +187,7 @@ var ChromeTestDataOfflineFormSnapshotBundle = (function() {
     for (const candidate of candidates) {
       if (fields.length >= maxFields) break;
       if (!isFillableCandidate(candidate)) continue;
-      const field = createFieldSnapshot(candidate);
+      const field = createFieldSnapshot(candidate, doc);
       const fingerprintBase = buildFingerprintBase(field);
       const count = fingerprintCounts.get(fingerprintBase) || 0;
       fingerprintCounts.set(fingerprintBase, count + 1);
@@ -164,9 +201,9 @@ var ChromeTestDataOfflineFormSnapshotBundle = (function() {
   function buildOfflineFormFieldSnapshot(element, options = {}) {
     const candidate = element;
     if (!isFillableCandidate(candidate)) return null;
-    const field = createFieldSnapshot(candidate);
-    const fingerprintBase = buildFingerprintBase(field);
     const doc = options.document || candidate.ownerDocument || (typeof document !== "undefined" ? document : null);
+    const field = createFieldSnapshot(candidate, doc);
+    const fingerprintBase = buildFingerprintBase(field);
     if (!doc || typeof doc.querySelectorAll !== "function") {
       return { ...field, fingerprint: fingerprintBase };
     }
@@ -174,7 +211,7 @@ var ChromeTestDataOfflineFormSnapshotBundle = (function() {
     const candidates = Array.from(doc.querySelectorAll(CANDIDATE_SELECTOR));
     for (const item of candidates) {
       if (!isFillableCandidate(item)) continue;
-      const itemField = createFieldSnapshot(item);
+      const itemField = createFieldSnapshot(item, doc);
       if (buildFingerprintBase(itemField) !== fingerprintBase) continue;
       matchingIndex += 1;
       if (item === candidate) {

@@ -24,6 +24,7 @@ type MockElement = {
   querySelectorAll?: (selector: string) => MockElement[];
   getAttribute?: (name: string) => string | null;
   getClientRects?: () => unknown[];
+  options?: Array<{ textContent?: string; label?: string }>;
 };
 
 function createElement(input: Partial<MockElement> & { tagName?: string } = {}): MockElement {
@@ -50,8 +51,11 @@ function createElement(input: Partial<MockElement> & { tagName?: string } = {}):
   return element;
 }
 
-function createDocument(elements: MockElement[]) {
+function createDocument(elements: MockElement[], byId: Record<string, MockElement> = {}) {
   return {
+    getElementById(id: string) {
+      return byId[id] || null;
+    },
     querySelectorAll() {
       return elements;
     }
@@ -110,6 +114,43 @@ test("offline form snapshot collects field context from labels, fieldsets, secti
   assert.equal(snapshot.fields[0]?.contextText.includes("企业信息"), true);
   assert.equal(snapshot.fields[0]?.contextText.includes("联系人资料"), true);
   assert.equal(JSON.stringify(snapshot).includes("value"), false);
+});
+
+test("offline form snapshot collects referenced, sibling and option context", () => {
+  const label = createElement({ tagName: "SPAN", textContent: "联系人姓名" });
+  const help = createElement({ tagName: "DIV", textContent: "请填写真实姓名" });
+  const previous = createElement({ tagName: "SPAN", textContent: "经办人" });
+  const input = createElement({
+    attributes: {
+      "aria-describedby": "name-help",
+      "aria-labelledby": "name-label",
+      name: "field1"
+    },
+    previousElementSibling: previous
+  });
+  const select = createElement({
+    attributes: { name: "contactType" },
+    options: [
+      { textContent: "请选择" },
+      { label: "手机号" },
+      { textContent: "固定电话" }
+    ],
+    tagName: "SELECT"
+  });
+
+  const snapshot = buildOfflineFormSnapshot({
+    document: createDocument([input, select], {
+      "name-help": help,
+      "name-label": label
+    })
+  });
+
+  assert.equal(snapshot.fields[0]?.labelledByTexts.includes("联系人姓名"), true);
+  assert.equal(snapshot.fields[0]?.describedByTexts.includes("请填写真实姓名"), true);
+  assert.equal(snapshot.fields[0]?.siblingTexts.includes("经办人"), true);
+  assert.equal(snapshot.fields[0]?.contextText.includes("联系人姓名"), true);
+  assert.equal(snapshot.fields[0]?.contextText.includes("经办人"), true);
+  assert.deepEqual(snapshot.fields[1]?.optionTexts, ["请选择", "手机号", "固定电话"]);
 });
 
 test("offline form snapshot filters non-fillable controls and caps fields", () => {

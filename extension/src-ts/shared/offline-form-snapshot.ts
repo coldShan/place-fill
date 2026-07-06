@@ -26,13 +26,17 @@ export type OfflineFormFieldSnapshot = {
   ariaLabel: string;
   autocomplete: string;
   contextText: string;
+  describedByTexts: string[];
   fieldsetLegends: string[];
   fingerprint: string;
   id: string;
   labels: string[];
+  labelledByTexts: string[];
   name: string;
+  optionTexts: string[];
   placeholder: string;
   sectionHeadings: string[];
+  siblingTexts: string[];
   tableHeaders: string[];
   tag: string;
   type: string;
@@ -48,6 +52,9 @@ type ElementWithLabels = Element & {
   innerText?: string;
   isContentEditable?: boolean;
   labels?: ArrayLike<Element> | Iterable<Element> | null;
+  nextElementSibling?: Element | null;
+  options?: ArrayLike<Element & { label?: string }> | Iterable<Element & { label?: string }> | null;
+  previousElementSibling?: Element | null;
   readOnly?: boolean;
   type?: string;
 };
@@ -96,6 +103,37 @@ function labelsToArray(labels: ElementWithLabels["labels"]): Element[] {
 function getLabelTexts(element: ElementWithLabels): string[] {
   return uniqueTexts(labelsToArray(element.labels).map(function (label) {
     return getText(label);
+  }));
+}
+
+function getDocument(optionsDocument: Document | null | undefined, element: Element): Document | null {
+  return optionsDocument || element.ownerDocument || (typeof document !== "undefined" ? document : null);
+}
+
+function getReferencedTexts(element: Element, attributeName: string, doc: Document | null | undefined): string[] {
+  const currentDocument = getDocument(doc, element);
+  if (!currentDocument || typeof currentDocument.getElementById !== "function") return [];
+  return uniqueTexts(
+    String(element.getAttribute(attributeName) || "")
+      .split(/\s+/)
+      .map(function (id) {
+        return id ? getText(currentDocument.getElementById(id)) : "";
+      })
+  );
+}
+
+function getSiblingTexts(element: ElementWithLabels): string[] {
+  return uniqueTexts([
+    getText(element.previousElementSibling),
+    getText(element.nextElementSibling)
+  ]);
+}
+
+function getOptionTexts(element: ElementWithLabels): string[] {
+  const tag = String(element.tagName || "").toLowerCase();
+  if (tag !== "select" || !element.options) return [];
+  return uniqueTexts(Array.from(element.options as ArrayLike<Element & { label?: string }>).map(function (option) {
+    return getText(option) || truncateText(option.label || "");
   }));
 }
 
@@ -160,11 +198,15 @@ function buildFingerprintBase(field: Omit<OfflineFormFieldSnapshot, "fingerprint
   ].join("&");
 }
 
-function createFieldSnapshot(element: ElementWithLabels): Omit<OfflineFormFieldSnapshot, "fingerprint"> {
+function createFieldSnapshot(element: ElementWithLabels, doc?: Document | null): Omit<OfflineFormFieldSnapshot, "fingerprint"> {
   const tag = String(element.tagName || "").toLowerCase();
   const labels = getLabelTexts(element);
+  const labelledByTexts = getReferencedTexts(element, "aria-labelledby", doc);
+  const describedByTexts = getReferencedTexts(element, "aria-describedby", doc);
   const fieldsetLegends = findFieldsetLegends(element);
+  const optionTexts = getOptionTexts(element);
   const sectionHeadings = findSectionHeadings(element);
+  const siblingTexts = getSiblingTexts(element);
   const tableHeaders = findTableHeaders(element);
   const nearbyText = getText(element.parentElement, MAX_CONTEXT_TEXT_LENGTH);
   const attributes = {
@@ -181,15 +223,23 @@ function createFieldSnapshot(element: ElementWithLabels): Omit<OfflineFormFieldS
     ...attributes,
     contextText: uniqueTexts([
       ...labels,
+      ...labelledByTexts,
+      ...describedByTexts,
       ...fieldsetLegends,
+      ...optionTexts,
       ...sectionHeadings,
+      ...siblingTexts,
       ...tableHeaders,
       attributes.ariaLabel,
       attributes.placeholder,
       nearbyText
     ]).join(" "),
+    describedByTexts,
     fieldsetLegends,
+    labelledByTexts,
+    optionTexts,
     sectionHeadings,
+    siblingTexts,
     tableHeaders
   };
 }
@@ -206,7 +256,7 @@ export function buildOfflineFormSnapshot(options: OfflineFormSnapshotOptions = {
     if (fields.length >= maxFields) break;
     if (!isFillableCandidate(candidate)) continue;
 
-    const field = createFieldSnapshot(candidate);
+    const field = createFieldSnapshot(candidate, doc);
     const fingerprintBase = buildFingerprintBase(field);
     const count = fingerprintCounts.get(fingerprintBase) || 0;
     fingerprintCounts.set(fingerprintBase, count + 1);
@@ -223,9 +273,9 @@ export function buildOfflineFormFieldSnapshot(element: Element, options: Offline
   const candidate = element as ElementWithLabels;
   if (!isFillableCandidate(candidate)) return null;
 
-  const field = createFieldSnapshot(candidate);
-  const fingerprintBase = buildFingerprintBase(field);
   const doc = options.document || candidate.ownerDocument || (typeof document !== "undefined" ? document : null);
+  const field = createFieldSnapshot(candidate, doc);
+  const fingerprintBase = buildFingerprintBase(field);
   if (!doc || typeof doc.querySelectorAll !== "function") {
     return { ...field, fingerprint: fingerprintBase };
   }
@@ -234,7 +284,7 @@ export function buildOfflineFormFieldSnapshot(element: Element, options: Offline
   const candidates = Array.from(doc.querySelectorAll(CANDIDATE_SELECTOR)) as ElementWithLabels[];
   for (const item of candidates) {
     if (!isFillableCandidate(item)) continue;
-    const itemField = createFieldSnapshot(item);
+    const itemField = createFieldSnapshot(item, doc);
     if (buildFingerprintBase(itemField) !== fingerprintBase) continue;
     matchingIndex += 1;
     if (item === candidate) {

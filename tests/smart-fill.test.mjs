@@ -89,6 +89,9 @@ function createEnv(overrides) {
         : undefined
     ),
     document: {
+      getElementById(id) {
+        return overrides && overrides.elementsById ? overrides.elementsById[id] || null : null;
+      },
       querySelectorAll() {
         return overrides && overrides.elements ? overrides.elements : [];
       }
@@ -151,6 +154,25 @@ test("smart fill uses offline snapshot context from table headers and sections",
   });
 
   assert.equal(inferFieldKeyForSmartFill(input, createEnv({ elements: [input] })), "mobile");
+});
+
+test("smart fill uses aria referenced context from offline snapshot", () => {
+  const label = { tagName: "SPAN", textContent: "统一社会信用代码" };
+  const input = createElement({
+    name: "field1",
+    getAttribute(name) {
+      if (name === "aria-labelledby") return "credit-label";
+      return createElement({ name: "field1" }).getAttribute(name);
+    }
+  });
+
+  assert.equal(
+    inferFieldKeyForSmartFill(input, createEnv({
+      elements: [input],
+      elementsById: { "credit-label": label }
+    })),
+    "creditCode"
+  );
 });
 
 test("smart fill returns null for unsupported or ambiguous fields", () => {
