@@ -178,6 +178,28 @@ test("smart fill keeps field label stronger than unheaded grid section text", ()
   assert.equal(inferFieldKeyForSmartFill(input, createEnv({ elements: [input] })), "fullName");
 });
 
+test("smart fill scores direct field labels above section context", () => {
+  const heading = { tagName: "H2", textContent: "统一社会信用代码" };
+  const section = {
+    tagName: "SECTION",
+    querySelector(selector) {
+      return selector === 'h1, h2, h3, h4, h5, h6, [role="heading"]' ? heading : null;
+    }
+  };
+  const field = { tagName: "DIV", textContent: "姓名" };
+  const input = createElement({
+    id: "field1",
+    labels: [{ textContent: "姓名" }],
+    parentElement: field,
+    closest(selector) {
+      if (selector === 'section, article, main, form, [role="form"]') return section;
+      return null;
+    }
+  });
+
+  assert.equal(inferFieldKeyForSmartFill(input, createEnv({ elements: [input] })), "fullName");
+});
+
 test("smart fill uses aria referenced context from offline snapshot", () => {
   const label = { tagName: "SPAN", textContent: "统一社会信用代码" };
   const input = createElement({

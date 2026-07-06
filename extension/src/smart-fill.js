@@ -357,38 +357,67 @@
       .filter(Boolean);
   }
 
-  function collectHints(element, env) {
+  function createHintGroup(weight, values) {
+    return {
+      weight,
+      values: (Array.isArray(values) ? values : [values]).filter(Boolean)
+    };
+  }
+
+  function collectHintGroups(element, env) {
     if (!element) return [];
     const offlineField = getOfflineFormField(element, env);
     if (offlineField) {
       return [
-        offlineField.autocomplete,
-        offlineField.name,
-        offlineField.id,
-        offlineField.placeholder,
-        offlineField.ariaLabel,
-        offlineField.contextText
-      ].concat(
-        offlineField.labels || [],
-        offlineField.fieldsetLegends || [],
-        offlineField.sectionHeadings || [],
-        offlineField.tableHeaders || []
-      ).filter(Boolean);
+        createHintGroup(110, offlineField.labels || []),
+        createHintGroup(105, offlineField.labelledByTexts || []),
+        createHintGroup(100, offlineField.ariaLabel),
+        createHintGroup(90, [offlineField.name, offlineField.id]),
+        createHintGroup(75, offlineField.placeholder),
+        createHintGroup(55, offlineField.tableHeaders || []),
+        createHintGroup(45, offlineField.fieldsetLegends || []),
+        createHintGroup(35, offlineField.sectionHeadings || []),
+        createHintGroup(30, offlineField.siblingTexts || []),
+        createHintGroup(20, offlineField.contextText)
+      ].filter(function (group) {
+        return group.values.length > 0;
+      });
     }
-    const hints = [
-      element.getAttribute && element.getAttribute("autocomplete"),
-      element.getAttribute && element.getAttribute("name"),
-      element.getAttribute && element.getAttribute("id"),
-      element.getAttribute && element.getAttribute("placeholder"),
-      element.getAttribute && element.getAttribute("aria-label"),
-      element.ariaLabel
-    ];
 
-    getLabelTexts(element).forEach(function (text) {
-      hints.push(text);
+    return [
+      createHintGroup(110, getLabelTexts(element)),
+      createHintGroup(100, [
+        element.getAttribute && element.getAttribute("aria-label"),
+        element.ariaLabel
+      ]),
+      createHintGroup(90, [
+        element.getAttribute && element.getAttribute("name"),
+        element.getAttribute && element.getAttribute("id")
+      ]),
+      createHintGroup(75, element.getAttribute && element.getAttribute("placeholder"))
+    ].filter(function (group) {
+      return group.values.length > 0;
     });
+  }
 
-    return hints.filter(Boolean);
+  function scoreMatcher(matcher, hintGroups) {
+    let bestScore = 0;
+    hintGroups.forEach(function (group) {
+      group.values.forEach(function (hint) {
+        const normalizedHint = normalizeText(hint);
+        if (normalizedHint && matcher.exact.includes(normalizedHint)) {
+          bestScore = Math.max(bestScore, group.weight + 20);
+        }
+        if (
+          matcher.patterns.some(function (pattern) {
+            return pattern.test(String(hint || ""));
+          })
+        ) {
+          bestScore = Math.max(bestScore, group.weight);
+        }
+      });
+    });
+    return bestScore;
   }
 
   function getFieldFingerprintBase(element) {
@@ -732,29 +761,18 @@
     const byAutocomplete = inferByAutocomplete(element, env);
     if (byAutocomplete) return byAutocomplete;
 
-    const rawHints = collectHints(element, env);
-    const normalizedHints = rawHints.map(normalizeText).filter(Boolean);
-
+    const hintGroups = collectHintGroups(element, env);
+    let bestMatch = null;
+    let bestScore = 0;
     for (const matcher of FIELD_MATCHERS) {
-      if (
-        normalizedHints.some(function (hint) {
-          return matcher.exact.includes(hint);
-        })
-      ) {
-        return matcher.fieldKey;
-      }
-      if (
-        rawHints.some(function (hint) {
-          return matcher.patterns.some(function (pattern) {
-            return pattern.test(String(hint || ""));
-          });
-        })
-      ) {
-        return matcher.fieldKey;
+      const score = scoreMatcher(matcher, hintGroups);
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = matcher.fieldKey;
       }
     }
 
-    return null;
+    return bestMatch;
   }
 
   function inferFieldKeyForSmartFill(element, env) {
