@@ -156,6 +156,28 @@ test("smart fill uses offline snapshot context from table headers and sections",
   assert.equal(inferFieldKeyForSmartFill(input, createEnv({ elements: [input] })), "mobile");
 });
 
+test("smart fill keeps field label stronger than unheaded grid section text", () => {
+  const grid = {
+    tagName: "SECTION",
+    textContent: "统一社会信用代码 姓名 身份证号 银行卡号 账号 手机号 邮箱 固定电话 地址",
+    querySelector() {
+      return null;
+    }
+  };
+  const field = { tagName: "DIV", textContent: "姓名" };
+  const input = createElement({
+    id: "fullName",
+    labels: [{ textContent: "姓名" }],
+    parentElement: field,
+    closest(selector) {
+      if (selector === 'section, article, main, form, [role="form"]') return grid;
+      return null;
+    }
+  });
+
+  assert.equal(inferFieldKeyForSmartFill(input, createEnv({ elements: [input] })), "fullName");
+});
+
 test("smart fill uses aria referenced context from offline snapshot", () => {
   const label = { tagName: "SPAN", textContent: "统一社会信用代码" };
   const input = createElement({

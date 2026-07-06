@@ -173,7 +173,7 @@ function findSectionHeadings(element: Element): string[] {
   const heading = typeof section.querySelector === "function"
     ? section.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]')
     : null;
-  return uniqueTexts([getText(heading || section)]);
+  return uniqueTexts([getText(heading)]);
 }
 
 function findTableHeaders(element: Element): string[] {
