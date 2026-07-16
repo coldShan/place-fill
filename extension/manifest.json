@@ -4,6 +4,7 @@
   "version": "0.8.0",
   "description": "Generate legal-looking test data for fast form testing.",
   "permissions": [
+    "alarms",
     "clipboardWrite",
     "contextMenus",
     "storage"

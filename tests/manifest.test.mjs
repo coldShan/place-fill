@@ -16,6 +16,7 @@ test("manifest enables all-sites editable injection with context menu permission
   assert.equal(manifest.side_panel, undefined);
   assert.equal(manifest.action.default_popup, undefined);
   assert.equal(typeof manifest.background.service_worker, "string");
+  assert.equal(manifest.permissions.includes("alarms"), true);
   assert.equal(manifest.permissions.includes("contextMenus"), true);
   assert.equal(manifest.permissions.includes("clipboardWrite"), true);
   assert.equal(manifest.permissions.includes("storage"), true);

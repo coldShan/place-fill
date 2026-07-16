@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 const here = dirname(fileURLToPath(import.meta.url));
 const orchestratorScript = readFileSync(join(here, "../extension/src/content-script.js"), "utf8");
 const panelScript = readFileSync(join(here, "../extension/src/content-script-panel.js"), "utf8");
+const panelStyles = readFileSync(join(here, "../extension/src/sidepanel.css"), "utf8");
 const smartfillScript = readFileSync(join(here, "../extension/src/content-script-smartfill.js"), "utf8");
 const panelControllerPkg = await import("../extension/src/content-script-panel.js");
 const { sampleFavoriteProfiles } = panelControllerPkg.default || panelControllerPkg;
@@ -124,6 +125,19 @@ test("auto fill toggles a page aura overlay while filling targets", () => {
   assert.match(panelScript, /root\.setAttribute\("data-autofill-running",\s*String\(running\)\)/);
   assert.match(panelScript, /setAutoFillPageAuraState\(true\)[\s\S]*?try\s*\{/);
   assert.match(panelScript, /finally\s*\{[\s\S]*?setAutoFillPageAuraState\(false\)/);
+});
+
+test("dock reuses one text bubble and keeps backup reminders until dismissed", () => {
+  assert.match(panelScript, /data-role="dock-message"[^>]*hidden/);
+  assert.match(panelScript, /data-role="dismiss-dock-message" aria-label="关闭提醒"/);
+  assert.match(panelScript, /function showDockMessage\(message,\s*ensureVisible,\s*dismissible\)/);
+  assert.match(panelScript, /showDockMessage\("填完啦！"\)/);
+  assert.match(panelScript, /if \(!snap\.visible\) panelState\.toggleCollapsed\(\)/);
+  assert.match(panelScript, /if \(!dismissible\) dockMessageTimer = win\.setTimeout\(hideDockMessage,\s*4000\)/);
+  assert.match(panelScript, /role === "dismiss-dock-message"[\s\S]*?hideDockMessage\(\)/);
+  assert.match(orchestratorScript, /message\.type === "show-backup-reminder"[\s\S]*?panelController\.showDockMessage\(message\.message \|\| "该备份数据啦！",\s*true,\s*true\)/);
+  assert.match(panelStyles, /\.ctdp-dock-message-close\s*\{[\s\S]*?top:\s*-8px;[\s\S]*?left:\s*-8px;/);
+  assert.match(panelStyles, /\.ctdp-dock-message-close:focus-visible/);
 });
 
 test("panel footer renders version info and update trigger while keeping fallback copy hidden by default", () => {

@@ -269,6 +269,10 @@
         panelController.toggleVisible();
         return;
       }
+      if (message.type === "show-backup-reminder") {
+        panelController.showDockMessage(message.message || "该备份数据啦！", true, true);
+        return;
+      }
       if (message.type === "apply-smart-fill-override") {
         const target = smartFillController.resolveManualOverrideTarget();
         if (!target) return;

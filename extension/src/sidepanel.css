@@ -442,6 +442,12 @@
   pointer-events: none;
 }
 
+.ctdp-root[data-dock-message="true"] .ctdp-dock {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  pointer-events: auto;
+}
+
 .ctdp-dock,
 .ctdp-panel {
   transition:
@@ -1440,11 +1446,11 @@
   opacity: 0.82;
 }
 
-.ctdp-dock[data-autofill-done]::before {
-  content: "填完啦！";
+.ctdp-dock-message {
   position: absolute;
-  right: calc(100% + 14px);
-  top: 50%;
+  right: 48px;
+  display: flex;
+  align-items: center;
   white-space: nowrap;
   padding: 7px 12px;
   border-radius: 12px;
@@ -1458,14 +1464,18 @@
   font-size: 13px;
   font-weight: 600;
   line-height: 1;
-  pointer-events: none;
+  pointer-events: auto;
   animation: ctdp-bubble-pop 3s ease forwards;
 }
 
-.ctdp-dock[data-autofill-done]::after {
+.ctdp-dock-message[hidden] {
+  display: none;
+}
+
+.ctdp-dock-message::after {
   content: "";
   position: absolute;
-  right: calc(100% + 7px);
+  right: -7px;
   top: 50%;
   margin-top: -5px;
   border-top: 5px solid transparent;
@@ -1473,6 +1483,59 @@
   border-left: 7px solid rgba(255, 255, 255, 0.96);
   pointer-events: none;
   animation: ctdp-tail-fade 3s ease forwards;
+}
+
+.ctdp-dock-message[data-dismissible="true"] {
+  animation: ctdp-reminder-bubble-enter 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.ctdp-dock-message[data-dismissible="true"]::after {
+  animation: ctdp-reminder-tail-enter 160ms ease-out both;
+}
+
+.ctdp-dock-message-close {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(20, 35, 80, 0.1);
+  border-radius: 50%;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 2px 8px rgba(15, 30, 80, 0.14);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 140ms ease-out,
+    background-color 140ms ease-out,
+    transform 140ms ease-out;
+}
+
+.ctdp-dock-message-close:focus-visible {
+  outline: 2px solid rgba(74, 111, 165, 0.45);
+  outline-offset: 1px;
+  color: #1a2540;
+}
+
+.ctdp-dock-message-close:active {
+  transform: scale(0.94);
+}
+
+.ctdp-dock-message[data-dismissible="false"] .ctdp-dock-message-close {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ctdp-dock-message-close:hover {
+    color: #1a2540;
+    background: #fff;
+    transform: scale(1.06);
+  }
 }
 
 @keyframes ctdp-bubble-pop {
@@ -1498,6 +1561,28 @@
   100% {
     opacity: 0;
     transform: translateY(-50%) translateX(5px) scale(0.92);
+  }
+}
+
+@keyframes ctdp-reminder-bubble-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(8px) scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
+  }
+}
+
+@keyframes ctdp-reminder-tail-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
   }
 }
 
@@ -1545,7 +1630,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ctdp-autofill-aura::before,
-  .ctdp-autofill-dot {
+  .ctdp-autofill-dot,
+  .ctdp-dock-message,
+  .ctdp-dock-message::after {
     animation: none;
   }
 }

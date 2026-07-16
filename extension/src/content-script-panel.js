@@ -72,6 +72,9 @@
     let aiModelInput = null;
     let aiRecognitionStatus = null;
     let dockBtn = null;
+    let dockMessage = null;
+    let dockMessageText = null;
+    let dockMessageTimer = null;
     let autoFillAborted = false;
     let autoFillRunning = false;
     let dockDragJustEnded = false;
@@ -151,6 +154,33 @@
       flashNode.classList.remove("is-active");
       void flashNode.offsetWidth;
       flashNode.classList.add("is-active");
+    }
+
+    function hideDockMessage() {
+      if (dockMessageTimer) win.clearTimeout(dockMessageTimer);
+      if (dockMessage) {
+        dockMessage.hidden = true;
+        dockMessage.removeAttribute("data-dismissible");
+      }
+      if (root) root.removeAttribute("data-dock-message");
+      dockMessageTimer = null;
+    }
+
+    function showDockMessage(message, ensureVisible, dismissible) {
+      if (!dockBtn || !dockMessage || !dockMessageText || !message) return;
+      hideDockMessage();
+      if (ensureVisible) {
+        const snap = panelState.snapshot();
+        if (!snap.visible) panelState.toggleCollapsed();
+        else if (!snap.collapsed) panelState.collapse();
+        updatePanelState();
+        if (root) root.setAttribute("data-dock-message", "true");
+      }
+      dockMessageText.textContent = message;
+      dockMessage.setAttribute("data-dismissible", String(!!dismissible));
+      dockMessage.hidden = false;
+      void dockMessage.offsetWidth;
+      if (!dismissible) dockMessageTimer = win.setTimeout(hideDockMessage, 4000);
     }
 
     function pulseRefreshGrid() {
@@ -335,6 +365,7 @@
     function applyDockTop() {
       if (!dockBtn) return;
       dockBtn.style.top = state.dockTop + "px";
+      if (dockMessage) dockMessage.style.top = state.dockTop + DOCK_HEIGHT / 2 + "px";
     }
 
     async function loadDockTop() {
@@ -726,12 +757,7 @@
         var wasAborted = autoFillAborted;
         if (!wasAborted) {
           pulseFlash("regen");
-          if (dockBtn) {
-            dockBtn.setAttribute("data-autofill-done", "true");
-            win.setTimeout(function () {
-              if (dockBtn) dockBtn.removeAttribute("data-autofill-done");
-            }, 4000);
-          }
+          showDockMessage("填完啦！");
         }
       } finally {
         autoFillRunning = false;
@@ -1237,6 +1263,10 @@
         '    <span data-role="autofill-status-text">Thinking...</span>',
         "  </div>",
         "</div>",
+        '<div class="ctdp-dock-message" data-role="dock-message" hidden>',
+        '  <span data-role="dock-message-text" role="status" aria-live="polite"></span>',
+        '  <button class="ctdp-dock-message-close" type="button" data-role="dismiss-dock-message" aria-label="关闭提醒" title="关闭提醒">×</button>',
+        "</div>",
         '<button class="ctdp-dock" type="button" data-role="expand" aria-label="展开测试数据面板" title="展开测试数据面板">' +
           iconAssetsApi.renderIconMarkup(iconAssetsApi.PRIMARY_LOGO_ICON, "ctdp-dock-icon", "测试数据面板") +
           "</button>",
@@ -1371,6 +1401,8 @@
       aiApiKeyInput = root.querySelector('[data-role="ai-api-key"]');
       aiModelInput = root.querySelector('[data-role="ai-model"]');
       aiRecognitionStatus = root.querySelector('[data-role="ai-recognition-status"]');
+      dockMessage = root.querySelector('[data-role="dock-message"]');
+      dockMessageText = root.querySelector('[data-role="dock-message-text"]');
       dockBtn = root.querySelector('[data-role="expand"]');
 
       root.addEventListener("click", function (event) {
@@ -1378,6 +1410,10 @@
         if (!trigger) return;
         const role = trigger.getAttribute("data-role");
 
+        if (role === "dismiss-dock-message") {
+          hideDockMessage();
+          return;
+        }
         if (role === "auto-fill") {
           autoFillPage();
           return;
@@ -1593,6 +1629,7 @@
       loadSiteFeatureEnabled,
       loadVisibleFieldKeys,
       mount,
+      showDockMessage,
       syncImportedOverrideState,
       toggleVisible
     };

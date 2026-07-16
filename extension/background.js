@@ -14,6 +14,9 @@ const MENU_CLEAR_ID = "ctdp-manual-annotation:clear";
 const REPOSITORY_URL = "https://github.com/coldShan/place-fill";
 const RELEASES_URL = REPOSITORY_URL + "/releases";
 const LATEST_RELEASE_API_URL = "https://api.github.com/repos/coldShan/place-fill/releases/latest";
+const BACKUP_REMINDER_ALARM_NAME = "weekly-backup-reminder";
+const BACKUP_REMINDER_MESSAGE = "该备份数据啦！";
+const WEEK_IN_MINUTES = 7 * 24 * 60;
 let siteFeatureEnabledMap = {};
 
 function getUrlHostname(url) {
@@ -63,6 +66,42 @@ function sendTabMessage(tabId, info, message) {
   if (!tabId || !message) return;
   chrome.tabs.sendMessage(tabId, message, { frameId: info.frameId }, function () {
     void chrome.runtime.lastError;
+  });
+}
+
+function getNextBackupReminderAt(now) {
+  const current = new Date(now || Date.now());
+  const next = new Date(current);
+  next.setHours(10, 0, 0, 0);
+  next.setDate(next.getDate() + (5 - next.getDay() + 7) % 7);
+  if (next.getTime() <= current.getTime()) next.setDate(next.getDate() + 7);
+  return next.getTime();
+}
+
+function ensureBackupReminderAlarm() {
+  if (!chrome.alarms || typeof chrome.alarms.get !== "function") return;
+  chrome.alarms.get(BACKUP_REMINDER_ALARM_NAME, function (alarm) {
+    void chrome.runtime.lastError;
+    if (alarm) return;
+    chrome.alarms.create(BACKUP_REMINDER_ALARM_NAME, {
+      periodInMinutes: WEEK_IN_MINUTES,
+      when: getNextBackupReminderAt()
+    });
+  });
+}
+
+function showBackupReminder() {
+  if (!chrome.tabs || typeof chrome.tabs.query !== "function") return;
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
+    void chrome.runtime.lastError;
+    const tab = tabs && tabs[0];
+    if (!tab || !tab.id) return;
+    chrome.tabs.sendMessage(tab.id, {
+      message: BACKUP_REMINDER_MESSAGE,
+      type: "show-backup-reminder"
+    }, function () {
+      void chrome.runtime.lastError;
+    });
   });
 }
 
@@ -326,17 +365,24 @@ chrome.action.onClicked.addListener(function (tab) {
 
 chrome.runtime.onInstalled.addListener(buildContextMenus);
 chrome.runtime.onInstalled.addListener(function () {
+  ensureBackupReminderAlarm();
   readSiteFeatureEnabledMap().catch(function () {});
   restoreStorageLocalMirrorIfEmpty().catch(function () {});
 });
 chrome.runtime.onStartup.addListener(buildContextMenus);
 chrome.runtime.onStartup.addListener(function () {
+  ensureBackupReminderAlarm();
   restoreStorageLocalMirrorIfEmpty()
     .then(readSiteFeatureEnabledMap, function () {
       return readSiteFeatureEnabledMap();
     })
     .catch(function () {});
 });
+if (chrome.alarms && chrome.alarms.onAlarm) {
+  chrome.alarms.onAlarm.addListener(function (alarm) {
+    if (alarm && alarm.name === BACKUP_REMINDER_ALARM_NAME) showBackupReminder();
+  });
+}
 if (chrome.storage && chrome.storage.onChanged) {
   chrome.storage.onChanged.addListener(function (changes, areaName) {
     if (areaName !== "local" || !changes) return;
@@ -524,4 +570,5 @@ restoreStorageLocalMirrorIfEmpty()
   })
   .catch(function () {});
 buildContextMenus();
+ensureBackupReminderAlarm();
 syncRootMenuVisibilityForActiveTab();
