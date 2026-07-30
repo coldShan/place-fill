@@ -159,6 +159,33 @@ test("offline form snapshot collects referenced, sibling and option context", ()
   assert.deepEqual(snapshot.fields[1]?.optionTexts, ["请选择", "手机号", "固定电话"]);
 });
 
+test("offline form snapshot recovers the nearest form-item label when for and id are disconnected", () => {
+  const label = createElement({ tagName: "LABEL", textContent: "姓名" });
+  const formItem = createElement({
+    tagName: "DIV",
+    querySelectorAll(selector: string) {
+      return selector === ":scope > label" ? [label] : [];
+    }
+  });
+  let ancestor = formItem;
+  for (let index = 0; index < 5; index += 1) {
+    ancestor = createElement({ tagName: "DIV", parentElement: ancestor });
+  }
+  const input = createElement({
+    attributes: { placeholder: "请输入" },
+    labels: [],
+    parentElement: ancestor
+  });
+
+  const snapshot = buildOfflineFormSnapshot({
+    document: createDocument([input])
+  });
+
+  assert.deepEqual(snapshot.fields[0]?.labels, []);
+  assert.deepEqual(snapshot.fields[0]?.labelledByTexts, ["姓名"]);
+  assert.equal(snapshot.fields[0]?.contextText.includes("姓名"), true);
+});
+
 test("offline form snapshot does not use an unheaded field grid as section context", () => {
   const grid = createElement({
     tagName: "SECTION",

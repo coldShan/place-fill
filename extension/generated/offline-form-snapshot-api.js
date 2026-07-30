@@ -3,6 +3,7 @@ var ChromeTestDataOfflineFormSnapshotBundle = (function() {
   const MAX_OFFLINE_FORM_FIELD_COUNT = 80;
   const MAX_TEXT_LENGTH = 60;
   const MAX_CONTEXT_TEXT_LENGTH = 160;
+  const MAX_ANCESTOR_LABEL_DEPTH = 8;
   const CANDIDATE_SELECTOR = 'input, textarea, select, [contenteditable], [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]';
   const UNSUPPORTED_INPUT_TYPES = /* @__PURE__ */ new Set([
     "button",
@@ -55,6 +56,21 @@ var ChromeTestDataOfflineFormSnapshotBundle = (function() {
     return uniqueTexts(labelsToArray(element.labels).map(function(label) {
       return getText(label);
     }));
+  }
+  function findNearestAncestorLabelTexts(element) {
+    let ancestor = element.parentElement;
+    let depth = 0;
+    while (ancestor && depth < MAX_ANCESTOR_LABEL_DEPTH) {
+      if (typeof ancestor.querySelectorAll === "function") {
+        const texts = uniqueTexts(Array.from(ancestor.querySelectorAll(":scope > label")).map(function(label) {
+          return getText(label);
+        }));
+        if (texts.length) return texts;
+      }
+      ancestor = ancestor.parentElement;
+      depth += 1;
+    }
+    return [];
   }
   function getDocument(optionsDocument, element) {
     return optionsDocument || element.ownerDocument || (typeof document !== "undefined" ? document : null);
@@ -135,7 +151,10 @@ var ChromeTestDataOfflineFormSnapshotBundle = (function() {
   function createFieldSnapshot(element, doc) {
     const tag = String(element.tagName || "").toLowerCase();
     const labels = getLabelTexts(element);
-    const labelledByTexts = getReferencedTexts(element, "aria-labelledby", doc);
+    const labelledByTexts = uniqueTexts([
+      ...getReferencedTexts(element, "aria-labelledby", doc),
+      ...labels.length ? [] : findNearestAncestorLabelTexts(element)
+    ]);
     const describedByTexts = getReferencedTexts(element, "aria-describedby", doc);
     const fieldsetLegends = findFieldsetLegends(element);
     const optionTexts = getOptionTexts(element);

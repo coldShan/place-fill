@@ -219,6 +219,28 @@ test("smart fill uses aria referenced context from offline snapshot", () => {
   );
 });
 
+test("smart fill recognizes a field from the nearest form-item label when for and id are disconnected", () => {
+  const label = { tagName: "LABEL", textContent: "姓名" };
+  const formItem = {
+    tagName: "DIV",
+    parentElement: null,
+    querySelectorAll(selector) {
+      return selector === ":scope > label" ? [label] : [];
+    }
+  };
+  let ancestor = formItem;
+  for (let index = 0; index < 5; index += 1) {
+    ancestor = { tagName: "DIV", parentElement: ancestor };
+  }
+  const input = createElement({
+    labels: [],
+    parentElement: ancestor,
+    placeholder: "请输入"
+  });
+
+  assert.equal(inferFieldKeyForSmartFill(input, createEnv({ elements: [input] })), "fullName");
+});
+
 test("smart fill returns null for unsupported or ambiguous fields", () => {
   assert.equal(inferFieldKeyForSmartFill(createElement({ placeholder: "请输入备注" })), null);
   assert.equal(inferFieldKeyForSmartFill(createElement({ tagName: "TEXTAREA", name: "description" })), null);
