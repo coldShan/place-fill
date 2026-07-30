@@ -9,6 +9,7 @@ const scriptPath = fileURLToPath(import.meta.url);
 const scriptsDir = dirname(scriptPath);
 const defaultRepoDir = resolve(scriptsDir, "..", "..");
 const repository = "coldShan/place-fill";
+const ignoredReleaseNoteTypes = new Set(["build", "chore", "ci", "docs", "test"]);
 
 function defaultRunCommand(command, args, { cwd = defaultRepoDir, stdio = "pipe" } = {}) {
   const result = spawnSync(command, args, {
@@ -49,6 +50,41 @@ function normalizeVersion(version) {
 
 function readManifest(manifestPath) {
   return JSON.parse(readFileSync(manifestPath, "utf8"));
+}
+
+export function buildReleaseNotes({ commitSubjects, previousTag, tagName }) {
+  const groups = [
+    { title: "新功能", types: new Set(["feat"]), items: [] },
+    { title: "问题修复", types: new Set(["fix"]), items: [] },
+    { title: "优化调整", types: null, items: [] }
+  ];
+  const seen = new Set();
+
+  for (const rawSubject of commitSubjects) {
+    const subject = String(rawSubject || "").trim();
+    if (!subject) continue;
+
+    const match = subject.match(/^([a-z]+)(?:\([^)]+\))?!?:\s*(.+)$/i);
+    const type = match?.[1]?.toLowerCase() || "";
+    const text = (match?.[2] || subject).trim();
+    if (!text || ignoredReleaseNoteTypes.has(type) || seen.has(text)) continue;
+
+    seen.add(text);
+    (groups.find((group) => group.types?.has(type)) || groups[2]).items.push(text);
+  }
+
+  const sections = groups
+    .filter((group) => group.items.length)
+    .map((group) => `### ${group.title}\n${group.items.map((item) => `- ${item}`).join("\n")}`);
+  if (!sections.length) sections.push("- 维护与稳定性改进");
+
+  return [
+    "## 更新内容",
+    "",
+    sections.join("\n\n"),
+    "",
+    `**完整变更**：https://github.com/${repository}/compare/${previousTag}...${tagName}`
+  ].join("\n");
 }
 
 function assertCleanWorktree({ repoDir, runCommand }) {
@@ -138,7 +174,16 @@ export function releaseVersion({
   assertCleanWorktree({ repoDir, runCommand });
   assertTagAvailable({ repoDir, runCommand, tagName });
 
-  const { previousVersion } = updateManifestVersion({ manifestPath, version: nextVersion });
+  const previousVersion = String(readManifest(manifestPath).version || "").trim();
+  const previousTag = `v${previousVersion}`;
+  const commitSubjects = runChecked(
+    runCommand,
+    "git",
+    ["log", "--no-merges", "--format=%s", `${previousTag}..HEAD`],
+    { cwd: repoDir }
+  ).stdout.split(/\r?\n/);
+  const releaseNotes = buildReleaseNotes({ commitSubjects, previousTag, tagName });
+  updateManifestVersion({ manifestPath, version: nextVersion });
   syncReadmeVersion({ manifestPath, readmePath });
   const branch = getCurrentBranch({ repoDir, runCommand });
 
@@ -165,7 +210,7 @@ export function releaseVersion({
       "--title",
       tagName,
       "--notes",
-      `发布 ${nextVersion} 版本`,
+      releaseNotes,
       "--verify-tag",
       "--latest"
     ],

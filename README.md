@@ -61,7 +61,7 @@ pnpm test
 # 打包发布 zip
 node extension/scripts/package-release.mjs
 
-# 发布新版本：更新版本、测试、打包、提交、打 tag、推送并创建 GitHub Release
+# 发布新版本：更新版本、测试、打包、提交、打 tag、推送并创建带更新日志的 GitHub Release
 pnpm release 0.7.5
 
 # 验证当前 manifest 版本的 README、zip、tag 和 GitHub Release
