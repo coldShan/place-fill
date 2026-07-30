@@ -9,7 +9,7 @@ const panelScript = readFileSync(join(here, "../extension/src/content-script-pan
 const panelStyles = readFileSync(join(here, "../extension/src/sidepanel.css"), "utf8");
 const smartfillScript = readFileSync(join(here, "../extension/src/content-script-smartfill.js"), "utf8");
 const panelControllerPkg = await import("../extension/src/content-script-panel.js");
-const { sampleFavoriteProfiles } = panelControllerPkg.default || panelControllerPkg;
+const { closeOtherSettingsSections, sampleFavoriteProfiles } = panelControllerPkg.default || panelControllerPkg;
 
 function createFavorite(id, fullName) {
   return {
@@ -96,10 +96,12 @@ test("dock and smart-fill buttons use icon markup instead of visible text labels
   assert.doesNotMatch(panelScript, /展开测试数据面板">测试数据<\/button>/);
 });
 
-test("panel toolbar keeps settings on the left and github plus two actions on the right", () => {
-  assert.match(panelScript, /<header class="ctdp-toolbar">[\s\S]*?ctdp-toolbar-group-left[\s\S]*?data-role="open-settings"[\s\S]*?data-role="open-data-manager"[\s\S]*?ctdp-toolbar-group-right[\s\S]*?data-role="regen"[\s\S]*?data-role="copy-all"[\s\S]*?data-role="open-repository"/);
+test("panel toolbar emphasizes one-click fill and keeps utility actions secondary", () => {
+  assert.match(panelScript, /<header class="ctdp-toolbar">[\s\S]*?ctdp-toolbar-group-left[\s\S]*?data-role="open-settings"[\s\S]*?data-role="open-data-manager"[\s\S]*?ctdp-toolbar-group-right[\s\S]*?data-role="auto-fill"[\s\S]*?data-role="regen"[\s\S]*?data-role="copy-all"/);
   assert.match(panelScript, /data-role="open-settings" aria-label="打开设置" title="打开设置"/);
   assert.match(panelScript, /data-role="open-data-manager" aria-label="打开数据管理" title="打开数据管理"/);
+  assert.match(panelScript, /class="ctdp-btn ctdp-btn-action" type="button" data-role="auto-fill" aria-label="一键填充页面" title="一键填充页面"/);
+  assert.match(panelScript, /class="ctdp-action-label">一键填充/);
   assert.match(panelScript, /class="ctdp-btn ctdp-btn-primary is-hidden" type="button" data-role="open-repository" aria-label="打开 GitHub 仓库" title="打开 GitHub 仓库"/);
   assert.match(panelScript, /data-role="regen" aria-label="重新生成全部" title="重新生成全部"/);
   assert.match(panelScript, /data-role="copy-all" aria-label="复制整组数据" title="复制整组数据"/);
@@ -174,6 +176,7 @@ test("panel footer adds a settings entry and the panel includes a dedicated sett
   assert.doesNotMatch(panelScript, /<footer class="ctdp-footer"[\s\S]*?data-role="open-settings"/);
   assert.match(panelScript, /data-role="settings-view"/);
   assert.match(panelScript, /data-role="settings-back" aria-label="返回主面板" title="返回主面板"/);
+  assert.doesNotMatch(panelScript, /按类型展开设置，一次专注一组|ctdp-settings-subtitle/);
   assert.match(panelScript, /data-role="site-feature-toggle"/);
   assert.match(panelScript, /data-role="site-feature-status"/);
   assert.match(panelScript, /data-site-feature-enabled/);
@@ -183,12 +186,40 @@ test("panel footer adds a settings entry and the panel includes a dedicated sett
   assert.doesNotMatch(panelScript, /关闭后，当前站点不启用智能识别和右键标注，其余功能不受影响/);
   assert.match(panelScript, /data-role="field-visibility-list"/);
   assert.match(panelScript, /data-role="field-visibility-toggle"/);
-  assert.match(panelScript, /data-role="export-overrides"/);
-  assert.match(panelScript, /data-role="import-overrides"/);
-  assert.match(panelScript, /data-role="export-sanitized-overrides"/);
-  assert.match(panelScript, /data-role="export-full-backup"/);
-  assert.match(panelScript, /data-role="import-full-backup"/);
+  assert.match(panelScript, /renderSettingsActionMarkup\("export-overrides"/);
+  assert.match(panelScript, /renderSettingsActionMarkup\("import-overrides"/);
+  assert.match(panelScript, /renderSettingsActionMarkup\("export-sanitized-overrides"/);
+  assert.match(panelScript, /renderSettingsActionMarkup\("export-full-backup"/);
+  assert.match(panelScript, /renderSettingsActionMarkup\("import-full-backup"/);
   assert.match(panelScript, /data-role="import-file"/);
+});
+
+test("settings groups use an exclusive accordion with current-site settings open by default", () => {
+  assert.match(panelScript, /data-settings-section="' \+ key \+ '"'/);
+  assert.match(panelScript, /renderSettingsSectionMarkup\(\s*"site"[\s\S]*?true,\s*"site-feature-status"/);
+  assert.match(panelScript, /renderSettingsSectionMarkup\(\s*"experience"[\s\S]*?false,\s*"focus-style-note"/);
+  assert.match(panelScript, /renderSettingsSectionMarkup\(\s*"ai"[\s\S]*?false,\s*"ai-recognition-status"/);
+  assert.match(panelScript, /renderSettingsSectionMarkup\(\s*"data"[\s\S]*?false\s*\)/);
+  assert.match(panelScript, /function setupSettingsAccordion\(\)/);
+
+  const sections = [{ open: true }, { open: true }, { open: false }];
+  closeOtherSettingsSections(sections, sections[1]);
+  assert.deepEqual(sections.map(function (section) { return section.open; }), [false, true, false]);
+});
+
+test("AI switch is off by default and only reveals its configuration while enabled", () => {
+  assert.match(panelScript, /aiRecognitionConfig:\s*\{[\s\S]*?enabled:\s*false/);
+  assert.match(panelScript, /data-role="ai-recognition-config"' \+ \(config\.enabled \? "" : " hidden"\)/);
+  assert.match(panelScript, /aiRecognitionConfigPanel\.hidden = !state\.aiRecognitionConfig\.enabled/);
+  assert.match(panelScript, /role="ai-recognition-toggle"/);
+  assert.match(panelScript, /toggleAiRecognitionEnabled\(aiRecognitionTrigger\.checked\)/);
+});
+
+test("data settings keep backup and restore visible while nesting annotation tools", () => {
+  assert.match(panelScript, /renderSettingsActionMarkup\("export-full-backup"[\s\S]*?renderSettingsActionMarkup\("import-full-backup"/);
+  assert.match(panelScript, /<details class="ctdp-settings-more">/);
+  assert.match(panelScript, /ctdp-settings-more-summary">更多数据工具/);
+  assert.match(panelScript, /renderSettingsActionMarkup\("export-overrides"[\s\S]*?renderSettingsActionMarkup\("import-overrides"[\s\S]*?renderSettingsActionMarkup\("export-sanitized-overrides"/);
 });
 
 test("settings view supports full data backup and restore", () => {

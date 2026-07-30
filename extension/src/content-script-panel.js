@@ -23,6 +23,13 @@
     return samples;
   }
 
+  function closeOtherSettingsSections(sections, activeSection) {
+    if (!activeSection || !activeSection.open) return;
+    Array.from(sections || []).forEach(function (section) {
+      if (section !== activeSection) section.open = false;
+    });
+  }
+
   function createContentScriptPanelController(options) {
     const opts = options || {};
     const generators = opts.generators;
@@ -71,6 +78,7 @@
     let aiApiKeyInput = null;
     let aiModelInput = null;
     let aiRecognitionStatus = null;
+    let aiRecognitionConfigPanel = null;
     let dockBtn = null;
     let dockMessage = null;
     let dockMessageText = null;
@@ -246,7 +254,7 @@
         '<label class="ctdp-field-visibility-item">',
         '  <input class="ctdp-field-visibility-checkbox" type="checkbox" data-role="field-visibility-toggle" data-key="' + fieldKey + '"' + (checked ? " checked" : "") + ">",
         '  <span class="ctdp-field-visibility-copy">',
-        "    " + iconAssetsApi.renderIconMarkup(iconName, "ctdp-settings-card-icon", label),
+        "    " + iconAssetsApi.renderIconMarkup(iconName, "ctdp-settings-row-icon"),
         '    <span class="ctdp-field-visibility-label">' + label + "</span>",
         "  </span>",
         "</label>"
@@ -255,16 +263,17 @@
 
     function renderSiteFeatureToggleMarkup() {
       return [
-        '<section class="ctdp-settings-card ctdp-settings-card-static">',
-        '  <span class="ctdp-settings-card-head">',
-        "    " + renderButtonIcon(iconAssetsApi.ACTION_ICONS.settings, "当前站点智能功能", "ctdp-settings-card-icon"),
-        '    <span class="ctdp-settings-card-title">当前站点智能功能</span>',
+        '<section class="ctdp-settings-row ctdp-settings-row-static">',
+        '  <span class="ctdp-settings-row-head">',
+        '    <span class="ctdp-settings-row-copy">',
+        '      <span class="ctdp-settings-row-title">启用智能功能</span>',
+        '      <span class="ctdp-settings-row-note">控制当前站点的智能识别和右键标注</span>',
+        "    </span>",
         '    <label class="ctdp-switch" aria-label="切换当前站点智能功能">',
         '      <input class="ctdp-switch-input" type="checkbox" data-role="site-feature-toggle"' + (state.siteFeatureEnabled ? " checked" : "") + ">",
         '      <span class="ctdp-switch-track"><span class="ctdp-switch-thumb"></span></span>',
         "    </label>",
         "  </span>",
-        '  <span class="ctdp-settings-card-note" data-role="site-feature-status">' + getSiteFeatureStatusText() + "</span>",
         "</section>"
       ].join("");
     }
@@ -275,16 +284,17 @@
 
     function renderFocusStyleToggleMarkup() {
       return [
-        '<section class="ctdp-settings-card ctdp-settings-card-static">',
-        '  <span class="ctdp-settings-card-head">',
-        "    " + renderButtonIcon("wand-sparkles", "焦点边框风格", "ctdp-settings-card-icon"),
-        '    <span class="ctdp-settings-card-title">焦点边框风格</span>',
+        '<section class="ctdp-settings-row ctdp-settings-row-static">',
+        '  <span class="ctdp-settings-row-head">',
+        '    <span class="ctdp-settings-row-copy">',
+        '      <span class="ctdp-settings-row-title">增强焦点效果</span>',
+        '      <span class="ctdp-settings-row-note">开启后使用更醒目的炫彩光晕</span>',
+        "    </span>",
         '    <label class="ctdp-switch" aria-label="切换焦点边框风格">',
         '      <input class="ctdp-switch-input" type="checkbox" data-role="focus-style-toggle"' + (state.focusStyle === "bold" ? " checked" : "") + ">",
         '      <span class="ctdp-switch-track"><span class="ctdp-switch-thumb"></span></span>',
         "    </label>",
         "  </span>",
-        '  <span class="ctdp-settings-card-note" data-role="focus-style-note">' + getFocusStyleNoteText() + "</span>",
         "</section>"
       ].join("");
     }
@@ -300,15 +310,19 @@
     function renderAiRecognitionMarkup() {
       const config = state.aiRecognitionConfig;
       return [
-        '<section class="ctdp-settings-card ctdp-settings-card-static ctdp-ai-settings">',
-        '  <span class="ctdp-settings-card-head">',
-        "    " + renderButtonIcon("wand-sparkles", "AI 识别", "ctdp-settings-card-icon"),
-        '    <span class="ctdp-settings-card-title">AI 识别</span>',
+        '<section class="ctdp-settings-row ctdp-settings-row-static">',
+        '  <span class="ctdp-settings-row-head">',
+        '    <span class="ctdp-settings-row-copy">',
+        '      <span class="ctdp-settings-row-title">启用 AI 识别</span>',
+        '      <span class="ctdp-settings-row-note">开启后显示接口配置表单</span>',
+        "    </span>",
         '    <label class="ctdp-switch" aria-label="切换 AI 识别">',
         '      <input class="ctdp-switch-input" type="checkbox" data-role="ai-recognition-toggle"' + (config.enabled ? " checked" : "") + ">",
         '      <span class="ctdp-switch-track"><span class="ctdp-switch-thumb"></span></span>',
         "    </label>",
         "  </span>",
+        "</section>",
+        '<div class="ctdp-ai-settings" data-role="ai-recognition-config"' + (config.enabled ? "" : " hidden") + ">",
         '  <label class="ctdp-ai-field">',
         '    <span>Base URL</span>',
         '    <input type="url" data-role="ai-base-url" placeholder="https://api.example.com/v1" value="' + escapeHtml(config.baseUrl || "") + '">',
@@ -326,8 +340,63 @@
         '    <button class="ctdp-ai-action" type="button" data-role="test-ai-recognition">测试连接</button>',
         '    <button class="ctdp-ai-action" type="button" data-role="clear-ai-cache">清除缓存</button>',
         "  </span>",
-        '  <span class="ctdp-settings-card-note" data-role="ai-recognition-status">' + escapeHtml(getAiRecognitionStatusText()) + "</span>",
+        "</div>"
+      ].join("");
+    }
+
+    function renderSettingsActionMarkup(role, iconName, title, note, className) {
+      return [
+        '<button class="ctdp-settings-row ctdp-settings-row-action' + (className ? " " + className : "") + '" type="button" data-role="' + role + '">',
+        '  <span class="ctdp-settings-row-head">',
+        "    " + renderButtonIcon(iconName, "", "ctdp-settings-row-icon"),
+        '    <span class="ctdp-settings-row-copy">',
+        '      <span class="ctdp-settings-row-title">' + title + "</span>",
+        '      <span class="ctdp-settings-row-note">' + note + "</span>",
+        "    </span>",
+        "  </span>",
+        "</button>"
+      ].join("");
+    }
+
+    function renderVisibleFieldsMarkup() {
+      return [
+        '<section class="ctdp-settings-row ctdp-settings-row-static ctdp-visible-fields">',
+        '  <span class="ctdp-settings-row-title">填充项选择</span>',
+        '  <span class="ctdp-settings-row-note">仅勾选项会显示在面板和智能填充中</span>',
+        '  <div class="ctdp-field-visibility-list" data-role="field-visibility-list"></div>',
         "</section>"
+      ].join("");
+    }
+
+    function renderDataSettingsMarkup() {
+      return [
+        renderSettingsActionMarkup("export-full-backup", "download", "备份全部数据", "备份常用数据、标注和站点设置"),
+        renderSettingsActionMarkup("import-full-backup", "upload", "恢复全部数据", "从完整备份恢复并覆盖本地数据", "ctdp-settings-row-restore"),
+        '<details class="ctdp-settings-more">',
+        '  <summary class="ctdp-settings-more-summary">更多数据工具</summary>',
+        '  <div class="ctdp-settings-more-content">',
+        renderSettingsActionMarkup("export-overrides", "download", "导出标注数据", "下载完整 JSON 标注"),
+        renderSettingsActionMarkup("import-overrides", "upload", "导入标注数据", "合并并覆盖同键标注"),
+        renderSettingsActionMarkup("export-sanitized-overrides", "shield", "脱敏导出", "仅保留输入框指纹"),
+        "  </div>",
+        "</details>"
+      ].join("");
+    }
+
+    function renderSettingsSectionMarkup(key, title, note, iconName, content, open, noteRole) {
+      return [
+        '<details class="ctdp-settings-section" data-settings-section="' + key + '"' + (open ? " open" : "") + ">",
+        '  <summary class="ctdp-settings-section-summary">',
+        "    " + renderButtonIcon(iconName, "", "ctdp-settings-section-icon"),
+        '    <span class="ctdp-settings-section-copy">',
+        '      <span class="ctdp-settings-section-title">' + title + "</span>",
+        '      <span class="ctdp-settings-section-note"' + (noteRole ? ' data-role="' + noteRole + '"' : "") + ">" + note + "</span>",
+        "    </span>",
+        "  </summary>",
+        '  <div class="ctdp-settings-section-content">',
+        content,
+        "  </div>",
+        "</details>"
       ].join("");
     }
 
@@ -804,6 +873,7 @@
 
     function syncAiRecognitionControls() {
       if (aiRecognitionToggle) aiRecognitionToggle.checked = state.aiRecognitionConfig.enabled;
+      if (aiRecognitionConfigPanel) aiRecognitionConfigPanel.hidden = !state.aiRecognitionConfig.enabled;
       if (aiBaseUrlInput) aiBaseUrlInput.value = state.aiRecognitionConfig.baseUrl || "";
       if (aiModelInput) aiModelInput.value = state.aiRecognitionConfig.model || "gpt-4o-mini";
       if (aiApiKeyInput) {
@@ -811,6 +881,41 @@
         aiApiKeyInput.placeholder = state.aiRecognitionConfig.hasApiKey ? "已保存，留空保持不变" : "输入 API Key";
       }
       if (aiRecognitionStatus) aiRecognitionStatus.textContent = getAiRecognitionStatusText();
+    }
+
+    async function toggleAiRecognitionEnabled(enabled) {
+      const previousConfig = { ...state.aiRecognitionConfig };
+      state.aiRecognitionConfig.enabled = enabled === true;
+      syncAiRecognitionControls();
+      try {
+        const response = await sendRuntimeMessage({
+          type: "save-ai-recognition-config",
+          config: getAiRecognitionDraftConfig()
+        });
+        if (!response || response.error) throw new Error(response && response.error ? response.error : "AI 开关保存失败");
+        if (response.config) state.aiRecognitionConfig = {
+          baseUrl: response.config.baseUrl || "",
+          enabled: response.config.enabled === true,
+          hasApiKey: response.config.hasApiKey === true,
+          model: response.config.model || "gpt-4o-mini",
+          origin: response.config.origin || "",
+          permissionGranted: response.config.permissionGranted === true
+        };
+        syncAiRecognitionControls();
+        if (!state.aiRecognitionConfig.enabled) {
+          setSettingsStatus("AI 识别已关闭", "success");
+        } else if (state.aiRecognitionConfig.permissionGranted) {
+          setSettingsStatus("AI 识别已开启", "success");
+        } else if (response.permissionPageOpened) {
+          setSettingsStatus("AI 识别已开启，请在授权页完成接口授权", "warning");
+        } else {
+          setSettingsStatus("AI 识别已开启，请完善并保存接口配置", "warning");
+        }
+      } catch (error) {
+        state.aiRecognitionConfig = previousConfig;
+        syncAiRecognitionControls();
+        setSettingsStatus(error && error.message ? error.message : "AI 开关保存失败", "error");
+      }
     }
 
     async function loadAiRecognitionConfig() {
@@ -847,12 +952,25 @@
         permissionGranted: response.config.permissionGranted === true
       };
       syncAiRecognitionControls();
-      setSettingsStatus(
-        response.config && response.config.permissionGranted
-          ? "AI 识别配置已保存并授权"
-          : (response.permissionPageOpened ? "AI 配置已保存，请在授权页点击授权按钮" : "AI 配置已保存，但接口域名未授权"),
-        response.config && response.config.permissionGranted ? "success" : "warning"
-      );
+      if (!state.aiRecognitionConfig.enabled) {
+        setSettingsStatus("AI 识别已关闭", "success");
+      } else {
+        setSettingsStatus(
+          response.config && response.config.permissionGranted
+            ? "AI 识别配置已保存并授权"
+            : (response.permissionPageOpened ? "AI 配置已保存，请在授权页点击授权按钮" : "AI 配置已保存，但接口域名未授权"),
+          response.config && response.config.permissionGranted ? "success" : "warning"
+        );
+      }
+    }
+
+    function setupSettingsAccordion() {
+      const sections = root ? root.querySelectorAll("[data-settings-section]") : [];
+      Array.from(sections).forEach(function (section) {
+        section.addEventListener("toggle", function () {
+          closeOtherSettingsSections(sections, section);
+        });
+      });
     }
 
     async function testAiRecognitionConfig() {
@@ -1290,8 +1408,9 @@
           "</button>",
         "      </div>",
         '      <div class="ctdp-toolbar-group ctdp-toolbar-group-right">',
-        '        <button class="ctdp-btn ctdp-btn-primary" type="button" data-role="auto-fill" aria-label="自动填充页面" title="自动填充页面">' +
-          renderButtonIcon(iconAssetsApi.ACTION_ICONS.autoFill, "自动填充页面", "ctdp-btn-icon") +
+        '        <button class="ctdp-btn ctdp-btn-action" type="button" data-role="auto-fill" aria-label="一键填充页面" title="一键填充页面">' +
+          renderButtonIcon(iconAssetsApi.ACTION_ICONS.autoFill, "", "ctdp-btn-icon") +
+          '<span class="ctdp-action-label">一键填充</span>' +
           "</button>",
         '        <button class="ctdp-btn ctdp-btn-primary" type="button" data-role="regen" aria-label="重新生成全部" title="重新生成全部">' +
           renderButtonIcon(iconAssetsApi.ACTION_ICONS.regen, "重新生成全部", "ctdp-btn-icon") +
@@ -1313,58 +1432,46 @@
           "</button>",
         '      <div class="ctdp-settings-copy">',
         '        <p class="ctdp-settings-title">设置</p>',
-        '        <p class="ctdp-settings-subtitle">选择展示字段，并导入、导出用户数据</p>',
         "      </div>",
         "    </header>",
         '    <div class="ctdp-settings-list">',
-        renderSiteFeatureToggleMarkup(),
-        renderFocusStyleToggleMarkup(),
-        renderAiRecognitionMarkup(),
-        '      <section class="ctdp-settings-card ctdp-settings-card-static">',
-        '        <span class="ctdp-settings-card-head">' +
-          renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.visibleFields, "填充项选择", "ctdp-settings-card-icon") +
-        '          <span class="ctdp-settings-card-title">填充项选择</span>' +
-        "        </span>" +
-        '        <span class="ctdp-settings-card-note">当前站点只有勾选的项目会出现在面板和智能填充中，右键标注始终提供全量字段</span>' +
-        '        <div class="ctdp-field-visibility-list" data-role="field-visibility-list"></div>' +
-        "      </section>",
-        '      <button class="ctdp-settings-card" type="button" data-role="export-overrides">' +
-        '        <span class="ctdp-settings-card-head">' +
-          renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.exportOverrides, "导出标注数据", "ctdp-settings-card-icon") +
-        '          <span class="ctdp-settings-card-title">导出标注数据</span>' +
-        "        </span>" +
-        '        <span class="ctdp-settings-card-note">下载完整 JSON 备份</span>' +
-        "      </button>",
-        '      <button class="ctdp-settings-card" type="button" data-role="import-overrides">' +
-        '        <span class="ctdp-settings-card-head">' +
-          renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.importOverrides, "导入标注数据", "ctdp-settings-card-icon") +
-        '          <span class="ctdp-settings-card-title">导入标注数据</span>' +
-        "        </span>" +
-        '        <span class="ctdp-settings-card-note">合并并覆盖同键标注</span>' +
-        "      </button>",
-        '      <button class="ctdp-settings-card" type="button" data-role="export-full-backup">' +
-        '        <span class="ctdp-settings-card-head">' +
-          renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.exportOverrides, "导出全部数据", "ctdp-settings-card-icon") +
-        '          <span class="ctdp-settings-card-title">导出全部数据</span>' +
-        "        </span>" +
-        '        <span class="ctdp-settings-card-note">备份常用数据、标注和站点设置</span>' +
-        "      </button>",
-        '      <button class="ctdp-settings-card" type="button" data-role="import-full-backup">' +
-        '        <span class="ctdp-settings-card-head">' +
-          renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.importOverrides, "导入全部数据", "ctdp-settings-card-icon") +
-        '          <span class="ctdp-settings-card-title">导入全部数据</span>' +
-        "        </span>" +
-        '        <span class="ctdp-settings-card-note">从完整备份恢复并覆盖本地数据</span>' +
-        "      </button>",
-        '      <button class="ctdp-settings-card" type="button" data-role="export-sanitized-overrides">' +
-        '        <span class="ctdp-settings-card-head">' +
-          renderButtonIcon(iconAssetsApi.SETTINGS_CARD_ICONS.exportSanitizedOverrides, "脱敏导出", "ctdp-settings-card-icon") +
-        '          <span class="ctdp-settings-card-title">脱敏导出</span>' +
-        "        </span>" +
-        '        <span class="ctdp-settings-card-note">只保留输入框指纹，可在当前站点回导</span>' +
-        "      </button>",
+        renderSettingsSectionMarkup(
+          "site",
+          "当前站点",
+          getSiteFeatureStatusText(),
+          iconAssetsApi.ACTION_ICONS.settings,
+          renderSiteFeatureToggleMarkup() + renderVisibleFieldsMarkup(),
+          true,
+          "site-feature-status"
+        ),
+        renderSettingsSectionMarkup(
+          "experience",
+          "填充体验",
+          getFocusStyleNoteText(),
+          "wand-sparkles",
+          renderFocusStyleToggleMarkup(),
+          false,
+          "focus-style-note"
+        ),
+        renderSettingsSectionMarkup(
+          "ai",
+          "AI 识别",
+          getAiRecognitionStatusText(),
+          "shield",
+          renderAiRecognitionMarkup(),
+          false,
+          "ai-recognition-status"
+        ),
+        renderSettingsSectionMarkup(
+          "data",
+          "数据与隐私",
+          "备份、恢复与标注工具",
+          "download",
+          renderDataSettingsMarkup(),
+          false
+        ),
         "    </div>",
-        '    <p class="ctdp-settings-status" data-role="settings-status" data-tone="muted">填充项选择按当前站点保存，脱敏导出不会保留原始页面地址。</p>',
+        '    <p class="ctdp-settings-status" data-role="settings-status" data-tone="muted" hidden></p>',
         "  </div>",
         '  <footer class="ctdp-footer" data-role="footer">',
         '    <div class="ctdp-footer-meta">',
@@ -1408,9 +1515,11 @@
       aiApiKeyInput = root.querySelector('[data-role="ai-api-key"]');
       aiModelInput = root.querySelector('[data-role="ai-model"]');
       aiRecognitionStatus = root.querySelector('[data-role="ai-recognition-status"]');
+      aiRecognitionConfigPanel = root.querySelector('[data-role="ai-recognition-config"]');
       dockMessage = root.querySelector('[data-role="dock-message"]');
       dockMessageText = root.querySelector('[data-role="dock-message-text"]');
       dockBtn = root.querySelector('[data-role="expand"]');
+      setupSettingsAccordion();
 
       root.addEventListener("click", function (event) {
         const trigger = event.target.closest("[data-role]");
@@ -1520,6 +1629,11 @@
         const focusStyleTrigger = event.target.closest('[data-role="focus-style-toggle"]');
         if (focusStyleTrigger) {
           setFocusStyle(focusStyleTrigger.checked);
+          return;
+        }
+        const aiRecognitionTrigger = event.target.closest('[data-role="ai-recognition-toggle"]');
+        if (aiRecognitionTrigger) {
+          toggleAiRecognitionEnabled(aiRecognitionTrigger.checked);
           return;
         }
         const trigger = event.target.closest('[data-role="field-visibility-toggle"]');
@@ -1646,6 +1760,7 @@
   }
 
   const api = {
+    closeOtherSettingsSections,
     createContentScriptPanelController,
     sampleFavoriteProfiles
   };
