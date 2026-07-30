@@ -1703,11 +1703,6 @@
 
     function collapse() {
       if (!canRenderPanel) return;
-      if (!state.siteFeatureEnabled && panelState.snapshot().visible) {
-        panelState.toggleVisible();
-        updatePanelState();
-        return;
-      }
       panelState.collapse();
       updatePanelState();
     }

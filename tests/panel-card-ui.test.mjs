@@ -145,6 +145,12 @@ test("dock reuses one text bubble and keeps backup reminders until dismissed", (
   assert.match(panelStyles, /\.ctdp-dock-message-close:focus-visible/);
 });
 
+test("collapsing keeps the dock available when site features are disabled", () => {
+  assert.match(panelScript, /function collapse\(\)\s*\{[\s\S]*?panelState\.collapse\(\);[\s\S]*?updatePanelState\(\);[\s\S]*?\}/);
+  assert.doesNotMatch(panelScript, /function collapse\(\)\s*\{[\s\S]*?siteFeatureEnabled[\s\S]*?panelState\.toggleVisible\(\)/);
+  assert.doesNotMatch(panelStyles, /\.ctdp-root\[data-site-feature-enabled="false"\]\s+\.ctdp-dock/);
+});
+
 test("panel footer renders version info and update trigger while keeping fallback copy hidden by default", () => {
   assert.doesNotMatch(panelScript, /ctdp-status-text/);
   assert.doesNotMatch(panelScript, /ctdp-status-time/);

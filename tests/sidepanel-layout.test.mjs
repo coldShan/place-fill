@@ -16,7 +16,7 @@ test("collapsed dock is anchored to the viewport edge while panel keeps a right 
   assert.match(stylesheet, /\.ctdp-dock\s*\{[\s\S]*?\bbackground:\s*transparent;/);
   assert.match(stylesheet, /\.ctdp-dock\s*\{[\s\S]*?\bbox-shadow:\s*none;/);
   assert.match(stylesheet, /\.ctdp-dock\s*\{[\s\S]*?\bbackdrop-filter:\s*none;/);
-  assert.match(stylesheet, /\.ctdp-root\[data-site-feature-enabled="false"\]\s+\.ctdp-dock\s*\{[\s\S]*?\bpointer-events:\s*none;/);
+  assert.doesNotMatch(stylesheet, /\.ctdp-root\[data-site-feature-enabled="false"\]\s+\.ctdp-dock/);
 });
 
 test("toolbar lays out every action with even spacing and stable button sizes", () => {
