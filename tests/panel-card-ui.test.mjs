@@ -130,12 +130,15 @@ test("auto fill toggles a page aura overlay while filling targets", () => {
 test("dock reuses one text bubble and keeps backup reminders until dismissed", () => {
   assert.match(panelScript, /data-role="dock-message"[^>]*hidden/);
   assert.match(panelScript, /data-role="dismiss-dock-message" aria-label="关闭提醒"/);
-  assert.match(panelScript, /function showDockMessage\(message,\s*ensureVisible,\s*dismissible\)/);
+  assert.match(panelScript, /function showDockMessage\(message,\s*ensureVisible,\s*dismissible,\s*onDismiss\)/);
   assert.match(panelScript, /showDockMessage\("填完啦！"\)/);
   assert.match(panelScript, /if \(!snap\.visible\) panelState\.toggleCollapsed\(\)/);
   assert.match(panelScript, /if \(!dismissible\) dockMessageTimer = win\.setTimeout\(hideDockMessage,\s*4000\)/);
-  assert.match(panelScript, /role === "dismiss-dock-message"[\s\S]*?hideDockMessage\(\)/);
-  assert.match(orchestratorScript, /message\.type === "show-backup-reminder"[\s\S]*?panelController\.showDockMessage\(message\.message \|\| "该备份数据啦！",\s*true,\s*true\)/);
+  assert.match(panelScript, /role === "dismiss-dock-message"[\s\S]*?const onDismiss = dockMessageDismiss;[\s\S]*?hideDockMessage\(\);[\s\S]*?if \(onDismiss\) onDismiss\(\)/);
+  assert.match(orchestratorScript, /type:\s*"read-backup-reminder-state"/);
+  assert.match(orchestratorScript, /showDockMessage\(message \|\| "该备份数据啦！",\s*true,\s*true,[\s\S]*?type:\s*"dismiss-backup-reminder"/);
+  assert.match(panelScript, /function hideDismissibleDockMessage\(\)\s*\{[\s\S]*?if \(dockMessageDismiss\) hideDockMessage\(\)/);
+  assert.match(orchestratorScript, /message\.type === "hide-backup-reminder"[\s\S]*?panelController\.hideDismissibleDockMessage\(\)/);
   assert.match(panelStyles, /\.ctdp-dock-message-close\s*\{[\s\S]*?top:\s*-8px;[\s\S]*?left:\s*-8px;/);
   assert.match(panelStyles, /\.ctdp-dock-message-close:focus-visible/);
 });

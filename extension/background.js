@@ -16,6 +16,7 @@ const RELEASES_URL = REPOSITORY_URL + "/releases";
 const LATEST_RELEASE_API_URL = "https://api.github.com/repos/coldShan/place-fill/releases/latest";
 const BACKUP_REMINDER_ALARM_NAME = "weekly-backup-reminder";
 const BACKUP_REMINDER_MESSAGE = "该备份数据啦！";
+const BACKUP_REMINDER_PENDING_KEY = "ctdp.backupReminderPendingAt.v1";
 const WEEK_IN_MINUTES = 7 * 24 * 60;
 let siteFeatureEnabledMap = {};
 
@@ -90,17 +91,41 @@ function ensureBackupReminderAlarm() {
   });
 }
 
-function showBackupReminder() {
+function sendBackupReminderState(tabId, pending) {
+  if (!tabId || !chrome.tabs || typeof chrome.tabs.sendMessage !== "function") return;
+  chrome.tabs.sendMessage(tabId, {
+    message: BACKUP_REMINDER_MESSAGE,
+    type: pending ? "show-backup-reminder" : "hide-backup-reminder"
+  }, { frameId: 0 }, function () {
+    void chrome.runtime.lastError;
+  });
+}
+
+function syncBackupReminderForTab(tabId) {
+  if (!tabId || !chrome.storage || !chrome.storage.local) return;
+  chrome.storage.local.get(BACKUP_REMINDER_PENDING_KEY, function (values) {
+    void chrome.runtime.lastError;
+    sendBackupReminderState(tabId, !!(values && values[BACKUP_REMINDER_PENDING_KEY]));
+  });
+}
+
+function syncBackupReminderForActiveTab() {
   if (!chrome.tabs || typeof chrome.tabs.query !== "function") return;
   chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
     void chrome.runtime.lastError;
     const tab = tabs && tabs[0];
-    if (!tab || !tab.id) return;
-    chrome.tabs.sendMessage(tab.id, {
-      message: BACKUP_REMINDER_MESSAGE,
-      type: "show-backup-reminder"
-    }, function () {
+    syncBackupReminderForTab(tab && tab.id);
+  });
+}
+
+function showBackupReminder() {
+  if (!chrome.storage || !chrome.storage.local) return;
+  chrome.storage.local.set({ [BACKUP_REMINDER_PENDING_KEY]: Date.now() }, function () {
+    void chrome.runtime.lastError;
+    if (!chrome.tabs || typeof chrome.tabs.query !== "function") return;
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
       void chrome.runtime.lastError;
+      sendBackupReminderState(tabs && tabs[0] && tabs[0].id, true);
     });
   });
 }
@@ -376,7 +401,8 @@ chrome.runtime.onStartup.addListener(function () {
     .then(readSiteFeatureEnabledMap, function () {
       return readSiteFeatureEnabledMap();
     })
-    .catch(function () {});
+    .catch(function () {})
+    .finally(syncBackupReminderForActiveTab);
 });
 if (chrome.alarms && chrome.alarms.onAlarm) {
   chrome.alarms.onAlarm.addListener(function (alarm) {
@@ -403,13 +429,15 @@ if (chrome.contextMenus && chrome.contextMenus.onShown) {
 if (chrome.tabs && chrome.tabs.onActivated) {
   chrome.tabs.onActivated.addListener(function (activeInfo) {
     syncRootMenuVisibilityForTabId(activeInfo && activeInfo.tabId);
+    syncBackupReminderForTab(activeInfo && activeInfo.tabId);
   });
 }
 
 if (chrome.tabs && chrome.tabs.onUpdated) {
-  chrome.tabs.onUpdated.addListener(function (_tabId, changeInfo, tab) {
+  chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
     if (!changeInfo || (!Object.prototype.hasOwnProperty.call(changeInfo, "status") && !Object.prototype.hasOwnProperty.call(changeInfo, "url"))) return;
     syncRootMenuVisibilityForUrl((tab && tab.url) || changeInfo.url);
+    if (changeInfo.status === "complete" && tab && tab.active) syncBackupReminderForTab(tabId);
   });
 }
 
@@ -449,6 +477,23 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
     updateRootMenuVisibility(message.enabled !== false);
     sendResponse({ ok: true });
     return;
+  }
+  if (message.type === "read-backup-reminder-state") {
+    chrome.storage.local.get(BACKUP_REMINDER_PENDING_KEY, function (values) {
+      const error = chrome.runtime.lastError;
+      sendResponse({
+        message: BACKUP_REMINDER_MESSAGE,
+        ok: !error,
+        pending: !!(values && values[BACKUP_REMINDER_PENDING_KEY])
+      });
+    });
+    return true;
+  }
+  if (message.type === "dismiss-backup-reminder") {
+    chrome.storage.local.remove(BACKUP_REMINDER_PENDING_KEY, function () {
+      sendResponse({ ok: !chrome.runtime.lastError });
+    });
+    return true;
   }
   if (message.type === "mirror-storage-local") {
     mirrorStorageLocal()

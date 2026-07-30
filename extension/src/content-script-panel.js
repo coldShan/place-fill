@@ -75,6 +75,7 @@
     let dockMessage = null;
     let dockMessageText = null;
     let dockMessageTimer = null;
+    let dockMessageDismiss = null;
     let autoFillAborted = false;
     let autoFillRunning = false;
     let dockDragJustEnded = false;
@@ -164,11 +165,13 @@
       }
       if (root) root.removeAttribute("data-dock-message");
       dockMessageTimer = null;
+      dockMessageDismiss = null;
     }
 
-    function showDockMessage(message, ensureVisible, dismissible) {
+    function showDockMessage(message, ensureVisible, dismissible, onDismiss) {
       if (!dockBtn || !dockMessage || !dockMessageText || !message) return;
       hideDockMessage();
+      dockMessageDismiss = typeof onDismiss === "function" ? onDismiss : null;
       if (ensureVisible) {
         const snap = panelState.snapshot();
         if (!snap.visible) panelState.toggleCollapsed();
@@ -181,6 +184,10 @@
       dockMessage.hidden = false;
       void dockMessage.offsetWidth;
       if (!dismissible) dockMessageTimer = win.setTimeout(hideDockMessage, 4000);
+    }
+
+    function hideDismissibleDockMessage() {
+      if (dockMessageDismiss) hideDockMessage();
     }
 
     function pulseRefreshGrid() {
@@ -1411,7 +1418,9 @@
         const role = trigger.getAttribute("data-role");
 
         if (role === "dismiss-dock-message") {
+          const onDismiss = dockMessageDismiss;
           hideDockMessage();
+          if (onDismiss) onDismiss();
           return;
         }
         if (role === "auto-fill") {
@@ -1626,6 +1635,7 @@
       getVisibleFieldKeys,
       handleDocumentFocusIn,
       handleDocumentPointerDown,
+      hideDismissibleDockMessage,
       loadSiteFeatureEnabled,
       loadVisibleFieldKeys,
       mount,

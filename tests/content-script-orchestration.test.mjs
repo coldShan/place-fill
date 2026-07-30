@@ -124,6 +124,7 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
               panelFocusInCalls.push(target);
             },
             handleDocumentPointerDown() {},
+            hideDismissibleDockMessage() {},
             isSiteFeatureEnabled() {
               return env.siteFeatureEnabled !== false;
             },

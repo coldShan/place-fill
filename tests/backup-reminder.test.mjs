@@ -20,10 +20,14 @@ function createEvent() {
   };
 }
 
-test("weekly backup reminder runs Friday at 10:00 and notifies the active tab", () => {
+test("weekly backup reminder stays pending until dismissed and retries on eligible tabs", () => {
   const onAlarm = createEvent();
+  const onActivated = createEvent();
+  const onMessage = createEvent();
+  const onUpdated = createEvent();
   let createdAlarm = null;
   let sentMessage = null;
+  const storageData = {};
   const chrome = {
     action: { onClicked: createEvent() },
     alarms: {
@@ -45,21 +49,37 @@ test("weekly backup reminder runs Friday at 10:00 and notifies the active tab", 
       getManifest() { return { version: "0.8.0" }; },
       lastError: null,
       onInstalled: createEvent(),
-      onMessage: createEvent(),
+      onMessage,
       onStartup: createEvent()
     },
     storage: {
-      local: { get(_keys, callback) { callback({}); } },
+      local: {
+        get(keys, callback) {
+          if (typeof keys === "string") {
+            callback({ [keys]: storageData[keys] });
+            return;
+          }
+          callback({ ...storageData });
+        },
+        remove(key, callback) {
+          delete storageData[key];
+          callback?.();
+        },
+        set(values, callback) {
+          Object.assign(storageData, values);
+          callback?.();
+        }
+      },
       onChanged: createEvent()
     },
     tabs: {
       create() {},
       get(_tabId, callback) { callback({ id: 7, url: "https://example.com/form" }); },
-      onActivated: createEvent(),
-      onUpdated: createEvent(),
+      onActivated,
+      onUpdated,
       query(_query, callback) { callback([{ id: 7, url: "https://example.com/form" }]); },
-      sendMessage(tabId, message, callback) {
-        sentMessage = { message, tabId };
+      sendMessage(tabId, message, options, callback) {
+        sentMessage = { message, options, tabId };
         callback?.();
       }
     }
@@ -100,7 +120,28 @@ test("weekly backup reminder runs Friday at 10:00 and notifies the active tab", 
   assert.equal(scheduledAt.getMinutes(), 0);
 
   onAlarm.dispatch({ name: "weekly-backup-reminder" });
+  assert.equal(Number.isFinite(storageData["ctdp.backupReminderPendingAt.v1"]), true);
   assert.equal(sentMessage.tabId, 7);
   assert.equal(sentMessage.message.type, "show-backup-reminder");
   assert.equal(sentMessage.message.message, "该备份数据啦！");
+  assert.equal(sentMessage.options.frameId, 0);
+
+  sentMessage = null;
+  onActivated.dispatch({ tabId: 8 });
+  assert.equal(sentMessage.tabId, 8);
+  assert.equal(sentMessage.message.type, "show-backup-reminder");
+
+  let reminderState = null;
+  onMessage.dispatch({ type: "read-backup-reminder-state" }, {}, function (response) {
+    reminderState = response;
+  });
+  assert.equal(reminderState.pending, true);
+
+  onMessage.dispatch({ type: "dismiss-backup-reminder" }, {}, function () {});
+  assert.equal(storageData["ctdp.backupReminderPendingAt.v1"], undefined);
+
+  sentMessage = null;
+  onUpdated.dispatch(9, { status: "complete" }, { active: true, id: 9, url: "https://example.com/next" });
+  assert.equal(sentMessage.tabId, 9);
+  assert.equal(sentMessage.message.type, "hide-backup-reminder");
 });

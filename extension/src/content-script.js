@@ -182,6 +182,20 @@
     window
   });
 
+  function showBackupReminder(message) {
+    panelController.showDockMessage(message || "该备份数据啦！", true, true, function () {
+      sendRuntimeMessage({ type: "dismiss-backup-reminder" });
+    });
+  }
+
+  function syncBackupReminderState() {
+    if (!canRenderPanel) return;
+    sendRuntimeMessage({ type: "read-backup-reminder-state" }).then(function (response) {
+      if (response.pending) showBackupReminder(response.message);
+      else panelController.hideDismissibleDockMessage();
+    });
+  }
+
   smartFillController = smartFillControllerApi.createContentScriptSmartFillController({
     document,
     editableTargetApi,
@@ -211,6 +225,7 @@
   function startContentScript() {
     panelController.mount();
     smartFillController.mount();
+    syncBackupReminderState();
     window.setTimeout(refreshAiRecognition, 250);
 
     document.addEventListener(
@@ -270,7 +285,11 @@
         return;
       }
       if (message.type === "show-backup-reminder") {
-        panelController.showDockMessage(message.message || "该备份数据啦！", true, true);
+        showBackupReminder(message.message);
+        return;
+      }
+      if (message.type === "hide-backup-reminder") {
+        panelController.hideDismissibleDockMessage();
         return;
       }
       if (message.type === "apply-smart-fill-override") {
