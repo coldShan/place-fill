@@ -10,7 +10,13 @@ const panelStyles = readFileSync(join(here, "../extension/src/sidepanel.css"), "
 const themeStyles = readFileSync(join(here, "../extension/src/theme.css"), "utf8");
 const smartfillScript = readFileSync(join(here, "../extension/src/content-script-smartfill.js"), "utf8");
 const panelControllerPkg = await import("../extension/src/content-script-panel.js");
-const { closeOtherSettingsSections, sampleFavoriteProfiles } = panelControllerPkg.default || panelControllerPkg;
+const editableTargetPkg = await import("../extension/src/editable-target.js");
+const {
+  closeOtherSettingsSections,
+  collectPageAutoFillTargets,
+  sampleFavoriteProfiles
+} = panelControllerPkg.default || panelControllerPkg;
+const editableTargetApi = editableTargetPkg.default || editableTargetPkg;
 
 function createFavorite(id, fullName) {
   return {
@@ -151,6 +157,74 @@ test("auto fill toggles a page aura overlay while filling targets", () => {
   assert.match(panelScript, /root\.setAttribute\("data-autofill-running",\s*String\(running\)\)/);
   assert.match(panelScript, /setAutoFillPageAuraState\(true\)[\s\S]*?try\s*\{/);
   assert.match(panelScript, /finally\s*\{[\s\S]*?setAutoFillPageAuraState\(false\)/);
+});
+
+test("one-click fill collects native controls without requiring semantic matches", () => {
+  const form = {};
+  const rootNode = {};
+  const textInput = {
+    nodeType: 1,
+    tagName: "INPUT",
+    type: "text",
+    disabled: false,
+    readOnly: false
+  };
+  const select = {
+    nodeType: 1,
+    tagName: "SELECT",
+    disabled: false,
+    options: []
+  };
+  const radioA = {
+    nodeType: 1,
+    tagName: "INPUT",
+    type: "radio",
+    name: "gender",
+    form,
+    getRootNode() {
+      return rootNode;
+    }
+  };
+  const radioB = {
+    ...radioA,
+    getRootNode() {
+      return rootNode;
+    }
+  };
+  const checkbox = {
+    nodeType: 1,
+    tagName: "INPUT",
+    type: "checkbox",
+    name: "",
+    form
+  };
+  const document = {
+    querySelectorAll() {
+      return [textInput, select, radioA, radioB, checkbox];
+    }
+  };
+
+  const targets = collectPageAutoFillTargets(
+    document,
+    editableTargetApi,
+    {
+      inferFieldKeyForSmartFill(node) {
+        return node === textInput ? "fullName" : null;
+      }
+    },
+    {
+      isFieldVisible() {
+        return true;
+      }
+    },
+    ["fullName"]
+  );
+
+  assert.equal(targets.length, 4);
+  assert.equal(targets.find((entry) => entry.fieldKey === "fullName")?.target, textInput);
+  assert.equal(targets.find((entry) => entry.kind === "select")?.target, select);
+  assert.equal(targets.find((entry) => entry.kind === "radio")?.targets.length, 2);
+  assert.equal(targets.find((entry) => entry.kind === "checkbox")?.targets.length, 1);
 });
 
 test("dock reuses one text bubble and keeps backup reminders until dismissed", () => {

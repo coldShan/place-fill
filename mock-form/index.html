@@ -42,19 +42,19 @@
                 border-radius: 28px;
                 background: var(--panel);
                 box-shadow: 0 22px 48px rgba(53, 36, 20, 0.12);
+            }
 
-                h1 {
-                    margin: 0;
-                    font-family:
-                        "Baskerville", "Palatino Linotype", "Noto Serif SC",
-                        serif;
-                    font-size: 36px;
-                }
+            .shell h1 {
+                margin: 0;
+                font-family:
+                    "Baskerville", "Palatino Linotype", "Noto Serif SC",
+                    serif;
+                font-size: 36px;
+            }
 
-                p {
-                    color: var(--muted);
-                    line-height: 1.6;
-                }
+            .shell p {
+                color: var(--muted);
+                line-height: 1.6;
             }
 
             .grid {
@@ -71,28 +71,54 @@
                 border: 1px solid var(--line);
                 border-radius: 18px;
                 background: #fffdfa;
+                min-width: 0;
+            }
 
-                label {
-                    font-size: 12px;
-                    letter-spacing: 0.08em;
-                    color: var(--muted);
-                }
+            .field > label,
+            .field legend {
+                font-size: 12px;
+                letter-spacing: 0.08em;
+                color: var(--muted);
+            }
 
-                input,
-                textarea {
-                    width: 100%;
-                    padding: 12px 14px;
-                    border: 1px solid rgba(23, 20, 18, 0.12);
-                    border-radius: 14px;
-                    background: #fff;
-                    color: var(--ink);
-                    font: inherit;
-                }
+            .field input,
+            .field textarea,
+            .field select {
+                width: 100%;
+                padding: 12px 14px;
+                border: 1px solid rgba(23, 20, 18, 0.12);
+                border-radius: 14px;
+                background: #fff;
+                color: var(--ink);
+                font: inherit;
+            }
 
-                textarea {
-                    min-height: 150px;
-                    resize: vertical;
-                }
+            .field textarea {
+                min-height: 150px;
+                resize: vertical;
+            }
+
+            .field select[multiple] {
+                min-height: 118px;
+            }
+
+            .choice-options {
+                display: grid;
+                gap: 10px;
+            }
+
+            .choice-option {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: var(--ink);
+                font-size: 14px;
+            }
+
+            .choice-option input {
+                width: auto;
+                margin: 0;
+                padding: 0;
             }
 
             .hint {
@@ -108,10 +134,10 @@
         <main class="shell">
             <h1>测试表单页</h1>
             <p>
-                打开扩展侧边栏后，可将单项数据直接粘贴到下方输入框，也可以把“复制整组数据”粘贴到备注区做联调记录。
+                打开扩展侧边栏后点击“一键填充”，可验证文本、下拉框、单选、多选和日期时间等原生 HTML 控件。
             </p>
 
-            <section class="grid">
+            <form class="grid" id="nativeForm">
                 <div class="field">
                     <label for="creditCode">统一社会信用代码</label>
                     <input id="creditCode" placeholder="粘贴这里" />
@@ -149,16 +175,104 @@
                     <input id="address" placeholder="粘贴这里" />
                 </div>
                 <div class="field">
+                    <label for="contactType">联系方式类型</label>
+                    <select id="contactType" name="contactType">
+                        <option value="">请选择</option>
+                        <option value="mobile">手机号</option>
+                        <option value="landline">固定电话</option>
+                        <option value="email">邮箱</option>
+                        <option value="disabled" disabled>不可用选项</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="businessScopes">经营范围（可多选）</label>
+                    <select id="businessScopes" name="businessScopes" multiple>
+                        <option value="software">软件开发</option>
+                        <option value="consulting">企业咨询</option>
+                        <option value="retail">商品零售</option>
+                        <option value="disabled" disabled>不可用选项</option>
+                    </select>
+                </div>
+                <fieldset class="field">
+                    <legend>联系人类型（单选）</legend>
+                    <div class="choice-options">
+                        <label class="choice-option">
+                            <input type="radio" name="contactRole" value="legal" />
+                            法定代表人
+                        </label>
+                        <label class="choice-option">
+                            <input type="radio" name="contactRole" value="agent" />
+                            经办人
+                        </label>
+                        <label class="choice-option">
+                            <input type="radio" name="contactRole" value="other" />
+                            其他
+                        </label>
+                    </div>
+                </fieldset>
+                <fieldset class="field">
+                    <legend>业务标签（多选）</legend>
+                    <div class="choice-options">
+                        <label class="choice-option">
+                            <input type="checkbox" name="businessTags" value="new" />
+                            新设企业
+                        </label>
+                        <label class="choice-option">
+                            <input type="checkbox" name="businessTags" value="small" />
+                            小微企业
+                        </label>
+                        <label class="choice-option">
+                            <input type="checkbox" name="businessTags" value="tech" />
+                            科技企业
+                        </label>
+                    </div>
+                </fieldset>
+                <div class="field">
+                    <label for="accepted">独立复选框</label>
+                    <label class="choice-option">
+                        <input id="accepted" type="checkbox" />
+                        已确认测试数据仅用于联调
+                    </label>
+                </div>
+                <div class="field">
+                    <label for="applyDate">申请日期</label>
+                    <input id="applyDate" type="date" min="2020-01-01" max="2030-12-31" />
+                </div>
+                <div class="field">
+                    <label for="applyMonth">申报月份</label>
+                    <input id="applyMonth" type="month" min="2020-01" max="2030-12" />
+                </div>
+                <div class="field">
+                    <label for="appointmentTime">预约时间</label>
+                    <input id="appointmentTime" type="time" min="08:00" max="18:00" />
+                </div>
+                <div class="field">
+                    <label for="meetingAt">会议时间</label>
+                    <input id="meetingAt" type="datetime-local" min="2020-01-01T08:00" max="2030-12-31T18:00" />
+                </div>
+                <div class="field">
+                    <label for="reportWeek">报告周</label>
+                    <input id="reportWeek" type="week" min="2020-W01" max="2030-W52" />
+                </div>
+                <div class="field">
                     <label for="remark">整组复制粘贴区</label>
                     <textarea
                         id="remark"
                         placeholder="把整组测试数据粘贴到这里"
                     ></textarea>
                 </div>
-            </section>
+                <div class="field">
+                    <label for="readonlyField">只读控件（应跳过）</label>
+                    <input id="readonlyField" value="不会被覆盖" readonly />
+                </div>
+                <div class="field">
+                    <label for="disabledField">禁用控件（应跳过）</label>
+                    <input id="disabledField" value="不会被覆盖" disabled />
+                </div>
+            </form>
 
             <div class="hint">
-                这个页面不依赖插件权限。它只是一个本地表单靶场，用于验证扩展生成、复制和粘贴是否顺畅。
+                预期结果：文本字段写入匹配数据；下拉框选择有效选项；每组单选选中一个；多选至少选中一个；日期时间处于约束范围内；只读和禁用控件保持不变。
             </div>
         </main>
     </body>

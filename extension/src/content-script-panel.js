@@ -30,6 +30,56 @@
     });
   }
 
+  function collectPageAutoFillTargets(doc, editableTargetApi, smartFillApi, fieldVisibilityApi, visibleFieldKeys) {
+    if (!doc || !editableTargetApi || !smartFillApi) return [];
+    const candidates = Array.from(doc.querySelectorAll(
+      'input, textarea, select, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]'
+    ));
+    const targets = [];
+    const seen = new Set();
+
+    candidates.forEach(function (node) {
+      const kind = editableTargetApi.getGenericFormControlKind(node);
+      if (kind === "checkbox" || kind === "radio") {
+        const name = String(node.name || "");
+        const rootNode = typeof node.getRootNode === "function" ? node.getRootNode() : doc;
+        const existing = name && targets.find(function (entry) {
+          return entry.kind === kind &&
+            entry.name === name &&
+            entry.form === (node.form || null) &&
+            entry.rootNode === rootNode;
+        });
+        if (existing) {
+          existing.targets.push(node);
+        } else {
+          targets.push({
+            form: node.form || null,
+            kind,
+            name,
+            rootNode,
+            target: node,
+            targets: [node]
+          });
+        }
+        return;
+      }
+      if (kind) {
+        targets.push({ kind, target: node, targets: [node] });
+        return;
+      }
+
+      const editable = editableTargetApi.findEditableTarget(node);
+      if (!editable || seen.has(editable)) return;
+      seen.add(editable);
+      const fieldKey = smartFillApi.inferFieldKeyForSmartFill(editable);
+      if (!fieldKey) return;
+      if (!fieldVisibilityApi.isFieldVisible(fieldKey, visibleFieldKeys)) return;
+      targets.push({ fieldKey, target: editable, targets: [editable] });
+    });
+
+    return targets;
+  }
+
   function createContentScriptPanelController(options) {
     const opts = options || {};
     const generators = opts.generators;
@@ -789,20 +839,13 @@
     }
 
     function collectAutoFillTargets() {
-      if (!editableTargetApi || !smartFillApi) return [];
-      var candidates = doc.querySelectorAll('input, textarea, [contenteditable="true"], [contenteditable=""]');
-      var targets = [];
-      var seen = new Set();
-      candidates.forEach(function (node) {
-        var editable = editableTargetApi.findEditableTarget(node);
-        if (!editable || seen.has(editable)) return;
-        seen.add(editable);
-        var fieldKey = smartFillApi.inferFieldKeyForSmartFill(editable);
-        if (!fieldKey) return;
-        if (!fieldVisibilityApi.isFieldVisible(fieldKey, state.visibleFieldKeys)) return;
-        targets.push({ target: editable, fieldKey: fieldKey });
-      });
-      return targets;
+      return collectPageAutoFillTargets(
+        doc,
+        editableTargetApi,
+        smartFillApi,
+        fieldVisibilityApi,
+        state.visibleFieldKeys
+      );
     }
 
     function delay(ms) {
@@ -829,17 +872,20 @@
         for (var i = 0; i < targets.length; i++) {
           if (autoFillAborted) break;
           var entry = targets[i];
-          var value = getFieldValue(entry.fieldKey);
-          if (!value) continue;
+          var value = entry.fieldKey ? getFieldValue(entry.fieldKey) : "";
+          if (entry.fieldKey && !value) continue;
 
           entry.target.scrollIntoView({ behavior: "smooth", block: "center" });
           await delay(120);
           if (autoFillAborted) break;
 
-          editableTargetApi.fillEditableTarget(entry.target, value);
+          var filled = entry.fieldKey
+            ? editableTargetApi.fillEditableTarget(entry.target, value)
+            : editableTargetApi.fillGenericFormControl(entry.targets);
+          if (!filled) continue;
           hideFallback();
           pulseFlash("copy");
-          regenerateFieldValue(entry.fieldKey);
+          if (entry.fieldKey) regenerateFieldValue(entry.fieldKey);
 
           if (i < targets.length - 1) await delay(200);
         }
@@ -1809,6 +1855,7 @@
 
   const api = {
     closeOtherSettingsSections,
+    collectPageAutoFillTargets,
     createContentScriptPanelController,
     sampleFavoriteProfiles
   };
