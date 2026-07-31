@@ -269,7 +269,7 @@
       activeSmartFieldKey = null;
     }
 
-    function showSmartButton(target, fieldKey) {
+    function showSmartButton(target, fieldKey, autoOpenRecommendations) {
       if (!smartButton || !target) return;
       if (!fieldKey || !smartFillApi.getSupportedFieldKeys(getVisibleFieldKeys()).includes(fieldKey)) {
         hideSmartButton();
@@ -287,6 +287,7 @@
       smartButton.title = fieldKey ? smartFillApi.formatSmartFillButtonLabel(fieldKey) : "选择测试数据类型";
       setSmartButtonExpanded(false);
       scheduleSmartButtonPosition();
+      if (autoOpenRecommendations !== false) openRecommendationPanelIfAvailable(target, fieldKey);
     }
 
     function fillCurrentTargetValue(value) {
@@ -299,7 +300,7 @@
       fillInProgress = true;
       editableTargetApi.fillEditableTarget(target, value);
       fillInProgress = false;
-      showSmartButton(target, smartFillApi.inferFieldKeyForSmartFill(target) || activeSmartFieldKey);
+      showSmartButton(target, smartFillApi.inferFieldKeyForSmartFill(target) || activeSmartFieldKey, false);
     }
 
     function fillCurrentTarget(fieldKey) {
@@ -321,6 +322,31 @@
       if (!smartButton || !recommendationOpen) return;
       const firstItem = smartButton.querySelector('[data-role="smart-fill-recommend-item"]');
       if (firstItem && typeof firstItem.focus === "function") firstItem.focus();
+    }
+
+    async function openRecommendationPanelIfAvailable(target, fieldKey) {
+      const requestId = recommendationRequestId + 1;
+      recommendationRequestId = requestId;
+      let favorites = [];
+      try {
+        favorites = await listRecommendedProfiles(getCurrentScope());
+      } catch (_) {
+        favorites = [];
+      }
+      if (
+        !smartButton ||
+        requestId !== recommendationRequestId ||
+        activeSmartTarget !== target ||
+        activeSmartFieldKey !== fieldKey
+      ) return;
+      const items = buildRecommendationItems(fieldKey, favorites);
+      if (!items.length) return;
+      recommendationOpen = true;
+      recommendationLoading = false;
+      recommendationItems = items;
+      recommendationMessage = "";
+      renderSmartButton();
+      setSmartButtonExpanded(true);
     }
 
     async function openRecommendationPanel() {
@@ -427,6 +453,19 @@
       if (activeSmartTarget && smartButton && !smartButton.hidden) scheduleSmartButtonPosition();
     }
 
+    function isInteractionTarget(node) {
+      return !!(smartButton && node && typeof smartButton.contains === "function" && smartButton.contains(node));
+    }
+
+    function handleDocumentPointerDown(target) {
+      if (!smartButton || smartButton.hidden || isInteractionTarget(target)) return;
+      const editableTarget = editableTargetApi.findEditableTarget(target);
+      if (editableTarget === activeSmartTarget) return;
+      const focusedTarget = activeSmartTarget;
+      hideSmartButton();
+      if (focusedTarget === doc.activeElement && typeof focusedTarget.blur === "function") focusedTarget.blur();
+    }
+
     function mount() {
       if (smartButton || !doc || !doc.documentElement) return;
       smartButton = doc.createElement("div");
@@ -450,7 +489,6 @@
 
       smartButton.addEventListener("mouseleave", function () {
         setSmartButtonExpanded(false);
-        closeRecommendationPanel();
       });
 
       smartButton.addEventListener("focusin", function () {
@@ -513,10 +551,9 @@
 
     return {
       fillTarget,
+      handleDocumentPointerDown,
       hide: hideSmartButton,
-      isInteractionTarget(node) {
-        return !!(smartButton && node && typeof smartButton.contains === "function" && smartButton.contains(node));
-      },
+      isInteractionTarget,
       mount,
       refreshPosition,
       resolveManualOverrideTarget,

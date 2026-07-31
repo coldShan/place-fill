@@ -277,6 +277,7 @@
       "pointerdown",
       function (event) {
         panelController.handleDocumentPointerDown(event.target);
+        smartFillController.handleDocumentPointerDown(event.target);
       },
       true
     );

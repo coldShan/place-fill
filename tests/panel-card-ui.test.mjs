@@ -303,6 +303,11 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(smartfillScript, /function fillTarget\(target,\s*fieldKey\)/);
   assert.match(smartfillScript, /function buildRecommendationItems\(fieldKey,\s*favoriteProfiles\)/);
   assert.match(smartfillScript, /const MAX_RECOMMENDATION_ITEMS = 10/);
+  assert.match(smartfillScript, /function openRecommendationPanelIfAvailable\(target,\s*fieldKey\)/);
+  assert.match(smartfillScript, /const items = buildRecommendationItems\(fieldKey,\s*favorites\);\s*if \(!items\.length\) return;/);
+  assert.match(smartfillScript, /recommendationItems = items;[\s\S]*?renderSmartButton\(\);[\s\S]*?setSmartButtonExpanded\(true\);/);
+  assert.match(smartfillScript, /if \(autoOpenRecommendations !== false\) openRecommendationPanelIfAvailable\(target,\s*fieldKey\);/);
+  assert.match(smartfillScript, /showSmartButton\(target,\s*smartFillApi\.inferFieldKeyForSmartFill\(target\) \|\| activeSmartFieldKey,\s*false\);/);
   assert.match(smartfillScript, /data-role="smart-fill-recommend-trigger"/);
   assert.match(smartfillScript, /data-role="smart-fill-recommend-item"/);
   assert.match(smartfillScript, /if \(!fieldKey\) \{\s*hideSmartButton\(\);\s*return;\s*\}/);
@@ -314,7 +319,7 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.doesNotMatch(smartfillScript, /data-role="smart-fill-status"/);
   assert.doesNotMatch(smartfillScript, /function showStatusMessage\(/);
   assert.match(smartfillScript, /smartButton\.addEventListener\("mouseenter", function \(\) \{\s*setSmartButtonExpanded\(true\);/);
-  assert.match(smartfillScript, /smartButton\.addEventListener\("mouseleave", function \(\) \{\s*setSmartButtonExpanded\(false\);/);
+  assert.match(smartfillScript, /smartButton\.addEventListener\("mouseleave", function \(\) \{\s*setSmartButtonExpanded\(false\);\s*\}\);/);
   assert.match(smartfillScript, /smartButton\.addEventListener\("focusin", function \(\) \{\s*setSmartButtonExpanded\(true\);/);
   assert.match(smartfillScript, /smartButton\.addEventListener\("focusout", function \(\) \{\s*setSmartButtonExpanded\(false\);/);
   assert.match(orchestratorScript, /document\.addEventListener\(\s*"contextmenu"/);
@@ -345,6 +350,7 @@ test("content script is reduced to orchestration across dedicated controllers", 
   assert.match(orchestratorScript, /smartFillController\.mount\(\)/);
   assert.match(orchestratorScript, /panelController\.toggleVisible\(\)/);
   assert.match(orchestratorScript, /document\.addEventListener\(\s*"focusin",[\s\S]*?panelController\.handleDocumentFocusIn\(event\.target\)/);
-  assert.match(orchestratorScript, /document\.addEventListener\(\s*"pointerdown",[\s\S]*?panelController\.handleDocumentPointerDown\(event\.target\)/);
+  assert.match(orchestratorScript, /document\.addEventListener\(\s*"pointerdown",[\s\S]*?panelController\.handleDocumentPointerDown\(event\.target\);[\s\S]*?smartFillController\.handleDocumentPointerDown\(event\.target\)/);
+  assert.match(smartfillScript, /function handleDocumentPointerDown\(target\)[\s\S]*?if \(!smartButton \|\| smartButton\.hidden \|\| isInteractionTarget\(target\)\) return;[\s\S]*?if \(editableTarget === activeSmartTarget\) return;[\s\S]*?hideSmartButton\(\);[\s\S]*?focusedTarget\.blur\(\)/);
   assert.match(orchestratorScript, /smartFillController\.resolveManualOverrideTarget\(\)/);
 });

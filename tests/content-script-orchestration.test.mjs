@@ -19,6 +19,7 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
   const documentListeners = {};
   const windowListeners = {};
   const panelFocusInCalls = [];
+  const smartFillPointerDownCalls = [];
   const syncTargetCalls = [];
   const runtimeMessages = [];
   let dockMessageArgs = null;
@@ -27,6 +28,9 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
   let panelOptions = null;
   const smartFillController = {
     fillTarget() {},
+    handleDocumentPointerDown(target) {
+      smartFillPointerDownCalls.push(target);
+    },
     hide() {},
     isInteractionTarget() {
       return false;
@@ -172,6 +176,7 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
     panelOptions,
     panelFocusInCalls,
     runtimeMessages,
+    smartFillPointerDownCalls,
     syncTargetCalls
   };
 }
@@ -236,6 +241,15 @@ test("focusin on the document shell does not ask the panel to collapse", () => {
   runtime.documentListeners.focusin({ target: runtime.document.body });
 
   assert.deepEqual(runtime.panelFocusInCalls, []);
+});
+
+test("pointerdown delegates outside-click handling to smart fill", () => {
+  const runtime = runContentScriptWithSmartFillStub();
+  const target = { id: "blank-area" };
+
+  runtime.documentListeners.pointerdown({ target });
+
+  assert.deepEqual(runtime.smartFillPointerDownCalls, [target]);
 });
 
 test("content script skips duplicate ai recognition snapshots", async () => {
