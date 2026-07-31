@@ -8,6 +8,7 @@ const extensionDir = resolve(scriptsDir, "..");
 const repoDir = resolve(extensionDir, "..");
 const manifestPath = join(extensionDir, "manifest.json");
 const readmePath = join(repoDir, "README.md");
+const agentsPath = join(repoDir, "AGENTS.md");
 
 function replaceRequired(source, pattern, replacer, label) {
   let matched = false;
@@ -17,7 +18,7 @@ function replaceRequired(source, pattern, replacer, label) {
   });
 
   if (!matched) {
-    throw new Error(`README ${label} marker not found`);
+    throw new Error(`${label} marker not found`);
   }
 
   return updated;
@@ -41,7 +42,7 @@ export function syncReadmeVersion({
     function (_, prefix, __, suffix) {
       return `${prefix}${version}${suffix}`;
     },
-    "badge version"
+    "README badge version"
   );
   const nextReadme = replaceRequired(
     withBadgeVersion,
@@ -49,7 +50,7 @@ export function syncReadmeVersion({
     function (_, prefix, __, suffix) {
       return `${prefix}${version}${suffix}`;
     },
-    "release zip version"
+    "README release zip version"
   );
 
   if (nextReadme !== readme) {
@@ -59,7 +60,43 @@ export function syncReadmeVersion({
   return { readmePath: targetReadmePath, version };
 }
 
+export function syncAgentsVersion({
+  agentsPath: targetAgentsPath = agentsPath,
+  manifestPath: targetManifestPath = manifestPath
+} = {}) {
+  const manifest = JSON.parse(readFileSync(targetManifestPath, "utf8"));
+  const version = String(manifest.version || "").trim();
+
+  if (!version) {
+    throw new Error("manifest version is required");
+  }
+
+  const agents = readFileSync(targetAgentsPath, "utf8");
+  const nextAgents = replaceRequired(
+    agents,
+    /(- Current manifest version: `)([^`\n]+)(` \(source: `extension\/manifest\.json`\)\.)/,
+    function (_, prefix, __, suffix) {
+      return `${prefix}${version}${suffix}`;
+    },
+    "AGENTS.md current version"
+  );
+
+  if (nextAgents !== agents) {
+    writeFileSync(targetAgentsPath, nextAgents);
+  }
+
+  return { agentsPath: targetAgentsPath, version };
+}
+
+export function syncVersionReferences(options = {}) {
+  return {
+    agents: syncAgentsVersion(options),
+    readme: syncReadmeVersion(options)
+  };
+}
+
 if (resolve(process.argv[1] || "") === scriptPath) {
-  const result = syncReadmeVersion();
-  console.log(`${result.readmePath} -> v${result.version}`);
+  const result = syncVersionReferences();
+  console.log(`${result.readme.readmePath} -> v${result.readme.version}`);
+  console.log(`${result.agents.agentsPath} -> v${result.agents.version}`);
 }

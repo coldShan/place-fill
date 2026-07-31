@@ -4,6 +4,11 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
+const carrier = Buffer.concat([
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  Buffer.from("carrier")
+]);
+
 function createReleaseFixture() {
   const repoDir = mkdtempSync(join(tmpdir(), "ctdp-release-workflow-"));
   const extensionDir = join(repoDir, "extension");
@@ -21,7 +26,17 @@ function createReleaseFixture() {
       "下载 `place-fill-v0.7.4.zip`"
     ].join("\n")
   );
+  writeFileSync(
+    join(repoDir, "AGENTS.md"),
+    "- Current manifest version: `0.7.4` (source: `extension/manifest.json`).\n"
+  );
+  writeFileSync(join(repoDir, "nodata.png"), carrier);
   return { extensionDir, releasesDir, repoDir };
+}
+
+function writeReleaseArtifacts(repoDir, zip = Buffer.from("zip")) {
+  writeFileSync(join(repoDir, "releases", "place-fill-v0.7.4.zip"), zip);
+  writeFileSync(join(repoDir, "releases", "place-fill.png"), Buffer.concat([carrier, zip]));
 }
 
 test("releaseVersion commits, tags, pushes, and verifies the requested version", async () => {
@@ -65,6 +80,8 @@ test("releaseVersion commits, tags, pushes, and verifies the requested version",
     packageRelease() {
       return {
         fileName: "place-fill-v0.7.5.zip",
+        imageFileName: "place-fill.png",
+        imageOutputPath: join(repoDir, "releases", "place-fill.png"),
         outputPath: join(repoDir, "releases", "place-fill-v0.7.5.zip")
       };
     }
@@ -72,10 +89,12 @@ test("releaseVersion commits, tags, pushes, and verifies the requested version",
 
   const manifest = JSON.parse(readFileSync(join(repoDir, "extension", "manifest.json"), "utf8"));
   const readme = readFileSync(join(repoDir, "README.md"), "utf8");
+  const agents = readFileSync(join(repoDir, "AGENTS.md"), "utf8");
 
   assert.equal(manifest.version, "0.7.5");
   assert.match(readme, /版本-v0\.7\.5-/);
   assert.match(readme, /place-fill-v0\.7\.5\.zip/);
+  assert.match(agents, /Current manifest version: `0\.7\.5`/);
   assert.equal(result.tagName, "v0.7.5");
   assert.equal(result.branch, "main");
   assert.deepEqual(
@@ -86,7 +105,7 @@ test("releaseVersion commits, tags, pushes, and verifies the requested version",
       "git ls-remote --tags origin v0.7.5",
       "git log --no-merges --format=%s v0.7.4..HEAD",
       "git branch --show-current",
-      "git add extension/manifest.json README.md",
+      "git add extension/manifest.json README.md AGENTS.md",
       "git commit -m chore: 发布 0.7.5 版本",
       "git tag v0.7.5",
       "git push origin main",
@@ -104,6 +123,8 @@ test("releaseVersion commits, tags, pushes, and verifies the requested version",
   assert.match(createReleaseCall, /### 问题修复\n- 修复悬浮入口隐藏/);
   assert.doesNotMatch(createReleaseCall, /调整发布流程/);
   assert.match(createReleaseCall, /compare\/v0\.7\.4\.\.\.v0\.7\.5/);
+  assert.match(createReleaseCall, /place-fill-v0\.7\.5\.zip/);
+  assert.doesNotMatch(createReleaseCall, /place-fill\.png/);
   assert.deepEqual(
     calls.filter((call) => call.startsWith("pnpm ")),
     ["pnpm run check", "pnpm test"]
@@ -147,7 +168,7 @@ test("buildReleaseNotes groups user-facing changes and removes duplicates", asyn
 test("verifyRelease fails when the manifest version has no remote tag", async () => {
   const { repoDir } = createReleaseFixture();
   const verifyScript = await import("../extension/scripts/verify-release.mjs");
-  writeFileSync(join(repoDir, "releases", "place-fill-v0.7.4.zip"), "zip");
+  writeReleaseArtifacts(repoDir);
 
   assert.throws(
     () => verifyScript.verifyRelease({
@@ -169,10 +190,36 @@ test("verifyRelease fails when the manifest version has no remote tag", async ()
   );
 });
 
+test("verifyRelease fails when AGENTS.md has a stale version", async () => {
+  const { repoDir } = createReleaseFixture();
+  const verifyScript = await import("../extension/scripts/verify-release.mjs");
+  writeFileSync(
+    join(repoDir, "AGENTS.md"),
+    "- Current manifest version: `0.7.3` (source: `extension/manifest.json`).\n"
+  );
+
+  assert.throws(
+    () => verifyScript.verifyRelease({ repoDir }),
+    /AGENTS\.md does not reference manifest version 0\.7\.4/
+  );
+});
+
+test("verifyRelease fails when the disguised image does not contain the current zip", async () => {
+  const { repoDir } = createReleaseFixture();
+  const verifyScript = await import("../extension/scripts/verify-release.mjs");
+  writeReleaseArtifacts(repoDir);
+  writeFileSync(join(repoDir, "releases", "place-fill.png"), Buffer.concat([carrier, Buffer.from("old zip")]));
+
+  assert.throws(
+    () => verifyScript.verifyRelease({ repoDir }),
+    /disguised release image does not contain the current release zip/
+  );
+});
+
 test("verifyRelease fails when the GitHub Release is missing", async () => {
   const { repoDir } = createReleaseFixture();
   const verifyScript = await import("../extension/scripts/verify-release.mjs");
-  writeFileSync(join(repoDir, "releases", "place-fill-v0.7.4.zip"), "zip");
+  writeReleaseArtifacts(repoDir);
 
   assert.throws(
     () => verifyScript.verifyRelease({

@@ -58,13 +58,13 @@ pnpm typecheck
 # 运行全部测试
 pnpm test
 
-# 打包发布 zip
+# 打包发布 zip，并生成伪装图片 releases/place-fill.png
 node extension/scripts/package-release.mjs
 
-# 发布新版本：更新版本、测试、打包、提交、打 tag、推送并创建带更新日志的 GitHub Release
+# 发布新版本：同步文档、测试、打包；只上传 zip，place-fill.png 保留在本地
 pnpm release 0.7.5
 
-# 验证当前 manifest 版本的 README、zip、tag 和 GitHub Release
+# 验证当前版本的文档、zip、伪装图片、tag 和 GitHub Release
 pnpm release:verify
 ```
 

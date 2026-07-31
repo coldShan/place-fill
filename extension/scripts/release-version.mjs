@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { packageRelease as packageReleaseImpl } from "./package-release.mjs";
-import { syncReadmeVersion } from "./sync-readme-version.mjs";
+import { syncVersionReferences } from "./sync-readme-version.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const scriptsDir = dirname(scriptPath);
@@ -169,6 +169,7 @@ export function releaseVersion({
   const extensionDir = join(repoDir, "extension");
   const manifestPath = join(extensionDir, "manifest.json");
   const readmePath = join(repoDir, "README.md");
+  const agentsPath = join(repoDir, "AGENTS.md");
   const releasesDir = join(repoDir, "releases");
 
   assertCleanWorktree({ repoDir, runCommand });
@@ -184,14 +185,14 @@ export function releaseVersion({
   ).stdout.split(/\r?\n/);
   const releaseNotes = buildReleaseNotes({ commitSubjects, previousTag, tagName });
   updateManifestVersion({ manifestPath, version: nextVersion });
-  syncReadmeVersion({ manifestPath, readmePath });
+  syncVersionReferences({ agentsPath, manifestPath, readmePath });
   const branch = getCurrentBranch({ repoDir, runCommand });
 
   runChecked(runCommand, "pnpm", ["run", "check"], { cwd: repoDir, stdio: "inherit" });
   runChecked(runCommand, "pnpm", ["test"], { cwd: repoDir, stdio: "inherit" });
   const releaseAsset = packageRelease({ extensionDir, releasesDir });
 
-  runChecked(runCommand, "git", ["add", "extension/manifest.json", "README.md"], { cwd: repoDir });
+  runChecked(runCommand, "git", ["add", "extension/manifest.json", "README.md", "AGENTS.md"], { cwd: repoDir });
   runChecked(runCommand, "git", ["commit", "-m", `chore: 发布 ${nextVersion} 版本`], { cwd: repoDir });
   runChecked(runCommand, "git", ["tag", tagName], { cwd: repoDir });
   runChecked(runCommand, "git", ["push", "origin", branch], { cwd: repoDir, stdio: "inherit" });
@@ -216,11 +217,18 @@ export function releaseVersion({
     ],
     { cwd: repoDir, stdio: "inherit" }
   );
-  assertGitHubRelease({ repoDir, runCommand, tagName, zipName: releaseAsset.fileName });
+  assertGitHubRelease({
+    repoDir,
+    runCommand,
+    tagName,
+    zipName: releaseAsset.fileName
+  });
 
   return {
     branch,
     fileName: releaseAsset.fileName,
+    imageFileName: releaseAsset.imageFileName,
+    imageOutputPath: releaseAsset.imageOutputPath,
     outputPath: releaseAsset.outputPath,
     previousVersion,
     tagName,
@@ -232,4 +240,5 @@ if (resolve(process.argv[1] || "") === scriptPath) {
   const result = releaseVersion({ version: process.argv[2] });
   console.log(`released ${result.tagName} on ${result.branch}`);
   console.log(result.outputPath);
+  console.log(result.imageOutputPath);
 }

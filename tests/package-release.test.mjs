@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -27,7 +27,14 @@ test("packageRelease targets the releases directory with a versioned zip filenam
   const rootDir = mkdtempSync(join(tmpdir(), "ctdp-release-"));
   const extensionDir = join(rootDir, "extension");
   const releasesDir = join(rootDir, "releases");
+  const carrierPath = join(rootDir, "nodata.png");
+  const carrier = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    Buffer.from("carrier")
+  ]);
+  const zip = Buffer.from("zip");
   mkdirSync(extensionDir, { recursive: true });
+  writeFileSync(carrierPath, carrier);
   writeFileSync(
     join(extensionDir, "manifest.json"),
     JSON.stringify({ name: "place-fill", version: "1.2.3" }, null, 2)
@@ -35,16 +42,20 @@ test("packageRelease targets the releases directory with a versioned zip filenam
 
   let zipCall = null;
   const result = releaseScript?.packageRelease({
+    carrierPath,
     extensionDir,
     releasesDir,
     runZip(args) {
       zipCall = args;
+      writeFileSync(args.outputPath, zip);
     }
   });
 
   assert.equal(typeof releaseScript?.packageRelease, "function");
   assert.deepEqual(result, {
     fileName: "place-fill-v1.2.3.zip",
+    imageFileName: "place-fill.png",
+    imageOutputPath: join(releasesDir, "place-fill.png"),
     manifest: { name: "place-fill", version: "1.2.3" },
     outputPath: join(releasesDir, "place-fill-v1.2.3.zip")
   });
@@ -53,6 +64,7 @@ test("packageRelease targets the releases directory with a versioned zip filenam
     extensionDir,
     outputPath: join(releasesDir, "place-fill-v1.2.3.zip")
   });
+  assert.deepEqual(readFileSync(join(releasesDir, "place-fill.png")), Buffer.concat([carrier, zip]));
 });
 
 test("packageRelease runs README version sync before packaging when provided", async () => {
@@ -68,6 +80,7 @@ test("packageRelease runs README version sync before packaging when provided", a
 
   let synced = 0;
   releaseScript?.packageRelease({
+    createImage() {},
     extensionDir,
     releasesDir,
     syncReadme() {

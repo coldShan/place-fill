@@ -1,8 +1,8 @@
 *.zip
+releases/place-fill.png
 node_modules
 task_plan.md
 findings.md
 progress.md
 .DS_Store
-AGENTS.md
 CLAUDE.md
