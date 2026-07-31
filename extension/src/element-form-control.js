@@ -163,54 +163,41 @@
       !!(option.getAttribute && option.getAttribute("aria-selected") === "true");
   }
 
-  function createKeyboardEvent(node, key) {
+  function createEscapeEvent(node) {
     const win = node && node.ownerDocument && node.ownerDocument.defaultView;
-    const keyCode = key === "Escape" ? 27 : 0;
     let event;
     if (win && typeof win.KeyboardEvent === "function") {
       event = new win.KeyboardEvent("keydown", {
         bubbles: true,
         cancelable: true,
-        code: key,
-        key
+        code: "Escape",
+        key: "Escape"
       });
     } else {
-      event = { type: "keydown", key, code: key };
+      event = { type: "keydown", key: "Escape", code: "Escape" };
     }
-    if (!event.keyCode) Object.defineProperty(event, "keyCode", { value: keyCode });
-    if (!event.which) Object.defineProperty(event, "which", { value: keyCode });
+    if (!event.keyCode) Object.defineProperty(event, "keyCode", { value: 27 });
+    if (!event.which) Object.defineProperty(event, "which", { value: 27 });
     return event;
   }
 
-  function closeElementPicker(input) {
-    if (input && typeof input.dispatchEvent === "function") {
-      input.dispatchEvent(createKeyboardEvent(input, "Escape"));
-    }
-    if (input && typeof input.blur === "function") input.blur();
-  }
-
   async function confirmElementPicker(type, doc, env) {
-    if (!doc || typeof doc.querySelectorAll !== "function") return false;
-    const panelSelector = type.indexOf("time") === 0
-      ? ".el-time-panel.el-popper"
-      : ".el-date-picker.el-popper";
+    if (!doc || typeof doc.querySelectorAll !== "function") return;
+    const isTime = type.indexOf("time") === 0;
+    const panelSelector = isTime ? ".el-time-panel.el-popper" : ".el-date-picker.el-popper";
+    const buttonSelector = isTime
+      ? ".el-time-panel__btn.confirm"
+      : ".el-picker-panel__footer .el-button--default";
     for (let attempt = 0; attempt < 6; attempt += 1) {
       const panels = Array.from(doc.querySelectorAll(panelSelector)).filter(isVisible);
       const panel = panels[panels.length - 1];
-      const button = panel && typeof panel.querySelector === "function"
-        ? panel.querySelector(
-          type.indexOf("time") === 0
-            ? ".el-time-panel__btn.confirm"
-            : ".el-picker-panel__footer .el-button--default"
-        )
-        : null;
-      if (button && typeof button.click === "function") {
+      const button = panel && panel.querySelector(buttonSelector);
+      if (button) {
         button.click();
-        return true;
+        return;
       }
       await wait(40, env);
     }
-    return false;
   }
 
   async function fillElementSelect(entry, env) {
@@ -263,7 +250,7 @@
 
     const input = combobox || root.querySelector("input");
     if (input && typeof input.dispatchEvent === "function") {
-      input.dispatchEvent(createKeyboardEvent(input, "Escape"));
+      input.dispatchEvent(createEscapeEvent(input));
       if (typeof input.blur === "function") input.blur();
     }
     await wait(180, env);
@@ -351,10 +338,8 @@
       input.dispatchEvent(createEvent(input, "change"));
     });
     await wait(20, env);
-    const activeInput = inputs[inputs.length - 1];
-    const doc = env && env.document || entry.root.ownerDocument || activeInput && activeInput.ownerDocument;
+    const doc = env && env.document || entry.root.ownerDocument || inputs[0].ownerDocument;
     await confirmElementPicker(type, doc, env);
-    closeElementPicker(activeInput);
     await wait(350, env);
     return true;
   }

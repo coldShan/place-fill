@@ -21,17 +21,12 @@ function classList(...names) {
 
 function createInput(type) {
   const events = [];
-  const eventObjects = [];
   return {
     disabled: false,
     type,
     value: "",
-    blur() {
-      events.push("blur");
-    },
     dispatchEvent(event) {
       events.push(event.type);
-      eventObjects.push(event);
       return true;
     },
     focus() {
@@ -39,9 +34,6 @@ function createInput(type) {
     },
     get events() {
       return events;
-    },
-    get eventObjects() {
-      return eventObjects;
     }
   };
 }
@@ -168,7 +160,7 @@ test("fills up to two values in an Element multiple select", async () => {
   assert.equal(keyboardEvents.at(-1).key, "Escape");
 });
 
-test("fills Element temporal inputs and confirms the picker before closing fallbacks", async () => {
+test("fills Element temporal inputs and confirms the picker", async () => {
   const input = createInput("text");
   let confirmClicks = 0;
   const pickerPanel = {
@@ -200,8 +192,7 @@ test("fills Element temporal inputs and confirms the picker before closing fallb
 
   assert.equal(filled, true);
   assert.equal(input.value, "2026-07-31 09:08:07");
-  assert.deepEqual(input.events, ["focus", "input", "change", "keydown", "blur"]);
-  assert.equal(input.eventObjects.find(function (event) { return event.type === "keydown"; }).keyCode, 27);
+  assert.deepEqual(input.events, ["focus", "input", "change"]);
   assert.equal(confirmClicks, 1);
 });
 
