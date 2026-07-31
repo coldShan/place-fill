@@ -92,6 +92,7 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
           return null;
         }
       },
+      ChromeTestDataElementFormControl: {},
       ChromeTestDataIconAssets: {},
       ChromeTestDataFieldMeta: {},
       ChromeTestDataFieldVisibility: {},

@@ -30,15 +30,24 @@
     });
   }
 
-  function collectPageAutoFillTargets(doc, editableTargetApi, smartFillApi, fieldVisibilityApi, visibleFieldKeys) {
+  function collectPageAutoFillTargets(doc, editableTargetApi, smartFillApi, fieldVisibilityApi, visibleFieldKeys, elementFormControlApi) {
     if (!doc || !editableTargetApi || !smartFillApi) return [];
     const candidates = Array.from(doc.querySelectorAll(
       'input, textarea, select, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]'
     ));
     const targets = [];
     const seen = new Set();
+    const elementRoots = new Set();
 
     candidates.forEach(function (node) {
+      const elementEntry = elementFormControlApi && elementFormControlApi.describeElementControl(node);
+      if (elementEntry) {
+        if (elementRoots.has(elementEntry.root)) return;
+        elementRoots.add(elementEntry.root);
+        targets.push(elementEntry);
+        return;
+      }
+
       const kind = editableTargetApi.getGenericFormControlKind(node);
       if (kind === "checkbox" || kind === "radio") {
         const name = String(node.name || "");
@@ -90,6 +99,7 @@
     const siteFeatureToggleApi = opts.siteFeatureToggleApi;
     const smartFillApi = opts.smartFillApi;
     const editableTargetApi = opts.editableTargetApi;
+    const elementFormControlApi = opts.elementFormControlApi;
     const doc = opts.document;
     const win = opts.window;
     const canRenderPanel = opts.canRenderPanel !== false;
@@ -844,7 +854,8 @@
         editableTargetApi,
         smartFillApi,
         fieldVisibilityApi,
-        state.visibleFieldKeys
+        state.visibleFieldKeys,
+        elementFormControlApi
       );
     }
 
@@ -879,9 +890,14 @@
           await delay(120);
           if (autoFillAborted) break;
 
-          var filled = entry.fieldKey
-            ? editableTargetApi.fillEditableTarget(entry.target, value)
-            : editableTargetApi.fillGenericFormControl(entry.targets);
+          var filled = entry.adapter === "element"
+            ? await elementFormControlApi.fillElementControl(entry, {
+              document: doc,
+              editableTargetApi: editableTargetApi
+            })
+            : entry.fieldKey
+              ? editableTargetApi.fillEditableTarget(entry.target, value)
+              : editableTargetApi.fillGenericFormControl(entry.targets);
           if (!filled) continue;
           hideFallback();
           pulseFlash("copy");

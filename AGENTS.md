@@ -102,14 +102,15 @@ pnpm release:verify
 5. `generators.js`: test data generators
 6. `panel-state.js`: panel expand/collapse state
 7. `editable-target.js`: editable target detection
-8. `icon-assets.js`: icon path mapping
-9. `generated/offline-form-snapshot-api.js`: shared offline snapshot helpers
-10. `smart-fill.js`: field recognition and manual annotation storage
-11. `ai-form-snapshot.js`: sanitized form snapshot orchestration
-12. `generated/data-records-api.js`: shared data-record helpers
-13. `content-script-panel.js`: side panel controller
-14. `content-script-smartfill.js`: floating fill UI near inputs
-15. `content-script.js`: top-level orchestrator
+8. `element-form-control.js`: Element UI and Element Plus form adapters
+9. `icon-assets.js`: icon path mapping
+10. `generated/offline-form-snapshot-api.js`: shared offline snapshot helpers
+11. `smart-fill.js`: field recognition and manual annotation storage
+12. `ai-form-snapshot.js`: sanitized form snapshot orchestration
+13. `generated/data-records-api.js`: shared data-record helpers
+14. `content-script-panel.js`: side panel controller
+15. `content-script-smartfill.js`: floating fill UI near inputs
+16. `content-script.js`: top-level orchestrator
 
 ### Background Worker Load Order
 

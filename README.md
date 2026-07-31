@@ -14,7 +14,7 @@
 ## 功能
 
 - 生成常用中文测试数据：统一社会信用代码、公司名称、姓名、身份证号、银行卡号、账号、手机号、邮箱、固定电话、地址。
-- 右侧悬浮面板支持单项复制、整组复制、重新生成和页面自动填充；一键填充支持原生文本框、下拉框、单选、多选及日期时间控件，悬浮球划过后可直接触发。
+- 右侧悬浮面板支持单项复制、整组复制、重新生成和页面自动填充；一键填充支持原生及 Element UI / Element Plus 的文本框、下拉框、单选、多选、开关与日期时间控件，悬浮球划过后可直接触发。
 - 智能识别输入框类型，并在输入框旁显示快速填充按钮；当前字段存在常用推荐数据时直接展开选择面板。
 - 可配置 OpenAI-compatible 接口进行脱敏表单识别，复核本地识别并补充未知字段。
 - 支持右键手动标注字段类型；标注按域名和一级路径复用。
@@ -68,7 +68,7 @@ pnpm release 0.7.5
 pnpm release:verify
 ```
 
-本地调试时，在 `chrome://extensions` 中加载 `extension/` 目录。手动验证页面位于 `mock-form/index.html`。
+本地调试时，在 `chrome://extensions` 中加载 `extension/` 目录。原生、Element UI 和 Element Plus 手动验证页面分别位于 `mock-form/index.html`、`mock-form/element-ui-demo.html` 和 `mock-form/element-plus-demo.html`。
 
 ## 目录
 

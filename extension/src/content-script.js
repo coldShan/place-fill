@@ -4,6 +4,7 @@
   const generators = globalThis.ChromeTestDataGenerators;
   const panelStateApi = globalThis.ChromeTestDataPanelState;
   const editableTargetApi = globalThis.ChromeTestDataEditableTarget;
+  const elementFormControlApi = globalThis.ChromeTestDataElementFormControl;
   const iconAssetsApi = globalThis.ChromeTestDataIconAssets;
   const fieldMetaApi = globalThis.ChromeTestDataFieldMeta;
   const fieldVisibilityApi = globalThis.ChromeTestDataFieldVisibility;
@@ -18,6 +19,7 @@
     !generators ||
     !panelStateApi ||
     !editableTargetApi ||
+    !elementFormControlApi ||
     !iconAssetsApi ||
     !fieldMetaApi ||
     !fieldVisibilityApi ||
@@ -155,6 +157,7 @@
     canRenderPanel,
     document,
     editableTargetApi,
+    elementFormControlApi,
     fieldMetaApi,
     fieldVisibilityApi,
     generators,

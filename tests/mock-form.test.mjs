@@ -6,6 +6,8 @@ import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const mockFormSource = readFileSync(join(here, "../mock-form/index.html"), "utf8");
+const elementUiSource = readFileSync(join(here, "../mock-form/element-ui-demo.html"), "utf8");
+const elementPlusSource = readFileSync(join(here, "../mock-form/element-plus-demo.html"), "utf8");
 
 test("mock form includes an account input for manual verification", () => {
   assert.match(mockFormSource, /<label for="account">账号<\/label>/);
@@ -26,4 +28,19 @@ test("mock form covers native select, choice and temporal controls", () => {
 test("mock form includes controls that one-click fill must skip", () => {
   assert.match(mockFormSource, /id="readonlyField"[^>]*readonly/);
   assert.match(mockFormSource, /id="disabledField"[^>]*disabled/);
+});
+
+test("Element UI and Element Plus demos cover common framework controls", () => {
+  [elementUiSource, elementPlusSource].forEach(function (source) {
+    assert.match(source, /<el-select[^>]*placeholder="请选择城市"/);
+    assert.match(source, /<el-select[^>]*multiple[^>]*placeholder="请选择业务范围"/);
+    assert.match(source, /<el-radio-group/);
+    assert.match(source, /<el-checkbox-group/);
+    assert.match(source, /<el-switch/);
+    assert.match(source, /<el-date-picker[^>]*type="date"/);
+    assert.match(source, /<el-date-picker[^>]*type="datetime"/);
+    assert.match(source, /<el-time-picker/);
+  });
+  assert.match(elementUiSource, /id="elementUiState"/);
+  assert.match(elementPlusSource, /id="elementPlusState"/);
 });

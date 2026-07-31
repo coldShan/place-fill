@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Element Plus 兼容性验证页</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
+    <style>
+      :root {
+        --bg: #eef3f8;
+        --panel: rgba(255, 255, 255, 0.9);
+        --ink: #172033;
+        --muted: #61708a;
+        --line: rgba(23, 32, 51, 0.12);
+        --accent: #2b7fd8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top right, rgba(43, 127, 216, 0.18), transparent 30%),
+          linear-gradient(145deg, #f7f9fc, var(--bg));
+        font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+
+      .page {
+        width: min(1120px, calc(100% - 40px));
+        margin: 28px auto;
+        padding: 28px;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: var(--panel);
+        box-shadow: 0 24px 56px rgba(34, 58, 91, 0.12);
+      }
+
+      .hero {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 24px;
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-size: clamp(30px, 5vw, 46px);
+      }
+
+      .hero p,
+      .field-row > label {
+        color: var(--muted);
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
+      }
+
+      .field-row {
+        display: grid;
+        align-content: start;
+        gap: 8px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .field-row > label {
+        font-size: 13px;
+      }
+
+      .field-row .el-select,
+      .field-row .el-date-editor {
+        width: 100%;
+      }
+
+      .state {
+        margin-top: 22px;
+        padding: 18px;
+        border-radius: 18px;
+        background: #172033;
+      }
+
+      .state h2 {
+        margin: 0 0 12px;
+        color: #fff;
+        font-size: 16px;
+      }
+
+      .state pre {
+        min-height: 160px;
+        margin: 0;
+        overflow: auto;
+        color: #dce7f5;
+        font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app" class="page">
+      <section class="hero">
+        <h1>Element Plus 一键填充验证</h1>
+        <p>执行扩展的一键填充后，组件外观与下方 Vue 3 数据应同步更新；禁用选项不应被选择。</p>
+      </section>
+
+      <section class="form-grid">
+        <div class="field-row">
+          <label>姓名输入框</label>
+          <el-input v-model="form.name" placeholder="请输入姓名"></el-input>
+        </div>
+        <div class="field-row">
+          <label>城市（单选下拉）</label>
+          <el-select v-model="form.city" placeholder="请选择城市">
+            <el-option label="济南" value="济南"></el-option>
+            <el-option label="青岛" value="青岛"></el-option>
+            <el-option label="烟台（禁用）" value="烟台" disabled></el-option>
+          </el-select>
+        </div>
+        <div class="field-row">
+          <label>业务范围（多选下拉）</label>
+          <el-select v-model="form.scopes" multiple placeholder="请选择业务范围">
+            <el-option label="研发" value="研发"></el-option>
+            <el-option label="测试" value="测试"></el-option>
+            <el-option label="运营" value="运营"></el-option>
+          </el-select>
+        </div>
+        <div class="field-row">
+          <label>联系人角色（单选）</label>
+          <el-radio-group v-model="form.role">
+            <el-radio value="manager">负责人</el-radio>
+            <el-radio value="staff">经办人</el-radio>
+          </el-radio-group>
+        </div>
+        <div class="field-row">
+          <label>业务标签（多选）</label>
+          <el-checkbox-group v-model="form.tags">
+            <el-checkbox value="重点">重点</el-checkbox>
+            <el-checkbox value="长期">长期</el-checkbox>
+            <el-checkbox value="临时">临时</el-checkbox>
+          </el-checkbox-group>
+        </div>
+        <div class="field-row">
+          <label>是否启用（开关）</label>
+          <el-switch v-model="form.enabled"></el-switch>
+        </div>
+        <div class="field-row">
+          <label>办理日期</label>
+          <el-date-picker v-model="form.date" type="date" placeholder="请选择日期"></el-date-picker>
+        </div>
+        <div class="field-row">
+          <label>办理时间</label>
+          <el-date-picker v-model="form.datetime" type="datetime" placeholder="请选择日期时间"></el-date-picker>
+        </div>
+        <div class="field-row">
+          <label>提醒时间</label>
+          <el-time-picker v-model="form.time" placeholder="请选择时间"></el-time-picker>
+        </div>
+      </section>
+
+      <section class="state">
+        <h2>Vue 3 绑定值</h2>
+        <pre id="elementPlusState">{{ JSON.stringify(form, null, 2) }}</pre>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/element-plus/dist/index.full.js"></script>
+    <script>
+      const elementPlusState = Vue.reactive({
+        name: "",
+        city: "",
+        scopes: [],
+        role: "",
+        tags: [],
+        enabled: false,
+        date: "",
+        datetime: "",
+        time: ""
+      });
+      window.elementPlusState = elementPlusState;
+      Vue.createApp({
+        setup: function () {
+          return { form: elementPlusState };
+        }
+      }).use(ElementPlus).mount("#app");
+    </script>
+  </body>
+</html>

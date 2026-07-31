@@ -227,6 +227,41 @@ test("one-click fill collects native controls without requiring semantic matches
   assert.equal(targets.find((entry) => entry.kind === "checkbox")?.targets.length, 1);
 });
 
+test("one-click fill deduplicates Element component internals into one adapter target", () => {
+  const selectRoot = {};
+  const selectInput = { id: "select-input" };
+  const selectSearchInput = { id: "select-search-input" };
+  const elementEntry = {
+    adapter: "element",
+    kind: "select",
+    root: selectRoot,
+    target: selectInput,
+    targets: [selectRoot]
+  };
+  const targets = collectPageAutoFillTargets(
+    {
+      querySelectorAll() {
+        return [selectInput, selectSearchInput];
+      }
+    },
+    editableTargetApi,
+    {
+      inferFieldKeyForSmartFill() {
+        return null;
+      }
+    },
+    null,
+    [],
+    {
+      describeElementControl(node) {
+        return node === selectInput || node === selectSearchInput ? elementEntry : null;
+      }
+    }
+  );
+
+  assert.deepEqual(targets, [elementEntry]);
+});
+
 test("dock reuses one text bubble and keeps backup reminders until dismissed", () => {
   assert.match(panelScript, /data-role="dock-message"[^>]*hidden/);
   assert.match(panelScript, /data-role="run-dock-message-action" aria-live="polite" disabled/);

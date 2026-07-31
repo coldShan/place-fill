@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Element UI 霓虹边框复现页</title>
+    <title>Element UI 兼容性验证页</title>
     <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css" />
     <style>
       :root {
@@ -172,6 +172,38 @@
         gap: 12px;
       }
 
+      .compatibility-case {
+        grid-column: 1 / -1;
+      }
+
+      .compatibility-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
+      }
+
+      .field-row {
+        display: grid;
+        align-content: start;
+        gap: 8px;
+      }
+
+      .field-row > label {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .compatibility-state {
+        min-height: 160px;
+        margin: 0;
+        padding: 14px;
+        overflow: auto;
+        border-radius: 14px;
+        background: #20242b;
+        color: #dce7f5;
+        font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
       .debug-list {
         margin: 0;
         padding-left: 18px;
@@ -282,6 +314,66 @@
             <li>把扩展里的 <code>.ctdp-smartfocus</code> 临时去掉 <code>pointer-events: none</code>，如果输入框立刻点不动，就说明 glow 层真实在上面。</li>
           </ul>
         </article>
+
+        <article class="case compatibility-case">
+          <span class="case-tag">Form Controls</span>
+          <h2>Element UI 一键填充兼容性</h2>
+          <p class="case-note">用于验证下拉框、单选、多选、开关和日期时间组件。执行一键填充后，下方 Vue 数据应同步变化。</p>
+          <div class="compatibility-grid">
+            <div class="field-row">
+              <label>姓名输入框</label>
+              <el-input v-model="compatibility.name" placeholder="请输入姓名"></el-input>
+            </div>
+            <div class="field-row">
+              <label>城市（单选下拉）</label>
+              <el-select v-model="compatibility.city" placeholder="请选择城市">
+                <el-option label="济南" value="济南"></el-option>
+                <el-option label="青岛" value="青岛"></el-option>
+                <el-option label="烟台（禁用）" value="烟台" disabled></el-option>
+              </el-select>
+            </div>
+            <div class="field-row">
+              <label>业务范围（多选下拉）</label>
+              <el-select v-model="compatibility.scopes" multiple placeholder="请选择业务范围">
+                <el-option label="研发" value="研发"></el-option>
+                <el-option label="测试" value="测试"></el-option>
+                <el-option label="运营" value="运营"></el-option>
+              </el-select>
+            </div>
+            <div class="field-row">
+              <label>联系人角色（单选）</label>
+              <el-radio-group v-model="compatibility.role">
+                <el-radio label="manager">负责人</el-radio>
+                <el-radio label="staff">经办人</el-radio>
+              </el-radio-group>
+            </div>
+            <div class="field-row">
+              <label>业务标签（多选）</label>
+              <el-checkbox-group v-model="compatibility.tags">
+                <el-checkbox label="重点">重点</el-checkbox>
+                <el-checkbox label="长期">长期</el-checkbox>
+                <el-checkbox label="临时">临时</el-checkbox>
+              </el-checkbox-group>
+            </div>
+            <div class="field-row">
+              <label>是否启用（开关）</label>
+              <el-switch v-model="compatibility.enabled"></el-switch>
+            </div>
+            <div class="field-row">
+              <label>办理日期</label>
+              <el-date-picker v-model="compatibility.date" type="date" placeholder="请选择日期"></el-date-picker>
+            </div>
+            <div class="field-row">
+              <label>办理时间</label>
+              <el-date-picker v-model="compatibility.datetime" type="datetime" placeholder="请选择日期时间"></el-date-picker>
+            </div>
+            <div class="field-row">
+              <label>提醒时间</label>
+              <el-time-picker v-model="compatibility.time" placeholder="请选择时间"></el-time-picker>
+            </div>
+          </div>
+          <pre id="elementUiState" class="compatibility-state">{{ JSON.stringify(compatibility, null, 2) }}</pre>
+        </article>
       </section>
 
       <section class="footer">
@@ -292,7 +384,7 @@
     <script src="https://unpkg.com/vue@2/dist/vue.js"></script>
     <script src="https://unpkg.com/element-ui/lib/index.js"></script>
     <script>
-      new Vue({
+      window.elementUiApp = new Vue({
         el: "#app",
         data: function () {
           return {
@@ -308,6 +400,17 @@
             stressForm: {
               mobile: "",
               company: ""
+            },
+            compatibility: {
+              name: "",
+              city: "",
+              scopes: [],
+              role: "",
+              tags: [],
+              enabled: false,
+              date: "",
+              datetime: "",
+              time: ""
             }
           };
         },
