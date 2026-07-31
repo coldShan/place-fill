@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 const here = dirname(fileURLToPath(import.meta.url));
 const pageDir = join(here, "../extension/src-ts/pages/data-manager");
 const pageHtml = readFileSync(join(here, "../extension/data-manager.html"), "utf8");
+const themeStyles = readFileSync(join(here, "../extension/src/theme.css"), "utf8");
 const sharedFieldMetaSource = readFileSync(join(here, "../extension/src-ts/shared/field-meta.ts"), "utf8");
 const pageSource = readdirSync(pageDir)
   .filter(function (fileName) {
@@ -18,6 +19,13 @@ const pageSource = readdirSync(pageDir)
   })
   .join("\n");
 const pageStyles = readFileSync(join(pageDir, "style.css"), "utf8");
+
+test("data manager blue actions and text use the shared brand blue", () => {
+  assert.match(themeStyles, /--place-fill-accent:\s*#2B7FD8;/);
+  assert.match(pageHtml, /<link rel="stylesheet" href="\.\/src\/theme\.css">\s*<link rel="stylesheet" href="\.\/generated\/data-manager\.css">/);
+  assert.match(pageStyles, /\.dm-primary-btn\s*\{[\s\S]*?background:\s*var\(--place-fill-accent\);/);
+  assert.match(pageStyles, /\.dm-table-btn\s*\{[\s\S]*?color:\s*var\(--place-fill-accent\);/);
+});
 
 test("data manager page uses top tabs dual routes instead of a left sidebar layout", () => {
   assert.match(pageSource, /data-view="favorites"/);

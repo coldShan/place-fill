@@ -9,9 +9,7 @@
   --dm-surface-3: #f3f7fa;
   --dm-line: rgba(32, 56, 76, 0.1);
   --dm-line-strong: rgba(21, 42, 61, 0.18);
-  --dm-accent: #1c4b68;
-  --dm-accent-strong: #113650;
-  --dm-accent-soft: rgba(28, 75, 104, 0.08);
+  --dm-accent-soft: rgba(43, 127, 216, 0.08);
   --dm-success: #226a57;
   --dm-warning: #9c6b1c;
   --dm-danger: #a34238;
@@ -177,12 +175,12 @@ select:focus-visible {
 }
 
 .dm-tab:hover {
-  color: var(--dm-accent);
+  color: var(--place-fill-accent);
 }
 
 .dm-tab[data-active="true"] {
   color: var(--dm-ink-1);
-  box-shadow: inset 0 -2px 0 var(--dm-accent);
+  box-shadow: inset 0 -2px 0 var(--place-fill-accent);
 }
 
 .dm-workspace {
@@ -221,7 +219,7 @@ select:focus-visible {
 
 .dm-primary-btn {
   color: #f4f8fb;
-  background: linear-gradient(180deg, var(--dm-accent), var(--dm-accent-strong));
+  background: var(--place-fill-accent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
@@ -237,7 +235,7 @@ select:focus-visible {
   min-height: 34px;
   padding: 0 10px;
   border: 1px solid transparent;
-  color: var(--dm-accent-strong);
+  color: var(--place-fill-accent);
   background: transparent;
 }
 

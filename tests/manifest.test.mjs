@@ -40,6 +40,10 @@ test("manifest enables all-sites editable injection with context menu permission
     "src/content-script-smartfill.js",
     "src/content-script.js"
   ]);
+  assert.deepEqual(manifest.content_scripts[0].css, [
+    "src/theme.css",
+    "src/sidepanel.css"
+  ]);
   assert.equal(Array.isArray(manifest.host_permissions), true);
   assert.equal(manifest.host_permissions.includes("https://api.github.com/*"), true);
   assert.equal(manifest.host_permissions.includes("https://*/*"), false);

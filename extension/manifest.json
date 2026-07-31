@@ -75,6 +75,7 @@
         "src/content-script.js"
       ],
       "css": [
+        "src/theme.css",
         "src/sidepanel.css"
       ],
       "run_at": "document_idle"

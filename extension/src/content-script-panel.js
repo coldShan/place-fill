@@ -79,6 +79,7 @@
     let aiModelInput = null;
     let aiRecognitionStatus = null;
     let aiRecognitionConfigPanel = null;
+    let dockLauncher = null;
     let dockBtn = null;
     let dockMessage = null;
     let dockMessageActionButton = null;
@@ -451,8 +452,8 @@
     }
 
     function applyDockTop() {
-      if (!dockBtn) return;
-      dockBtn.style.top = state.dockTop + "px";
+      if (!dockLauncher) return;
+      dockLauncher.style.top = state.dockTop + "px";
       if (dockMessage) dockMessage.style.top = state.dockTop + DOCK_HEIGHT / 2 + "px";
     }
 
@@ -777,8 +778,9 @@
 
     function setAutoFillButtonState(running) {
       if (!root) return;
-      var btn = root.querySelector('[data-role="auto-fill"]');
-      if (btn) btn.setAttribute("data-running", String(running));
+      root.querySelectorAll('[data-role="auto-fill"], [data-role="quick-auto-fill"]').forEach(function (button) {
+        button.setAttribute("data-running", String(running));
+      });
     }
 
     function setAutoFillPageAuraState(running) {
@@ -1406,9 +1408,22 @@
         "  </button>",
         '  <button class="ctdp-dock-message-close" type="button" data-role="dismiss-dock-message" aria-label="关闭提醒" title="关闭提醒">×</button>',
         "</div>",
-        '<button class="ctdp-dock" type="button" data-role="expand" aria-label="展开测试数据面板" title="展开测试数据面板">' +
+        '<div class="ctdp-dock-launcher" data-role="dock-launcher">',
+        '  <button class="ctdp-dock" type="button" data-role="expand" aria-label="展开测试数据面板" title="展开测试数据面板">' +
           iconAssetsApi.renderIconMarkup(iconAssetsApi.PRIMARY_LOGO_ICON, "ctdp-dock-icon", "测试数据面板") +
           "</button>",
+        '  <nav class="ctdp-dock-actions" aria-label="快捷操作">',
+        '    <button class="ctdp-dock-action" type="button" data-role="quick-auto-fill" aria-label="一键填充" title="一键填充" data-label="一键填充">' +
+          renderButtonIcon(iconAssetsApi.ACTION_ICONS.autoFill, "", "ctdp-dock-action-icon") +
+          "</button>",
+        '    <button class="ctdp-dock-action" type="button" data-role="quick-export" aria-label="导出全部数据" title="导出全部数据" data-label="导出">' +
+          renderButtonIcon("download", "", "ctdp-dock-action-icon") +
+          "</button>",
+        '    <button class="ctdp-dock-action" type="button" data-role="quick-import" aria-label="导入全部数据" title="导入全部数据" data-label="导入">' +
+          renderButtonIcon("upload", "", "ctdp-dock-action-icon") +
+          "</button>",
+        "  </nav>",
+        "</div>",
         '<section class="ctdp-panel" aria-label="测试数据悬浮面板">',
         '  <div class="ctdp-flash" data-role="flash" aria-hidden="true"></div>',
         '  <div class="ctdp-view ctdp-main-view" data-role="main-view">',
@@ -1530,6 +1545,7 @@
       aiModelInput = root.querySelector('[data-role="ai-model"]');
       aiRecognitionStatus = root.querySelector('[data-role="ai-recognition-status"]');
       aiRecognitionConfigPanel = root.querySelector('[data-role="ai-recognition-config"]');
+      dockLauncher = root.querySelector('[data-role="dock-launcher"]');
       dockMessage = root.querySelector('[data-role="dock-message"]');
       dockMessageActionButton = root.querySelector('[data-role="run-dock-message-action"]');
       dockMessageText = root.querySelector('[data-role="dock-message-text"]');
@@ -1552,8 +1568,21 @@
           if (onDismiss) onDismiss();
           return;
         }
-        if (role === "auto-fill") {
+        if (role === "auto-fill" || role === "quick-auto-fill") {
           autoFillPage();
+          return;
+        }
+        if (role === "quick-export") {
+          exportFullBackup().then(function () {
+            showDockMessage("已导出全部数据");
+          }).catch(function (error) {
+            showDockMessage(error && error.message ? error.message : "导出失败");
+          });
+          return;
+        }
+        if (role === "quick-import") {
+          importMode = "quick-full-backup";
+          if (importInput) importInput.click();
           return;
         }
         if (role === "regen") {
@@ -1680,14 +1709,17 @@
       importInput.addEventListener("change", async function () {
         const file = importInput.files && importInput.files[0];
         if (!file) return;
+        const isQuickImport = importMode === "quick-full-backup";
         try {
-          if (importMode === "full-backup") {
+          if (importMode === "full-backup" || isQuickImport) {
             await importFullBackupFile(file);
           } else {
             await importOverridesFile(file);
           }
+          if (isQuickImport) showDockMessage("已导入全部数据");
         } catch (error) {
           setSettingsStatus(error && error.message ? error.message : "导入失败", "error");
+          if (isQuickImport) showDockMessage(error && error.message ? error.message : "导入失败");
         } finally {
           importMode = "overrides";
           importInput.value = "";

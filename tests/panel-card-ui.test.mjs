@@ -7,6 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const orchestratorScript = readFileSync(join(here, "../extension/src/content-script.js"), "utf8");
 const panelScript = readFileSync(join(here, "../extension/src/content-script-panel.js"), "utf8");
 const panelStyles = readFileSync(join(here, "../extension/src/sidepanel.css"), "utf8");
+const themeStyles = readFileSync(join(here, "../extension/src/theme.css"), "utf8");
 const smartfillScript = readFileSync(join(here, "../extension/src/content-script-smartfill.js"), "utf8");
 const panelControllerPkg = await import("../extension/src/content-script-panel.js");
 const { closeOtherSettingsSections, sampleFavoriteProfiles } = panelControllerPkg.default || panelControllerPkg;
@@ -96,6 +97,18 @@ test("dock and smart-fill buttons use icon markup instead of visible text labels
   assert.doesNotMatch(panelScript, /展开测试数据面板">测试数据<\/button>/);
 });
 
+test("dock hover menu exposes one-click fill, full export and full import shortcuts", () => {
+  assert.match(panelScript, /class="ctdp-dock-launcher"[\s\S]*?class="ctdp-dock-actions" aria-label="快捷操作"[\s\S]*?data-role="quick-auto-fill"[\s\S]*?data-role="quick-export"[\s\S]*?data-role="quick-import"/);
+  assert.match(panelScript, /role === "auto-fill" \|\| role === "quick-auto-fill"[\s\S]*?autoFillPage\(\)/);
+  assert.match(panelScript, /role === "quick-export"[\s\S]*?exportFullBackup\(\)/);
+  assert.match(panelScript, /role === "quick-import"[\s\S]*?importMode = "quick-full-backup"[\s\S]*?importInput\.click\(\)/);
+  assert.match(panelScript, /importMode === "full-backup" \|\| isQuickImport[\s\S]*?importFullBackupFile\(file\)/);
+  assert.match(panelStyles, /\.ctdp-dock-actions\s*\{[\s\S]*?display:\s*grid;[\s\S]*?gap:\s*7px;[\s\S]*?visibility:\s*hidden;/);
+  assert.match(panelStyles, /\.ctdp-dock-action\s*\{[\s\S]*?width:\s*40px;[\s\S]*?height:\s*40px;[\s\S]*?border-radius:\s*50%;/);
+  assert.match(panelStyles, /\.ctdp-dock-action\[data-role="quick-auto-fill"\]\s*\{[\s\S]*?background:\s*var\(--place-fill-accent\);/);
+  assert.match(panelStyles, /\.ctdp-dock-launcher:hover \.ctdp-dock-actions,\s*\.ctdp-dock-launcher:focus-within \.ctdp-dock-actions\s*\{[\s\S]*?visibility:\s*visible;[\s\S]*?pointer-events:\s*auto;/);
+});
+
 test("panel toolbar emphasizes one-click fill and keeps utility actions secondary", () => {
   assert.match(panelScript, /<header class="ctdp-toolbar">[\s\S]*?ctdp-toolbar-group-left[\s\S]*?data-role="open-settings"[\s\S]*?data-role="open-data-manager"[\s\S]*?ctdp-toolbar-group-right[\s\S]*?data-role="auto-fill"[\s\S]*?data-role="regen"[\s\S]*?data-role="copy-all"/);
   assert.match(panelScript, /data-role="open-settings" aria-label="打开设置" title="打开设置"/);
@@ -107,6 +120,12 @@ test("panel toolbar emphasizes one-click fill and keeps utility actions secondar
   assert.match(panelScript, /data-role="copy-all" aria-label="复制整组数据" title="复制整组数据"/);
   assert.doesNotMatch(panelScript, /data-role="collapse" aria-label="收起面板" title="收起面板"/);
   assert.doesNotMatch(panelScript, /ctdp-btn-text/);
+});
+
+test("blue action buttons and text use the shared brand blue", () => {
+  assert.match(themeStyles, /--place-fill-accent:\s*#2B7FD8;/);
+  assert.match(panelStyles, /\.ctdp-btn-action\s*\{[\s\S]*?background:\s*var\(--place-fill-accent\);/);
+  assert.match(panelStyles, /\.ctdp-dock-action\s*\{[\s\S]*?color:\s*#314566;/);
 });
 
 test("single-card copy does not trigger panel-wide flash feedback", () => {
