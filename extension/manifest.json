@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "place-fill",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "description": "Generate legal-looking test data for fast form testing.",
   "permissions": [
     "alarms",
