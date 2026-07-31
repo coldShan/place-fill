@@ -137,7 +137,7 @@ test("dock reuses one text bubble and keeps backup reminders until dismissed", (
   assert.match(panelScript, /showDockMessage\("填完啦！"\)/);
   assert.match(panelScript, /if \(!snap\.visible\) panelState\.toggleCollapsed\(\)/);
   assert.match(panelScript, /if \(!dismissible\) dockMessageTimer = win\.setTimeout\(hideDockMessage,\s*4000\)/);
-  assert.match(panelScript, /role === "run-dock-message-action" && dockMessageAction[\s\S]*?Promise\.resolve\(\)\.then\(dockMessageAction\)/);
+  assert.match(panelScript, /const actionTrigger = event\.target\.closest\('\[data-role="run-dock-message-action"\]'\)[\s\S]*?if \(actionTrigger && dockMessageAction\)[\s\S]*?Promise\.resolve\(\)\.then\(dockMessageAction\)[\s\S]*?const trigger = event\.target\.closest\("\[data-role\]"\)/);
   assert.match(panelScript, /role === "dismiss-dock-message"[\s\S]*?const onDismiss = dockMessageDismiss;[\s\S]*?hideDockMessage\(\);[\s\S]*?if \(onDismiss\) onDismiss\(\)/);
   assert.match(orchestratorScript, /type:\s*"read-backup-reminder-state"/);
   assert.match(orchestratorScript, /showDockMessage\([\s\S]*?message \|\| "该备份数据啦！"[\s\S]*?panelController\.exportFullBackup\(\)\.then\(dismissBackupReminder\)/);

@@ -1537,14 +1537,15 @@
       setupSettingsAccordion();
 
       root.addEventListener("click", function (event) {
+        const actionTrigger = event.target.closest('[data-role="run-dock-message-action"]');
+        if (actionTrigger && dockMessageAction) {
+          Promise.resolve().then(dockMessageAction).catch(function () {});
+          return;
+        }
         const trigger = event.target.closest("[data-role]");
         if (!trigger) return;
         const role = trigger.getAttribute("data-role");
 
-        if (role === "run-dock-message-action" && dockMessageAction) {
-          Promise.resolve().then(dockMessageAction).catch(function () {});
-          return;
-        }
         if (role === "dismiss-dock-message") {
           const onDismiss = dockMessageDismiss;
           hideDockMessage();
