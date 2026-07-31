@@ -1604,11 +1604,11 @@
 
 .ctdp-dock-message {
   position: absolute;
-  right: 48px;
+  right: 64px;
   display: flex;
   align-items: center;
   white-space: nowrap;
-  padding: 7px 12px;
+  padding: 0;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px) saturate(160%);
@@ -1622,6 +1622,33 @@
   line-height: 1;
   pointer-events: auto;
   animation: ctdp-bubble-pop 3s ease forwards;
+}
+
+.ctdp-dock-message-action {
+  display: block;
+  padding: 7px 12px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  line-height: inherit;
+  white-space: inherit;
+  opacity: 1;
+  cursor: default;
+}
+
+.ctdp-dock-message-action:not(:disabled) {
+  cursor: pointer;
+}
+
+.ctdp-dock-message-action:focus-visible {
+  outline: 2px solid rgba(74, 111, 165, 0.45);
+  outline-offset: -2px;
+  border-radius: 10px;
+}
+
+.ctdp-dock-message-action:not(:disabled):active {
+  transform: scale(0.98);
 }
 
 .ctdp-dock-message[hidden] {

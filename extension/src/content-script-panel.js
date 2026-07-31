@@ -81,8 +81,10 @@
     let aiRecognitionConfigPanel = null;
     let dockBtn = null;
     let dockMessage = null;
+    let dockMessageActionButton = null;
     let dockMessageText = null;
     let dockMessageTimer = null;
+    let dockMessageAction = null;
     let dockMessageDismiss = null;
     let autoFillAborted = false;
     let autoFillRunning = false;
@@ -170,15 +172,22 @@
       if (dockMessage) {
         dockMessage.hidden = true;
         dockMessage.removeAttribute("data-dismissible");
+        dockMessage.removeAttribute("data-actionable");
+      }
+      if (dockMessageActionButton) {
+        dockMessageActionButton.disabled = true;
+        dockMessageActionButton.removeAttribute("title");
       }
       if (root) root.removeAttribute("data-dock-message");
       dockMessageTimer = null;
+      dockMessageAction = null;
       dockMessageDismiss = null;
     }
 
-    function showDockMessage(message, ensureVisible, dismissible, onDismiss) {
-      if (!dockBtn || !dockMessage || !dockMessageText || !message) return;
+    function showDockMessage(message, ensureVisible, dismissible, onDismiss, onAction) {
+      if (!dockBtn || !dockMessage || !dockMessageActionButton || !dockMessageText || !message) return;
       hideDockMessage();
+      dockMessageAction = typeof onAction === "function" ? onAction : null;
       dockMessageDismiss = typeof onDismiss === "function" ? onDismiss : null;
       if (ensureVisible) {
         const snap = panelState.snapshot();
@@ -188,6 +197,9 @@
         if (root) root.setAttribute("data-dock-message", "true");
       }
       dockMessageText.textContent = message;
+      dockMessageActionButton.disabled = !dockMessageAction;
+      if (dockMessageAction) dockMessageActionButton.setAttribute("title", "备份全部数据");
+      dockMessage.setAttribute("data-actionable", String(!!dockMessageAction));
       dockMessage.setAttribute("data-dismissible", String(!!dismissible));
       dockMessage.hidden = false;
       void dockMessage.offsetWidth;
@@ -1385,11 +1397,13 @@
         '<div class="ctdp-autofill-aura" data-role="autofill-aura" aria-hidden="true">',
         '  <div class="ctdp-autofill-status" data-role="autofill-status">',
         '    <span class="ctdp-autofill-dot"></span>',
-        '    <span data-role="autofill-status-text">Thinking...</span>',
+        '    <span data-role="autofill-status-text">填写中…</span>',
         "  </div>",
         "</div>",
         '<div class="ctdp-dock-message" data-role="dock-message" hidden>',
-        '  <span data-role="dock-message-text" role="status" aria-live="polite"></span>',
+        '  <button class="ctdp-dock-message-action" type="button" data-role="run-dock-message-action" aria-live="polite" disabled>',
+        '    <span data-role="dock-message-text"></span>',
+        "  </button>",
         '  <button class="ctdp-dock-message-close" type="button" data-role="dismiss-dock-message" aria-label="关闭提醒" title="关闭提醒">×</button>',
         "</div>",
         '<button class="ctdp-dock" type="button" data-role="expand" aria-label="展开测试数据面板" title="展开测试数据面板">' +
@@ -1517,6 +1531,7 @@
       aiRecognitionStatus = root.querySelector('[data-role="ai-recognition-status"]');
       aiRecognitionConfigPanel = root.querySelector('[data-role="ai-recognition-config"]');
       dockMessage = root.querySelector('[data-role="dock-message"]');
+      dockMessageActionButton = root.querySelector('[data-role="run-dock-message-action"]');
       dockMessageText = root.querySelector('[data-role="dock-message-text"]');
       dockBtn = root.querySelector('[data-role="expand"]');
       setupSettingsAccordion();
@@ -1526,6 +1541,10 @@
         if (!trigger) return;
         const role = trigger.getAttribute("data-role");
 
+        if (role === "run-dock-message-action" && dockMessageAction) {
+          Promise.resolve().then(dockMessageAction).catch(function () {});
+          return;
+        }
         if (role === "dismiss-dock-message") {
           const onDismiss = dockMessageDismiss;
           hideDockMessage();
@@ -1739,6 +1758,7 @@
       collapse,
       consumeFieldValue,
       expand,
+      exportFullBackup,
       getFieldValue,
       isSiteFeatureEnabled,
       getVisibleFieldKeys,

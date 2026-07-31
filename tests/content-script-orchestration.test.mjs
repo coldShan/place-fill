@@ -21,6 +21,9 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
   const panelFocusInCalls = [];
   const syncTargetCalls = [];
   const runtimeMessages = [];
+  let dockMessageArgs = null;
+  let exportFullBackupCalls = 0;
+  let hideDockMessageCalls = 0;
   let panelOptions = null;
   const smartFillController = {
     fillTarget() {},
@@ -114,6 +117,10 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
           panelOptions = options;
           return {
             consumeFieldValue() {},
+            exportFullBackup() {
+              exportFullBackupCalls += 1;
+              return Promise.resolve();
+            },
             getFieldValue() {
               return "";
             },
@@ -124,7 +131,9 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
               panelFocusInCalls.push(target);
             },
             handleDocumentPointerDown() {},
-            hideDismissibleDockMessage() {},
+            hideDismissibleDockMessage() {
+              hideDockMessageCalls += 1;
+            },
             isSiteFeatureEnabled() {
               return env.siteFeatureEnabled !== false;
             },
@@ -132,6 +141,9 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
               return Promise.resolve();
             },
             mount() {},
+            showDockMessage(...args) {
+              dockMessageArgs = args;
+            },
             toggleVisible() {}
           };
         }
@@ -148,12 +160,43 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
   return {
     document,
     documentListeners,
+    getDockMessageArgs() {
+      return dockMessageArgs;
+    },
+    getExportFullBackupCalls() {
+      return exportFullBackupCalls;
+    },
+    getHideDockMessageCalls() {
+      return hideDockMessageCalls;
+    },
     panelOptions,
     panelFocusInCalls,
     runtimeMessages,
     syncTargetCalls
   };
 }
+
+test("clicking the backup reminder exports all data and dismisses it after success", async () => {
+  const runtime = runContentScriptWithSmartFillStub({}, {
+    runtimeResponse(message) {
+      if (message.type === "read-backup-reminder-state") {
+        return { message: "该备份数据啦！", pending: true };
+      }
+      return {};
+    }
+  });
+
+  await Promise.resolve();
+  const args = runtime.getDockMessageArgs();
+  assert.equal(args[0], "该备份数据啦！");
+  assert.equal(typeof args[4], "function");
+
+  await args[4]();
+
+  assert.equal(runtime.getExportFullBackupCalls(), 1);
+  assert.equal(runtime.getHideDockMessageCalls(), 1);
+  assert.equal(runtime.runtimeMessages.at(-1).type, "dismiss-backup-reminder");
+});
 
 test("focusout keeps the smart-fill controller alive while it is preserving an internal interaction", () => {
   const runtime = runContentScriptWithSmartFillStub({

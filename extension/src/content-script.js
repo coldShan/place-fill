@@ -182,10 +182,21 @@
     window
   });
 
+  function dismissBackupReminder() {
+    panelController.hideDismissibleDockMessage();
+    return sendRuntimeMessage({ type: "dismiss-backup-reminder" });
+  }
+
   function showBackupReminder(message) {
-    panelController.showDockMessage(message || "该备份数据啦！", true, true, function () {
-      sendRuntimeMessage({ type: "dismiss-backup-reminder" });
-    });
+    panelController.showDockMessage(
+      message || "该备份数据啦！",
+      true,
+      true,
+      dismissBackupReminder,
+      function () {
+        return panelController.exportFullBackup().then(dismissBackupReminder);
+      }
+    );
   }
 
   function syncBackupReminderState() {

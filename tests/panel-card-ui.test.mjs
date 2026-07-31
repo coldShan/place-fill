@@ -122,7 +122,7 @@ test("single-card copy only syncs copied state instead of rerendering the full g
 test("auto fill toggles a page aura overlay while filling targets", () => {
   assert.match(panelScript, /class="ctdp-autofill-aura" data-role="autofill-aura"/);
   assert.match(panelScript, /class="ctdp-autofill-status"/);
-  assert.match(panelScript, /data-role="autofill-status-text">Thinking\.\.\./);
+  assert.match(panelScript, /data-role="autofill-status-text">填写中…/);
   assert.match(panelScript, /function setAutoFillPageAuraState\(running\)/);
   assert.match(panelScript, /root\.setAttribute\("data-autofill-running",\s*String\(running\)\)/);
   assert.match(panelScript, /setAutoFillPageAuraState\(true\)[\s\S]*?try\s*\{/);
@@ -131,16 +131,21 @@ test("auto fill toggles a page aura overlay while filling targets", () => {
 
 test("dock reuses one text bubble and keeps backup reminders until dismissed", () => {
   assert.match(panelScript, /data-role="dock-message"[^>]*hidden/);
+  assert.match(panelScript, /data-role="run-dock-message-action" aria-live="polite" disabled/);
   assert.match(panelScript, /data-role="dismiss-dock-message" aria-label="关闭提醒"/);
-  assert.match(panelScript, /function showDockMessage\(message,\s*ensureVisible,\s*dismissible,\s*onDismiss\)/);
+  assert.match(panelScript, /function showDockMessage\(message,\s*ensureVisible,\s*dismissible,\s*onDismiss,\s*onAction\)/);
   assert.match(panelScript, /showDockMessage\("填完啦！"\)/);
   assert.match(panelScript, /if \(!snap\.visible\) panelState\.toggleCollapsed\(\)/);
   assert.match(panelScript, /if \(!dismissible\) dockMessageTimer = win\.setTimeout\(hideDockMessage,\s*4000\)/);
+  assert.match(panelScript, /role === "run-dock-message-action" && dockMessageAction[\s\S]*?Promise\.resolve\(\)\.then\(dockMessageAction\)/);
   assert.match(panelScript, /role === "dismiss-dock-message"[\s\S]*?const onDismiss = dockMessageDismiss;[\s\S]*?hideDockMessage\(\);[\s\S]*?if \(onDismiss\) onDismiss\(\)/);
   assert.match(orchestratorScript, /type:\s*"read-backup-reminder-state"/);
-  assert.match(orchestratorScript, /showDockMessage\(message \|\| "该备份数据啦！",\s*true,\s*true,[\s\S]*?type:\s*"dismiss-backup-reminder"/);
+  assert.match(orchestratorScript, /showDockMessage\([\s\S]*?message \|\| "该备份数据啦！"[\s\S]*?panelController\.exportFullBackup\(\)\.then\(dismissBackupReminder\)/);
   assert.match(panelScript, /function hideDismissibleDockMessage\(\)\s*\{[\s\S]*?if \(dockMessageDismiss\) hideDockMessage\(\)/);
   assert.match(orchestratorScript, /message\.type === "hide-backup-reminder"[\s\S]*?panelController\.hideDismissibleDockMessage\(\)/);
+  assert.match(panelStyles, /\.ctdp-dock-message-action:not\(:disabled\)\s*\{[\s\S]*?cursor:\s*pointer;/);
+  assert.match(panelStyles, /\.ctdp-dock-message-action:focus-visible/);
+  assert.match(panelStyles, /\.ctdp-dock-message\s*\{[\s\S]*?right:\s*64px;/);
   assert.match(panelStyles, /\.ctdp-dock-message-close\s*\{[\s\S]*?top:\s*-8px;[\s\S]*?left:\s*-8px;/);
   assert.match(panelStyles, /\.ctdp-dock-message-close:focus-visible/);
 });
