@@ -21,10 +21,11 @@ const pageSource = readdirSync(pageDir)
 const pageStyles = readFileSync(join(pageDir, "style.css"), "utf8");
 
 test("data manager blue actions and text use the shared brand blue", () => {
-  assert.match(themeStyles, /--place-fill-accent:\s*#2B7FD8;/);
+  assert.match(themeStyles, /--place-fill-accent-rgb:\s*43 127 216;/);
   assert.match(pageHtml, /<link rel="stylesheet" href="\.\/src\/theme\.css">\s*<link rel="stylesheet" href="\.\/generated\/data-manager\.css">/);
-  assert.match(pageStyles, /\.dm-primary-btn\s*\{[\s\S]*?background:\s*var\(--place-fill-accent\);/);
-  assert.match(pageStyles, /\.dm-table-btn\s*\{[\s\S]*?color:\s*var\(--place-fill-accent\);/);
+  assert.match(pageStyles, /\.dm-primary-btn\s*\{[\s\S]*?background:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
+  assert.match(pageStyles, /\.dm-table-btn\s*\{[\s\S]*?color:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
+  assert.doesNotMatch(pageStyles, /rgba\(28,\s*75,\s*104,/);
 });
 
 test("data manager page uses top tabs dual routes instead of a left sidebar layout", () => {

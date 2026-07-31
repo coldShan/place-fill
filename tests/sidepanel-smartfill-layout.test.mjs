@@ -22,7 +22,7 @@ test("smart fill keeps a single circular trigger, adds a recommendation entry, a
 });
 
 test("recommendation cards keep hover feedback without vertical jump inside the floating panel", () => {
-  assert.match(stylesheet, /\.ctdp-smartfill-recommend-item:hover,\s*\.ctdp-smartfill-recommend-item:focus-visible\s*\{[\s\S]*?border-color:\s*rgba\(74,\s*111,\s*165,\s*0\.34\);[\s\S]*?background:\s*rgba\(255,\s*255,\s*255,\s*0\.98\);/);
+  assert.match(stylesheet, /\.ctdp-smartfill-recommend-item:hover,\s*\.ctdp-smartfill-recommend-item:focus-visible\s*\{[\s\S]*?border-color:\s*rgb\(var\(--place-fill-accent-rgb\) \/\s*0\.34\);[\s\S]*?background:\s*rgba\(255,\s*255,\s*255,\s*0\.98\);/);
   assert.doesNotMatch(stylesheet, /\.ctdp-smartfill-recommend-item:hover,\s*\.ctdp-smartfill-recommend-item:focus-visible\s*\{[^}]*transform:/);
   assert.doesNotMatch(stylesheet, /\.ctdp-smartfill-recommend-item:hover,\s*\.ctdp-smartfill-recommend-item:focus-visible\s*\{[^}]*box-shadow:/);
 });

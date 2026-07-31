@@ -666,13 +666,13 @@
             return;
           }
           // 动态阴影：跟随倾斜角度偏移
-          var sx = (dx * -12).toFixed(1);
-          var sy = (dy * -8 + 10).toFixed(1);
+          var sx = (dx * -6).toFixed(1);
+          var sy = (dy * -4 + 8).toFixed(1);
           paper.style.boxShadow =
-            "inset 0 1px 0 rgba(255,255,255,0.08)," +
-            "inset 0 -1px 0 rgba(0,0,0,0.3)," +
-            sx + "px " + sy + "px 30px rgba(0,0,0,0.35)," +
-            "0 2px 8px rgba(0,0,0,0.18)";
+            "inset 0 1px 0 rgba(255,255,255,0.34)," +
+            "inset 0 -1px 0 rgba(126,92,0,0.12)," +
+            sx + "px " + sy + "px 22px rgba(15,23,42,0.14)," +
+            "0 2px 5px rgba(15,23,42,0.12)";
         });
 
         paper.addEventListener("mouseleave", function () {

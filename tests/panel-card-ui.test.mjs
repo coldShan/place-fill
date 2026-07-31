@@ -81,6 +81,8 @@ test("floating panel renders one generated card and up to five common-data style
 test("common-data cards keep light hover shadow instead of generated-card dark shadow", () => {
   assert.match(panelScript, /const cardKind = card && card\.getAttribute\("data-card-kind"\);/);
   assert.match(panelScript, /if \(cardKind !== "generated"\) \{[\s\S]*?0 8px 18px rgba\(31,41,55,0\.08\)[\s\S]*?return;/);
+  assert.match(panelScript, /sx \+ "px " \+ sy \+ "px 22px rgba\(15,23,42,0\.14\),"/);
+  assert.doesNotMatch(panelScript, /30px rgba\(0,0,0,0\.35\)/);
 });
 
 test("dock and smart-fill buttons use icon markup instead of visible text labels", () => {
@@ -105,7 +107,7 @@ test("dock hover menu exposes one-click fill, full export and full import shortc
   assert.match(panelScript, /importMode === "full-backup" \|\| isQuickImport[\s\S]*?importFullBackupFile\(file\)/);
   assert.match(panelStyles, /\.ctdp-dock-actions\s*\{[\s\S]*?display:\s*grid;[\s\S]*?gap:\s*7px;[\s\S]*?visibility:\s*hidden;/);
   assert.match(panelStyles, /\.ctdp-dock-action\s*\{[\s\S]*?width:\s*40px;[\s\S]*?height:\s*40px;[\s\S]*?border-radius:\s*50%;/);
-  assert.match(panelStyles, /\.ctdp-dock-action\[data-role="quick-auto-fill"\]\s*\{[\s\S]*?background:\s*var\(--place-fill-accent\);/);
+  assert.match(panelStyles, /\.ctdp-dock-action\[data-role="quick-auto-fill"\]\s*\{[\s\S]*?background:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
   assert.match(panelStyles, /\.ctdp-dock-launcher:hover \.ctdp-dock-actions,\s*\.ctdp-dock-launcher:focus-within \.ctdp-dock-actions\s*\{[\s\S]*?visibility:\s*visible;[\s\S]*?pointer-events:\s*auto;/);
 });
 
@@ -123,9 +125,12 @@ test("panel toolbar emphasizes one-click fill and keeps utility actions secondar
 });
 
 test("blue action buttons and text use the shared brand blue", () => {
-  assert.match(themeStyles, /--place-fill-accent:\s*#2B7FD8;/);
-  assert.match(panelStyles, /\.ctdp-btn-action\s*\{[\s\S]*?background:\s*var\(--place-fill-accent\);/);
+  assert.match(themeStyles, /--place-fill-accent-rgb:\s*43 127 216;/);
+  assert.match(panelStyles, /\.ctdp-btn-action\s*\{[\s\S]*?background:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
+  assert.match(panelStyles, /\.ctdp-switch-input:checked \+ \.ctdp-switch-track\s*\{[\s\S]*?background:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
+  assert.match(panelStyles, /\.ctdp-field-visibility-checkbox\s*\{[\s\S]*?accent-color:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
   assert.match(panelStyles, /\.ctdp-dock-action\s*\{[\s\S]*?color:\s*#314566;/);
+  assert.doesNotMatch(panelStyles, /rgba\(74,\s*111,\s*165,/);
 });
 
 test("single-card copy does not trigger panel-wide flash feedback", () => {

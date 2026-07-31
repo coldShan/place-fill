@@ -24,3 +24,19 @@ test("favorite data cards use white surfaces instead of dark colored card backgr
   assert.doesNotMatch(stylesheet, /\.ctdp-bizcard-badge/);
   assert.doesNotMatch(stylesheet, /--ctdp-bizcard-accent/);
 });
+
+test("generated card keeps its shadow close and softly diffused", () => {
+  assert.match(stylesheet, /\.ctdp-bizcard-paper\s*\{[\s\S]*?0 2px 4px rgba\(15,\s*23,\s*42,\s*0\.14\),[\s\S]*?0 10px 24px rgba\(15,\s*23,\s*42,\s*0\.12\);/);
+  assert.doesNotMatch(stylesheet, /0 12px 28px rgba\(0,\s*0,\s*0,\s*0\.30\)/);
+  assert.doesNotMatch(stylesheet, /0 24px 50px rgba\(0,\s*0,\s*0,\s*0\.18\)/);
+});
+
+test("generated card uses a yellow gradient with layered blue typography", () => {
+  assert.match(stylesheet, /--ctdp-bizcard-background:\s*linear-gradient\(145deg,\s*#F8E07A 0%,\s*#F4D758 100%\);/);
+  assert.match(stylesheet, /--ctdp-bizcard-name:\s*linear-gradient\(135deg,\s*#123F73,\s*#1C5B99\);/);
+  assert.match(stylesheet, /--ctdp-bizcard-muted:\s*#255887;/);
+  assert.match(stylesheet, /--ctdp-bizcard-subtle:\s*#2A6094;/);
+  assert.match(stylesheet, /--ctdp-bizcard-icon:\s*#356A9E;/);
+  assert.match(stylesheet, /--ctdp-bizcard-value:\s*#174F88;/);
+  assert.match(stylesheet, /\.ctdp-bizcard\[data-card-kind="generated"\] \.ctdp-bizcard-paper::before\s*\{[\s\S]*?opacity:\s*0\.06;[\s\S]*?mix-blend-mode:\s*soft-light;/);
+});

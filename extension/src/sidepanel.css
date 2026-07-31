@@ -322,7 +322,7 @@
   width: 100%;
   min-height: 56px;
   padding: 10px 12px;
-  border: 1px solid rgba(74, 111, 165, 0.14);
+  border: 1px solid rgb(var(--place-fill-accent-rgb) / 0.14);
   border-radius: 16px;
   text-align: left;
   color: var(--ctdp-ink);
@@ -338,7 +338,7 @@
 .ctdp-smartfill-recommend-item:hover,
 .ctdp-smartfill-recommend-item:focus-visible {
   outline: none;
-  border-color: rgba(74, 111, 165, 0.34);
+  border-color: rgb(var(--place-fill-accent-rgb) / 0.34);
   background: rgba(255, 255, 255, 0.98);
 }
 
@@ -371,7 +371,7 @@
   margin-top: 10px;
   padding: 0;
   border: 0;
-  color: var(--place-fill-accent);
+  color: rgb(var(--place-fill-accent-rgb));
   background: transparent;
   font-size: 12px;
   font-weight: 700;
@@ -515,9 +515,9 @@
 
 .ctdp-dock-action[data-role="quick-auto-fill"] {
   color: #fff;
-  background: var(--place-fill-accent);
+  background: rgb(var(--place-fill-accent-rgb));
   box-shadow:
-    0 9px 22px rgba(43, 127, 216, 0.28),
+    0 9px 22px rgb(var(--place-fill-accent-rgb) / 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
@@ -566,7 +566,7 @@
 .ctdp-dock-action[data-role="quick-auto-fill"]:hover,
 .ctdp-dock-action[data-role="quick-auto-fill"]:focus-visible {
   color: #fff;
-  background: var(--place-fill-accent);
+  background: rgb(var(--place-fill-accent-rgb));
 }
 
 .ctdp-dock-action:hover::after,
@@ -722,16 +722,16 @@
   border: 1px solid rgba(255, 255, 255, 0.34);
   border-radius: 999px;
   color: #fff;
-  background: var(--place-fill-accent);
+  background: rgb(var(--place-fill-accent-rgb));
   box-shadow:
-    0 10px 22px rgba(43, 127, 216, 0.20),
+    0 10px 22px rgb(var(--place-fill-accent-rgb) / 0.20),
     inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 
 .ctdp-btn-action:hover {
-  background: var(--place-fill-accent);
+  background: rgb(var(--place-fill-accent-rgb));
   box-shadow:
-    0 12px 24px rgba(43, 127, 216, 0.24),
+    0 12px 24px rgb(var(--place-fill-accent-rgb) / 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
@@ -767,7 +767,7 @@
 
 .ctdp-btn-ghost {
   border: 1px solid rgba(255, 255, 255, 0.40);
-  color: var(--place-fill-accent);
+  color: rgb(var(--place-fill-accent-rgb));
   background: rgba(255, 255, 255, 0.20);
   backdrop-filter: blur(14px) saturate(160%);
   -webkit-backdrop-filter: blur(14px) saturate(160%);
@@ -842,17 +842,12 @@
 
 /* 名片容器：提供透视上下文 */
 .ctdp-bizcard {
-  --ctdp-bizcard-background:
-    radial-gradient(circle at var(--ctdp-light-x, 50%) var(--ctdp-light-y, 28%), rgba(200, 210, 230, 0.18) 0%, transparent 42%),
-    radial-gradient(ellipse at 15% 20%, rgba(80, 100, 140, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse at 85% 15%, rgba(100, 90, 130, 0.08) 0%, transparent 45%),
-    radial-gradient(ellipse at 70% 85%, rgba(60, 80, 100, 0.06) 0%, transparent 50%),
-    linear-gradient(165deg, #1e1e28 0%, #141420 40%, #0f0f18 100%);
-  --ctdp-bizcard-name: linear-gradient(135deg, #d0d0d8, #a8a8b4, #dcdce2, #b8b8c4);
-  --ctdp-bizcard-muted: rgba(160, 168, 190, 0.7);
-  --ctdp-bizcard-subtle: rgba(140, 150, 175, 0.55);
-  --ctdp-bizcard-icon: rgba(160, 168, 190, 0.55);
-  --ctdp-bizcard-value: rgba(195, 200, 215, 0.85);
+  --ctdp-bizcard-background: linear-gradient(145deg, #F8E07A 0%, #F4D758 100%);
+  --ctdp-bizcard-name: linear-gradient(135deg, #123F73, #1C5B99);
+  --ctdp-bizcard-muted: #255887;
+  --ctdp-bizcard-subtle: #2A6094;
+  --ctdp-bizcard-icon: #356A9E;
+  --ctdp-bizcard-value: #174F88;
   perspective: 900px;
   perspective-origin: 50% 25%;
 }
@@ -867,18 +862,17 @@
   --ctdp-bizcard-value: rgba(31, 41, 55, 0.92);
 }
 
-/* 3D 名片纸张主体 —— 高级黑金属质感 */
+/* 3D 名片纸张主体 */
 .ctdp-bizcard-paper {
   position: relative;
   border-radius: 14px;
   background: var(--ctdp-bizcard-background);
-  border: 1px solid transparent;
+  border: 1px solid rgba(139, 100, 0, 0.14);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    0 4px 12px rgba(0, 0, 0, 0.25),
-    0 12px 28px rgba(0, 0, 0, 0.30),
-    0 24px 50px rgba(0, 0, 0, 0.18);
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -1px 0 rgba(126, 92, 0, 0.12),
+    0 2px 4px rgba(15, 23, 42, 0.14),
+    0 10px 24px rgba(15, 23, 42, 0.12);
   transform-style: preserve-3d;
   transition:
     transform 0.45s cubic-bezier(0.03, 0.98, 0.52, 0.99),
@@ -907,7 +901,6 @@
   font-size: 13px;
 }
 
-/* 金属磨砂纹理：screen 在深色底上显示为亮色微粒 */
 .ctdp-bizcard-paper::before {
   content: "";
   position: absolute;
@@ -922,8 +915,12 @@
   z-index: 0;
 }
 
+.ctdp-bizcard[data-card-kind="generated"] .ctdp-bizcard-paper::before {
+  opacity: 0.06;
+  filter: contrast(1.7) brightness(0.9);
+  mix-blend-mode: soft-light;
+}
 
-/* 顶部金属高光边 */
 .ctdp-bizcard-paper::after {
   content: "";
   position: absolute;
@@ -931,7 +928,7 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(180, 190, 210, 0.25) 25%, rgba(180, 190, 210, 0.25) 75%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.32) 25%, rgba(255, 255, 255, 0.32) 75%, transparent 100%);
   pointer-events: none;
   z-index: 1;
 }
@@ -961,7 +958,12 @@
   z-index: 1;
   margin: 0 20px;
   border: none;
-  border-top: 1px solid rgba(160, 170, 200, 0.12);
+  border-top: 1px solid rgba(22, 77, 134, 0.18);
+}
+
+.ctdp-bizcard[data-card-kind="favorite-a"] .ctdp-bizcard-divider,
+.ctdp-bizcard[data-card-kind="favorite-b"] .ctdp-bizcard-divider {
+  border-top-color: rgba(160, 170, 200, 0.12);
 }
 
 /* 名片主体：字段行列表 */
@@ -1114,7 +1116,7 @@
   gap: 8px;
 }
 
-/* row 图标：银色 */
+/* row 图标 */
 .ctdp-card-row .ctdp-card-icon {
   align-self: center;
   width: 14px;
@@ -1127,7 +1129,7 @@
   color: var(--ctdp-bizcard-icon);
 }
 
-/* row label：暗银标签 */
+/* row label */
 .ctdp-card-row .ctdp-card-label {
   font-size: 10px;
   color: var(--ctdp-bizcard-subtle);
@@ -1135,7 +1137,7 @@
   padding-top: 0;
 }
 
-/* row value：银色 */
+/* row value */
 .ctdp-card-row .ctdp-card-value {
   font-size: 13px;
   color: var(--ctdp-bizcard-value);
@@ -1250,7 +1252,7 @@
 .ctdp-settings-list,
 .ctdp-grid {
   scrollbar-width: thin;
-  scrollbar-color: rgba(74, 111, 165, 0.50) rgba(255, 255, 255, 0.08);
+  scrollbar-color: rgb(var(--place-fill-accent-rgb) / 0.50) rgba(255, 255, 255, 0.08);
   scrollbar-gutter: stable;
 }
 
@@ -1269,13 +1271,13 @@
 .ctdp-grid::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(74, 111, 165, 0.60), rgba(58, 122, 154, 0.46));
+  background: linear-gradient(180deg, rgb(var(--place-fill-accent-rgb) / 0.60), rgb(var(--place-fill-accent-rgb) / 0.46));
   background-clip: padding-box;
 }
 
 .ctdp-settings-list::-webkit-scrollbar-thumb:hover,
 .ctdp-grid::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(74, 111, 165, 0.78), rgba(58, 122, 154, 0.62));
+  background: linear-gradient(180deg, rgb(var(--place-fill-accent-rgb) / 0.78), rgb(var(--place-fill-accent-rgb) / 0.62));
   background-clip: padding-box;
 }
 
@@ -1335,7 +1337,7 @@
 }
 
 .ctdp-settings-section-summary:focus-visible {
-  box-shadow: inset 0 0 0 2px rgba(74, 111, 165, 0.30);
+  box-shadow: inset 0 0 0 2px rgb(var(--place-fill-accent-rgb) / 0.30);
 }
 
 .ctdp-settings-section-icon,
@@ -1415,7 +1417,7 @@
 }
 
 .ctdp-settings-row-action:focus-visible {
-  box-shadow: inset 0 0 0 2px rgba(74, 111, 165, 0.26);
+  box-shadow: inset 0 0 0 2px rgb(var(--place-fill-accent-rgb) / 0.26);
 }
 
 .ctdp-settings-row-restore .ctdp-settings-row-note {
@@ -1460,8 +1462,8 @@
 }
 
 .ctdp-switch-input:checked + .ctdp-switch-track {
-  border-color: rgba(74, 111, 165, 0.20);
-  background: rgba(74, 111, 165, 0.72);
+  border-color: rgb(var(--place-fill-accent-rgb) / 0.20);
+  background: rgb(var(--place-fill-accent-rgb));
 }
 
 .ctdp-switch-input:checked + .ctdp-switch-track .ctdp-switch-thumb {
@@ -1469,7 +1471,7 @@
 }
 
 .ctdp-switch-input:focus-visible + .ctdp-switch-track {
-  outline: 2px solid rgba(74, 111, 165, 0.30);
+  outline: 2px solid rgb(var(--place-fill-accent-rgb) / 0.30);
   outline-offset: 2px;
 }
 
@@ -1497,7 +1499,7 @@
   min-width: 0;
   box-sizing: border-box;
   padding: 8px 10px;
-  border: 1px solid rgba(74, 111, 165, 0.18);
+  border: 1px solid rgb(var(--place-fill-accent-rgb) / 0.18);
   border-radius: 10px;
   color: var(--ctdp-ink);
   background: rgba(255, 255, 255, 0.56);
@@ -1506,7 +1508,7 @@
 }
 
 .ctdp-ai-field input:focus {
-  border-color: rgba(74, 111, 165, 0.46);
+  border-color: rgb(var(--place-fill-accent-rgb) / 0.46);
   background: rgba(255, 255, 255, 0.80);
 }
 
@@ -1519,7 +1521,7 @@
 .ctdp-ai-action {
   min-width: 0;
   padding: 7px 8px;
-  border: 1px solid rgba(74, 111, 165, 0.18);
+  border: 1px solid rgb(var(--place-fill-accent-rgb) / 0.18);
   border-radius: 10px;
   color: var(--ctdp-ink);
   background: rgba(255, 255, 255, 0.46);
@@ -1531,7 +1533,7 @@
 .ctdp-ai-action:hover,
 .ctdp-ai-action:focus-visible {
   outline: none;
-  border-color: rgba(74, 111, 165, 0.36);
+  border-color: rgb(var(--place-fill-accent-rgb) / 0.36);
   background: rgba(255, 255, 255, 0.72);
 }
 
@@ -1557,7 +1559,7 @@
   width: 16px;
   height: 16px;
   margin: 0;
-  accent-color: rgba(74, 111, 165, 0.92);
+  accent-color: rgb(var(--place-fill-accent-rgb));
 }
 
 .ctdp-field-visibility-copy {
@@ -1624,7 +1626,7 @@
 }
 
 .ctdp-settings-status[data-tone="warning"] {
-  color: var(--place-fill-accent);
+  color: rgb(var(--place-fill-accent-rgb));
   background: rgba(240, 246, 255, 0.28);
 }
 
@@ -1673,7 +1675,7 @@
 }
 
 .ctdp-footer-status[data-tone="warning"] {
-  color: var(--place-fill-accent);
+  color: rgb(var(--place-fill-accent-rgb));
 }
 
 .ctdp-footer-status[data-tone="error"] {
@@ -1781,7 +1783,7 @@
 }
 
 .ctdp-dock-message-action:focus-visible {
-  outline: 2px solid rgba(74, 111, 165, 0.45);
+  outline: 2px solid rgb(var(--place-fill-accent-rgb) / 0.45);
   outline-offset: -2px;
   border-radius: 10px;
 }
@@ -1839,7 +1841,7 @@
 }
 
 .ctdp-dock-message-close:focus-visible {
-  outline: 2px solid rgba(74, 111, 165, 0.45);
+  outline: 2px solid rgb(var(--place-fill-accent-rgb) / 0.45);
   outline-offset: 1px;
   color: #1a2540;
 }
@@ -1995,7 +1997,7 @@
   height: 28px;
   border: 1px solid rgba(255, 255, 255, 0.40);
   border-radius: 8px;
-  color: rgba(74, 111, 165, 0.82);
+  color: rgb(var(--place-fill-accent-rgb) / 0.82);
   background: rgba(255, 255, 255, 0.24);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.32),
