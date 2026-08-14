@@ -20,14 +20,20 @@ function createEvent() {
   };
 }
 
-test("weekly backup reminder stays pending until dismissed and retries on eligible tabs", () => {
+test("weekly backup reminder only displays on enabled sites until dismissed", async () => {
   const onAlarm = createEvent();
   const onActivated = createEvent();
   const onMessage = createEvent();
   const onUpdated = createEvent();
   let createdAlarm = null;
   let sentMessage = null;
+  let sentMessages = [];
   const storageData = {};
+  const tabUrls = {
+    7: "https://enabled.example.com/form",
+    8: "https://disabled.example.com/form",
+    9: "https://enabled.example.com/next"
+  };
   const chrome = {
     action: { onClicked: createEvent() },
     alarms: {
@@ -74,12 +80,19 @@ test("weekly backup reminder stays pending until dismissed and retries on eligib
     },
     tabs: {
       create() {},
-      get(_tabId, callback) { callback({ id: 7, url: "https://example.com/form" }); },
+      get(tabId, callback) { callback({ id: tabId, url: tabUrls[tabId] }); },
       onActivated,
       onUpdated,
-      query(_query, callback) { callback([{ id: 7, url: "https://example.com/form" }]); },
+      query(query, callback) {
+        if (Object.keys(query).length === 0) {
+          callback(Object.entries(tabUrls).map(function ([id, url]) { return { id: Number(id), url }; }));
+          return;
+        }
+        callback([{ id: 7, url: tabUrls[7] }]);
+      },
       sendMessage(tabId, message, options, callback) {
         sentMessage = { message, options, tabId };
+        sentMessages.push(sentMessage);
         callback?.();
       }
     }
@@ -99,10 +112,11 @@ test("weekly backup reminder stays pending until dismissed and retries on eligib
       },
       ChromeTestDataSiteFeatureToggle: {
         STORAGE_KEY: "ctdp.siteFeatureEnabled.v1",
-        getDefaultSiteFeatureEnabled() { return true; },
-        isSiteFeatureEnabled(value) { return value !== false; },
+        getDefaultSiteFeatureEnabled() { return false; },
+        isSiteFeatureEnabled(value) { return value === true; },
         normalizeSiteFeatureEnabledMap(value) { return value || {}; },
-        readSiteFeatureEnabledMap() { return Promise.resolve({}); }
+        readSiteFeatureEnabledMap() { return Promise.resolve({ "enabled.example.com": true }); },
+        readSiteFeatureEnabled({ hostname }) { return Promise.resolve(hostname === "enabled.example.com"); }
       },
       ChromeTestDataSmartFill: {
         formatSmartFillButtonLabel(fieldKey) { return fieldKey; },
@@ -112,6 +126,8 @@ test("weekly backup reminder stays pending until dismissed and retries on eligib
     importScripts() {}
   });
 
+  await new Promise(function (resolve) { setImmediate(resolve); });
+
   const scheduledAt = new Date(createdAlarm.options.when);
   assert.equal(createdAlarm.name, "weekly-backup-reminder");
   assert.equal(createdAlarm.options.periodInMinutes, 7 * 24 * 60);
@@ -120,6 +136,7 @@ test("weekly backup reminder stays pending until dismissed and retries on eligib
   assert.equal(scheduledAt.getMinutes(), 0);
 
   onAlarm.dispatch({ name: "weekly-backup-reminder" });
+  await new Promise(function (resolve) { setImmediate(resolve); });
   assert.equal(Number.isFinite(storageData["ctdp.backupReminderPendingAt.v1"]), true);
   assert.equal(sentMessage.tabId, 7);
   assert.equal(sentMessage.message.type, "show-backup-reminder");
@@ -128,20 +145,41 @@ test("weekly backup reminder stays pending until dismissed and retries on eligib
 
   sentMessage = null;
   onActivated.dispatch({ tabId: 8 });
+  await new Promise(function (resolve) { setImmediate(resolve); });
   assert.equal(sentMessage.tabId, 8);
+  assert.equal(sentMessage.message.type, "hide-backup-reminder");
+
+  sentMessage = null;
+  onActivated.dispatch({ tabId: 9 });
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  assert.equal(sentMessage.tabId, 9);
   assert.equal(sentMessage.message.type, "show-backup-reminder");
 
   let reminderState = null;
-  onMessage.dispatch({ type: "read-backup-reminder-state" }, {}, function (response) {
+  onMessage.dispatch({ type: "read-backup-reminder-state" }, { tab: { url: tabUrls[8] } }, function (response) {
     reminderState = response;
   });
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  assert.equal(reminderState.pending, false);
+
+  onMessage.dispatch({ type: "read-backup-reminder-state" }, { tab: { url: tabUrls[9] } }, function (response) {
+    reminderState = response;
+  });
+  await new Promise(function (resolve) { setImmediate(resolve); });
   assert.equal(reminderState.pending, true);
 
+  sentMessages = [];
   onMessage.dispatch({ type: "dismiss-backup-reminder" }, {}, function () {});
+  await new Promise(function (resolve) { setImmediate(resolve); });
   assert.equal(storageData["ctdp.backupReminderPendingAt.v1"], undefined);
+  assert.deepEqual(
+    sentMessages.map(function (entry) { return [entry.tabId, entry.message.type]; }),
+    [[7, "hide-backup-reminder"], [8, "hide-backup-reminder"], [9, "hide-backup-reminder"]]
+  );
 
   sentMessage = null;
-  onUpdated.dispatch(9, { status: "complete" }, { active: true, id: 9, url: "https://example.com/next" });
+  onUpdated.dispatch(9, { status: "complete" }, { active: true, id: 9, url: tabUrls[9] });
+  await new Promise(function (resolve) { setImmediate(resolve); });
   assert.equal(sentMessage.tabId, 9);
   assert.equal(sentMessage.message.type, "hide-backup-reminder");
 });

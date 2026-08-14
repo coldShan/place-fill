@@ -101,11 +101,38 @@ function sendBackupReminderState(tabId, pending) {
   });
 }
 
-function syncBackupReminderForTab(tabId) {
-  if (!tabId || !chrome.storage || !chrome.storage.local) return;
-  chrome.storage.local.get(BACKUP_REMINDER_PENDING_KEY, function (values) {
+function hideBackupReminderForAllTabs() {
+  if (!chrome.tabs || typeof chrome.tabs.query !== "function") return;
+  chrome.tabs.query({}, function (tabs) {
     void chrome.runtime.lastError;
-    sendBackupReminderState(tabId, !!(values && values[BACKUP_REMINDER_PENDING_KEY]));
+    (tabs || []).forEach(function (tab) {
+      sendBackupReminderState(tab && tab.id, false);
+    });
+  });
+}
+
+function isSiteFeatureEnabledForUrl(url) {
+  const hostname = getUrlHostname(url);
+  if (!siteFeatureToggleApi || !hostname) return Promise.resolve(true);
+  if (typeof siteFeatureToggleApi.readSiteFeatureEnabled !== "function") {
+    return Promise.resolve(isSiteFeatureEnabledForHostname(hostname));
+  }
+  return siteFeatureToggleApi.readSiteFeatureEnabled({ hostname }).catch(function () {
+    return false;
+  });
+}
+
+function syncBackupReminderForTab(tabId) {
+  if (!tabId || !chrome.tabs || typeof chrome.tabs.get !== "function" || !chrome.storage || !chrome.storage.local) return;
+  chrome.tabs.get(tabId, function (tab) {
+    void chrome.runtime.lastError;
+    isSiteFeatureEnabledForUrl(tab && tab.url).then(function (enabled) {
+      if (!enabled) return sendBackupReminderState(tabId, false);
+      chrome.storage.local.get(BACKUP_REMINDER_PENDING_KEY, function (values) {
+        void chrome.runtime.lastError;
+        sendBackupReminderState(tabId, !!(values && values[BACKUP_REMINDER_PENDING_KEY]));
+      });
+    });
   });
 }
 
@@ -125,7 +152,7 @@ function showBackupReminder() {
     if (!chrome.tabs || typeof chrome.tabs.query !== "function") return;
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
       void chrome.runtime.lastError;
-      sendBackupReminderState(tabs && tabs[0] && tabs[0].id, true);
+      syncBackupReminderForTab(tabs && tabs[0] && tabs[0].id);
     });
   });
 }
@@ -415,6 +442,7 @@ if (chrome.storage && chrome.storage.onChanged) {
     if (siteFeatureToggleApi && Object.prototype.hasOwnProperty.call(changes, siteFeatureToggleApi.STORAGE_KEY)) {
       siteFeatureEnabledMap = siteFeatureToggleApi.normalizeSiteFeatureEnabledMap(changes[siteFeatureToggleApi.STORAGE_KEY].newValue);
       syncRootMenuVisibilityForActiveTab();
+      syncBackupReminderForActiveTab();
     }
     mirrorStorageLocal().catch(function () {});
   });
@@ -461,7 +489,7 @@ chrome.contextMenus.onClicked.addListener(function (info, tab) {
     });
 });
 
-chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
+chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   if (!message || typeof message.type !== "string") return;
   if (message.type === "open-extension-repository-page") {
     openExtensionPage(REPOSITORY_URL);
@@ -479,18 +507,21 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
     return;
   }
   if (message.type === "read-backup-reminder-state") {
-    chrome.storage.local.get(BACKUP_REMINDER_PENDING_KEY, function (values) {
-      const error = chrome.runtime.lastError;
-      sendResponse({
-        message: BACKUP_REMINDER_MESSAGE,
-        ok: !error,
-        pending: !!(values && values[BACKUP_REMINDER_PENDING_KEY])
+    isSiteFeatureEnabledForUrl(sender && sender.tab && sender.tab.url).then(function (enabled) {
+      chrome.storage.local.get(BACKUP_REMINDER_PENDING_KEY, function (values) {
+        const error = chrome.runtime.lastError;
+        sendResponse({
+          message: BACKUP_REMINDER_MESSAGE,
+          ok: !error,
+          pending: enabled && !!(values && values[BACKUP_REMINDER_PENDING_KEY])
+        });
       });
     });
     return true;
   }
   if (message.type === "dismiss-backup-reminder") {
     chrome.storage.local.remove(BACKUP_REMINDER_PENDING_KEY, function () {
+      hideBackupReminderForAllTabs();
       sendResponse({ ok: !chrome.runtime.lastError });
     });
     return true;
