@@ -56,8 +56,8 @@ node extension/scripts/sync-readme-version.mjs
 # Package release zip
 node extension/scripts/package-release.mjs
 
-# Publish a new version; this commits, tags, pushes, and creates a GitHub Release
-pnpm release <version>
+# Publish with manually authored notes; this commits, tags, pushes, and creates a GitHub Release
+pnpm release <version> --notes-file /tmp/place-fill-release-notes.md
 
 # Verify the current manifest version and its release artifacts
 pnpm release:verify
@@ -160,7 +160,8 @@ pnpm release:verify
 
 - Treat `extension/manifest.json` as the version source of truth. Keep the current-version line in `Project Overview` machine-readable for the release script.
 - Before releasing, review this file against current commands, paths, architecture, compatibility, and verification requirements; include necessary updates in the same release change set.
-- Use `pnpm release <version>` only when the user explicitly requests a release. It updates the manifest, README, and AGENTS.md, runs checks and tests, packages the zip, creates local-only `releases/place-fill.png`, commits, tags, pushes, and uploads only the zip to the GitHub Release.
+- Before releasing, analyze the relevant Git commits in `<current-version-tag>..HEAD`; do not analyze the code diff. Write user-facing Markdown notes to a temporary file outside the repository so the clean-worktree check still passes. Consolidate internal refactors and intermediate implementation commits into their related user-facing change instead of listing them separately.
+- Use `pnpm release <version> --notes-file /tmp/place-fill-release-notes.md` only when the user explicitly requests a release. The notes file must be written from that commit analysis; the release script uploads it verbatim and never generates notes from commit subjects. The command updates the manifest, README, and AGENTS.md, runs checks and tests, packages the zip, creates local-only `releases/place-fill.png`, commits, tags, pushes, and uploads only the zip to the GitHub Release.
 - Use `pnpm release:verify` to verify the README, AGENTS.md, local zip, disguised PNG, local and remote tag, and GitHub Release for the current manifest version.
 - Release zip archives must contain only the contents of `extension/`, not the parent project directory.
 - Create release archives from inside `extension/` so the zip root is the extension files themselves.

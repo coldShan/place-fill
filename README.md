@@ -61,8 +61,8 @@ pnpm test
 # 打包发布 zip，并生成伪装图片 releases/place-fill.png
 node extension/scripts/package-release.mjs
 
-# 发布新版本：同步文档、测试、打包；只上传 zip，place-fill.png 保留在本地
-pnpm release 0.7.5
+# 分析上一版本标签后的相关 Git commits，人工编写更新日志后再发布；只上传 zip，place-fill.png 保留在本地
+pnpm release <version> --notes-file /tmp/place-fill-release-notes.md
 
 # 验证当前版本的文档、zip、伪装图片、tag 和 GitHub Release
 pnpm release:verify

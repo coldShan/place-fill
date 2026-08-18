@@ -9,7 +9,6 @@ const scriptPath = fileURLToPath(import.meta.url);
 const scriptsDir = dirname(scriptPath);
 const defaultRepoDir = resolve(scriptsDir, "..", "..");
 const repository = "coldShan/place-fill";
-const ignoredReleaseNoteTypes = new Set(["build", "chore", "ci", "docs", "test"]);
 
 function defaultRunCommand(command, args, { cwd = defaultRepoDir, stdio = "pipe" } = {}) {
   const result = spawnSync(command, args, {
@@ -52,39 +51,16 @@ function readManifest(manifestPath) {
   return JSON.parse(readFileSync(manifestPath, "utf8"));
 }
 
-export function buildReleaseNotes({ commitSubjects, previousTag, tagName }) {
-  const groups = [
-    { title: "新功能", types: new Set(["feat"]), items: [] },
-    { title: "问题修复", types: new Set(["fix"]), items: [] },
-    { title: "优化调整", types: null, items: [] }
-  ];
-  const seen = new Set();
-
-  for (const rawSubject of commitSubjects) {
-    const subject = String(rawSubject || "").trim();
-    if (!subject) continue;
-
-    const match = subject.match(/^([a-z]+)(?:\([^)]+\))?!?:\s*(.+)$/i);
-    const type = match?.[1]?.toLowerCase() || "";
-    const text = (match?.[2] || subject).trim();
-    if (!text || ignoredReleaseNoteTypes.has(type) || seen.has(text)) continue;
-
-    seen.add(text);
-    (groups.find((group) => group.types?.has(type)) || groups[2]).items.push(text);
+function resolveReleaseNotesFile({ notesFile, repoDir }) {
+  const inputPath = String(notesFile || "").trim();
+  if (!inputPath) {
+    throw new Error("release notes file is required: pnpm release <version> --notes-file <path>");
   }
-
-  const sections = groups
-    .filter((group) => group.items.length)
-    .map((group) => `### ${group.title}\n${group.items.map((item) => `- ${item}`).join("\n")}`);
-  if (!sections.length) sections.push("- 维护与稳定性改进");
-
-  return [
-    "## 更新内容",
-    "",
-    sections.join("\n\n"),
-    "",
-    `**完整变更**：https://github.com/${repository}/compare/${previousTag}...${tagName}`
-  ].join("\n");
+  const notesPath = resolve(repoDir, inputPath);
+  if (!readFileSync(notesPath, "utf8").trim()) {
+    throw new Error("release notes file must not be empty");
+  }
+  return notesPath;
 }
 
 function assertCleanWorktree({ repoDir, runCommand }) {
@@ -159,6 +135,7 @@ function assertGitHubRelease({ repoDir, runCommand, tagName, zipName }) {
 }
 
 export function releaseVersion({
+  notesFile,
   packageRelease = packageReleaseImpl,
   repoDir = defaultRepoDir,
   runCommand = defaultRunCommand,
@@ -166,6 +143,7 @@ export function releaseVersion({
 } = {}) {
   const nextVersion = normalizeVersion(version);
   const tagName = `v${nextVersion}`;
+  const releaseNotesPath = resolveReleaseNotesFile({ notesFile, repoDir });
   const extensionDir = join(repoDir, "extension");
   const manifestPath = join(extensionDir, "manifest.json");
   const readmePath = join(repoDir, "README.md");
@@ -176,14 +154,6 @@ export function releaseVersion({
   assertTagAvailable({ repoDir, runCommand, tagName });
 
   const previousVersion = String(readManifest(manifestPath).version || "").trim();
-  const previousTag = `v${previousVersion}`;
-  const commitSubjects = runChecked(
-    runCommand,
-    "git",
-    ["log", "--no-merges", "--format=%s", `${previousTag}..HEAD`],
-    { cwd: repoDir }
-  ).stdout.split(/\r?\n/);
-  const releaseNotes = buildReleaseNotes({ commitSubjects, previousTag, tagName });
   updateManifestVersion({ manifestPath, version: nextVersion });
   syncVersionReferences({ agentsPath, manifestPath, readmePath });
   const branch = getCurrentBranch({ repoDir, runCommand });
@@ -210,8 +180,8 @@ export function releaseVersion({
       repository,
       "--title",
       tagName,
-      "--notes",
-      releaseNotes,
+      "--notes-file",
+      releaseNotesPath,
       "--verify-tag",
       "--latest"
     ],
@@ -237,7 +207,12 @@ export function releaseVersion({
 }
 
 if (resolve(process.argv[1] || "") === scriptPath) {
-  const result = releaseVersion({ version: process.argv[2] });
+  const args = process.argv.slice(2);
+  const notesFileIndex = args.indexOf("--notes-file");
+  const result = releaseVersion({
+    notesFile: notesFileIndex >= 0 ? args[notesFileIndex + 1] : "",
+    version: args[0]
+  });
   console.log(`released ${result.tagName} on ${result.branch}`);
   console.log(result.outputPath);
   console.log(result.imageOutputPath);

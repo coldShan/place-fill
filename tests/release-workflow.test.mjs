@@ -42,9 +42,23 @@ function writeReleaseArtifacts(repoDir, zip = Buffer.from("zip")) {
 test("releaseVersion commits, tags, pushes, and verifies the requested version", async () => {
   const { repoDir } = createReleaseFixture();
   const calls = [];
+  const notesFile = join(repoDir, "release-notes.md");
+  const releaseNotes = [
+    "## 更新内容",
+    "",
+    "### 新功能",
+    "- 增加批量填充",
+    "",
+    "### 问题修复",
+    "- 修复悬浮入口隐藏",
+    "",
+    "**完整变更**：https://github.com/coldShan/place-fill/compare/v0.7.4...v0.7.5"
+  ].join("\n");
+  writeFileSync(notesFile, releaseNotes);
   const releaseScript = await import("../extension/scripts/release-version.mjs");
 
   const result = releaseScript.releaseVersion({
+    notesFile,
     repoDir,
     version: "0.7.5",
     runCommand(command, args) {
@@ -52,16 +66,6 @@ test("releaseVersion commits, tags, pushes, and verifies the requested version",
       if (command === "git" && args.join(" ") === "status --porcelain") return { stdout: "" };
       if (command === "git" && args.join(" ") === "branch --show-current") return { stdout: "main\n" };
       if (command === "git" && args[0] === "rev-parse") return { stdout: "", status: 1 };
-      if (command === "git" && args.join(" ") === "log --no-merges --format=%s v0.7.4..HEAD") {
-        return {
-          stdout: [
-            "feat: 增加批量填充",
-            "fix(panel): 修复悬浮入口隐藏",
-            "fix: 修复悬浮入口隐藏",
-            "chore: 调整发布流程"
-          ].join("\n")
-        };
-      }
       if (command === "git" && args[0] === "ls-remote") {
         return args.includes("v0.7.5")
           ? { stdout: calls.filter((call) => call === "git push origin v0.7.5").length ? "abc\trefs/tags/v0.7.5\n" : "" }
@@ -103,7 +107,6 @@ test("releaseVersion commits, tags, pushes, and verifies the requested version",
       "git status --porcelain",
       "git rev-parse -q --verify refs/tags/v0.7.5",
       "git ls-remote --tags origin v0.7.5",
-      "git log --no-merges --format=%s v0.7.4..HEAD",
       "git branch --show-current",
       "git add extension/manifest.json README.md AGENTS.md",
       "git commit -m chore: 发布 0.7.5 版本",
@@ -113,16 +116,13 @@ test("releaseVersion commits, tags, pushes, and verifies the requested version",
       "git ls-remote --tags origin v0.7.5"
     ]
   );
+  assert.equal(readFileSync(notesFile, "utf8"), releaseNotes);
   assert.deepEqual(
     calls.filter((call) => call.startsWith("gh release view")),
     ["gh release view v0.7.5 --repo coldShan/place-fill --json tagName,assets"]
   );
   const createReleaseCall = calls.find((call) => call.startsWith("gh release create"));
-  assert.match(createReleaseCall, /## 更新内容/);
-  assert.match(createReleaseCall, /### 新功能\n- 增加批量填充/);
-  assert.match(createReleaseCall, /### 问题修复\n- 修复悬浮入口隐藏/);
-  assert.doesNotMatch(createReleaseCall, /调整发布流程/);
-  assert.match(createReleaseCall, /compare\/v0\.7\.4\.\.\.v0\.7\.5/);
+  assert.match(createReleaseCall, new RegExp(`--notes-file ${notesFile.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
   assert.match(createReleaseCall, /place-fill-v0\.7\.5\.zip/);
   assert.doesNotMatch(createReleaseCall, /place-fill\.png/);
   assert.deepEqual(
@@ -131,37 +131,16 @@ test("releaseVersion commits, tags, pushes, and verifies the requested version",
   );
 });
 
-test("buildReleaseNotes groups user-facing changes and removes duplicates", async () => {
-  const { buildReleaseNotes } = await import("../extension/scripts/release-version.mjs");
-  const notes = buildReleaseNotes({
-    previousTag: "v0.8.0",
-    tagName: "v0.8.1",
-    commitSubjects: [
-      "feat: 增加备份提醒",
-      "fix: 修复提醒漏发",
-      "fix(panel): 修复提醒漏发",
-      "优化表单样式",
-      "docs: 更新说明",
-      "chore: 发布 0.8.1 版本"
-    ]
-  });
+test("releaseVersion requires non-empty authored release notes", async () => {
+  const { repoDir } = createReleaseFixture();
+  const emptyNotesFile = join(repoDir, "empty-notes.md");
+  writeFileSync(emptyNotesFile, "\n");
+  const { releaseVersion } = await import("../extension/scripts/release-version.mjs");
 
-  assert.equal(
-    notes,
-    [
-      "## 更新内容",
-      "",
-      "### 新功能",
-      "- 增加备份提醒",
-      "",
-      "### 问题修复",
-      "- 修复提醒漏发",
-      "",
-      "### 优化调整",
-      "- 优化表单样式",
-      "",
-      "**完整变更**：https://github.com/coldShan/place-fill/compare/v0.8.0...v0.8.1"
-    ].join("\n")
+  assert.throws(() => releaseVersion({ repoDir, version: "0.7.5" }), /release notes file is required/);
+  assert.throws(
+    () => releaseVersion({ notesFile: emptyNotesFile, repoDir, version: "0.7.5" }),
+    /release notes file must not be empty/
   );
 });
 
