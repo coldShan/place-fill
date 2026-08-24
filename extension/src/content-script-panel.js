@@ -89,6 +89,24 @@
     return targets;
   }
 
+  function collectPageFavoriteProfile(doc, editableTargetApi, smartFillApi) {
+    if (!doc || !editableTargetApi || !smartFillApi) return {};
+    const profile = {};
+    const seen = new Set();
+    Array.from(doc.querySelectorAll(
+      'input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]'
+    )).forEach(function (node) {
+      const target = editableTargetApi.findEditableTarget(node);
+      if (!target || seen.has(target)) return;
+      seen.add(target);
+      if (String(target.type || "").toLowerCase() === "password") return;
+      const fieldKey = smartFillApi.inferFieldKeyForSmartFill(target);
+      const value = String(target.isContentEditable ? target.textContent || "" : target.value || "");
+      if (fieldKey && value.trim() && !profile[fieldKey]) profile[fieldKey] = value;
+    });
+    return profile;
+  }
+
   function createContentScriptPanelController(options) {
     const opts = options || {};
     const generators = opts.generators;
@@ -861,6 +879,31 @@
 
     function delay(ms) {
       return new Promise(function (resolve) { win.setTimeout(resolve, ms); });
+    }
+
+    async function addCurrentPageToFavorites() {
+      if (typeof opts.refreshAiRecognition === "function") {
+        await Promise.race([opts.refreshAiRecognition(), delay(900)]);
+      }
+      const profile = collectPageFavoriteProfile(doc, editableTargetApi, smartFillApi);
+      if (!Object.keys(profile).length) {
+        showDockMessage("未识别到可加入常用的数据", true);
+        return false;
+      }
+      const scope = getCurrentScopeKey();
+      if (!scope || !dataRecordsApi || typeof dataRecordsApi.createFavoriteProfile !== "function") {
+        showDockMessage("加入常用失败", true);
+        return false;
+      }
+      try {
+        await dataRecordsApi.createFavoriteProfile(scope, { profile });
+        await loadFavoriteProfiles();
+        showDockMessage("已加入常用", true);
+        return true;
+      } catch (_) {
+        showDockMessage("加入常用失败", true);
+        return false;
+      }
     }
 
     async function autoFillPage() {
@@ -1850,6 +1893,7 @@
     }
 
     return {
+      addCurrentPageToFavorites,
       collapse,
       consumeFieldValue,
       expand,
@@ -1872,6 +1916,7 @@
   const api = {
     closeOtherSettingsSections,
     collectPageAutoFillTargets,
+    collectPageFavoriteProfile,
     createContentScriptPanelController,
     sampleFavoriteProfiles
   };

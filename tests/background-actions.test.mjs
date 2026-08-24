@@ -11,6 +11,7 @@ test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /chrome\.action\.onClicked\.addListener/);
   assert.match(script, /importScripts\("src\/field-meta\.js",\s*"src\/field-visibility\.js",\s*"src\/site-feature-toggle\.js",\s*"src\/ai-recognition\.js",\s*"src\/smart-fill\.js",\s*"src\/storage-mirror\.js",\s*"generated\/data-manager-bridge\.js"\)/);
   assert.match(script, /chrome\.contextMenus\.create/);
+  assert.match(script, /title:\s*"加入常用"/);
   assert.match(script, /contexts:\s*\["editable"\]/);
   assert.match(script, /chrome\.contextMenus\.onClicked\.addListener/);
   assert.match(script, /new URL\(tab\.url\)\.hostname/);
@@ -24,6 +25,7 @@ test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /if \(chrome\.storage && chrome\.storage\.onChanged\)/);
   assert.match(script, /apply-smart-fill-override/);
   assert.match(script, /clear-smart-fill-override/);
+  assert.match(script, /add-current-page-to-favorites/);
   assert.match(script, /check-extension-update/);
   assert.match(script, /open-extension-release-page/);
   assert.match(script, /open-extension-repository-page/);

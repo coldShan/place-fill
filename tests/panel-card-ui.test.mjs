@@ -14,6 +14,7 @@ const editableTargetPkg = await import("../extension/src/editable-target.js");
 const {
   closeOtherSettingsSections,
   collectPageAutoFillTargets,
+  collectPageFavoriteProfile,
   sampleFavoriteProfiles
 } = panelControllerPkg.default || panelControllerPkg;
 const editableTargetApi = editableTargetPkg.default || editableTargetPkg;
@@ -68,6 +69,25 @@ test("floating panel renders common-data cards only when favorites exist", () =>
     ["张一"]
   );
   assert.deepEqual(sampleFavoriteProfiles([], 5, function () { return 0; }), []);
+});
+
+test("quick favorite capture keeps the first non-empty value for every recognized field", () => {
+  const nodes = [
+    { nodeType: 1, tagName: "INPUT", type: "text", fieldKey: "mobile", value: "" },
+    { nodeType: 1, tagName: "INPUT", type: "text", fieldKey: "mobile", value: "13800138000" },
+    { nodeType: 1, tagName: "TEXTAREA", fieldKey: "address", value: "郑州市金水区" },
+    { nodeType: 1, tagName: "INPUT", type: "password", fieldKey: "account", value: "secret" }
+  ];
+  const profile = collectPageFavoriteProfile(
+    { querySelectorAll() { return nodes; } },
+    editableTargetApi,
+    { inferFieldKeyForSmartFill(node) { return node.fieldKey || null; } }
+  );
+
+  assert.deepEqual(profile, {
+    address: "郑州市金水区",
+    mobile: "13800138000"
+  });
 });
 
 test("floating panel renders one generated card and up to five common-data style cards", () => {
@@ -437,6 +457,8 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(orchestratorScript, /getCurrentScope:/);
   assert.match(orchestratorScript, /message\.type === "apply-smart-fill-override"/);
   assert.match(orchestratorScript, /message\.type === "clear-smart-fill-override"/);
+  assert.match(orchestratorScript, /message\.type === "add-current-page-to-favorites"/);
+  assert.match(orchestratorScript, /panelController\.addCurrentPageToFavorites\(\)/);
   assert.match(orchestratorScript, /onSiteFeatureEnabledChanged/);
   assert.match(orchestratorScript, /isEnabled:\s*panelController\.isSiteFeatureEnabled/);
   assert.match(orchestratorScript, /setManualFieldOverride/);

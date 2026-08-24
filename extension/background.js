@@ -11,6 +11,7 @@ const storageMirrorApi = globalThis.ChromeTestDataStorageMirror;
 const MENU_ROOT_ID = "ctdp-manual-annotation-root";
 const MENU_FIELD_PREFIX = "ctdp-manual-annotation:";
 const MENU_CLEAR_ID = "ctdp-manual-annotation:clear";
+const MENU_FAVORITE_ID = "ctdp-add-current-page-favorite";
 const REPOSITORY_URL = "https://github.com/coldShan/place-fill";
 const RELEASES_URL = REPOSITORY_URL + "/releases";
 const LATEST_RELEASE_API_URL = "https://api.github.com/repos/coldShan/place-fill/releases/latest";
@@ -39,6 +40,12 @@ function resolveContextHostname(info, tab) {
 async function buildContextMenus() {
   if (!chrome.contextMenus || !smartFillApi || !fieldVisibilityApi) return;
   chrome.contextMenus.removeAll(function () {
+    chrome.contextMenus.create({
+      id: MENU_FAVORITE_ID,
+      title: "加入常用",
+      contexts: ["editable"]
+    });
+
     chrome.contextMenus.create({
       id: MENU_ROOT_ID,
       title: "手动标注为",
@@ -378,9 +385,11 @@ async function testAiRecognitionConfig(inputConfig) {
 
 function updateRootMenuVisibility(visible) {
   if (!chrome.contextMenus || typeof chrome.contextMenus.update !== "function") return;
-  chrome.contextMenus.update(MENU_ROOT_ID, { visible: visible }, function () {
-    void chrome.runtime.lastError;
-    if (typeof chrome.contextMenus.refresh === "function") chrome.contextMenus.refresh();
+  [MENU_ROOT_ID, MENU_FAVORITE_ID].forEach(function (menuId) {
+    chrome.contextMenus.update(menuId, { visible: visible }, function () {
+      void chrome.runtime.lastError;
+      if (typeof chrome.contextMenus.refresh === "function") chrome.contextMenus.refresh();
+    });
   });
 }
 
@@ -473,6 +482,10 @@ chrome.contextMenus.onClicked.addListener(function (info, tab) {
   if (!info || !tab || !tab.id) return;
   const hostname = resolveContextHostname(info, tab);
   if (!isSiteFeatureEnabledForHostname(hostname)) return;
+  if (info.menuItemId === MENU_FAVORITE_ID) {
+    sendTabMessage(tab.id, info, { type: "add-current-page-to-favorites" });
+    return;
+  }
   if (info.menuItemId === MENU_CLEAR_ID) {
     sendTabMessage(tab.id, info, { type: "clear-smart-fill-override" });
     return;

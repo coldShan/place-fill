@@ -307,6 +307,10 @@
         panelController.hideDismissibleDockMessage();
         return;
       }
+      if (message.type === "add-current-page-to-favorites") {
+        panelController.addCurrentPageToFavorites();
+        return;
+      }
       if (message.type === "apply-smart-fill-override") {
         const target = smartFillController.resolveManualOverrideTarget();
         if (!target) return;

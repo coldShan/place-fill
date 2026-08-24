@@ -8,12 +8,6 @@ import vm from "node:vm";
 const here = dirname(fileURLToPath(import.meta.url));
 const script = readFileSync(join(here, "../extension/src/content-script.js"), "utf8");
 
-function createRuntimeEvent() {
-  return {
-    addListener() {}
-  };
-}
-
 function runContentScriptWithSmartFillStub(overrides, envOverrides) {
   const env = envOverrides || {};
   const documentListeners = {};
@@ -23,9 +17,11 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
   const syncTargetCalls = [];
   const runtimeMessages = [];
   let dockMessageArgs = null;
+  let addCurrentPageToFavoritesCalls = 0;
   let exportFullBackupCalls = 0;
   let hideDockMessageCalls = 0;
   let panelOptions = null;
+  let runtimeMessageListener = null;
   const smartFillController = {
     fillTarget() {},
     handleDocumentPointerDown(target) {
@@ -76,7 +72,11 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
     chrome: {
       runtime: {
         lastError: null,
-        onMessage: createRuntimeEvent(),
+        onMessage: {
+          addListener(listener) {
+            runtimeMessageListener = listener;
+          }
+        },
         sendMessage(message, callback) {
           runtimeMessages.push(message);
           if (callback) callback(typeof env.runtimeResponse === "function" ? env.runtimeResponse(message) : {});
@@ -121,6 +121,9 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
         createContentScriptPanelController(options) {
           panelOptions = options;
           return {
+            addCurrentPageToFavorites() {
+              addCurrentPageToFavoritesCalls += 1;
+            },
             consumeFieldValue() {},
             exportFullBackup() {
               exportFullBackupCalls += 1;
@@ -165,6 +168,12 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
   return {
     document,
     documentListeners,
+    dispatchRuntimeMessage(message) {
+      runtimeMessageListener(message);
+    },
+    getAddCurrentPageToFavoritesCalls() {
+      return addCurrentPageToFavoritesCalls;
+    },
     getDockMessageArgs() {
       return dockMessageArgs;
     },
@@ -251,6 +260,14 @@ test("pointerdown delegates outside-click handling to smart fill", () => {
   runtime.documentListeners.pointerdown({ target });
 
   assert.deepEqual(runtime.smartFillPointerDownCalls, [target]);
+});
+
+test("quick favorite context action delegates page capture to the panel controller", () => {
+  const runtime = runContentScriptWithSmartFillStub();
+
+  runtime.dispatchRuntimeMessage({ type: "add-current-page-to-favorites" });
+
+  assert.equal(runtime.getAddCurrentPageToFavoritesCalls(), 1);
 });
 
 test("content script skips duplicate ai recognition snapshots", async () => {

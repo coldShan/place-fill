@@ -111,7 +111,7 @@ test("background boots when contextMenus.onShown is unavailable", () => {
 
 test("background accepts explicit site feature menu sync messages", () => {
   let onMessageListener = null;
-  let updateCall = null;
+  const updateCalls = [];
 
   const chrome = {
     action: { onClicked: createEvent() },
@@ -122,7 +122,7 @@ test("background accepts explicit site feature menu sync messages", () => {
         if (callback) callback();
       },
       update(id, props, callback) {
-        updateCall = { id, props };
+        updateCalls.push({ id, props });
         if (callback) callback();
       }
     },
@@ -209,9 +209,13 @@ test("background accepts explicit site feature menu sync messages", () => {
   });
 
   assert.equal(typeof onMessageListener, "function");
+  updateCalls.length = 0;
   onMessageListener({ type: "sync-site-feature-context-menu", enabled: false }, {}, function () {});
-  assert.equal(updateCall.id, "ctdp-manual-annotation-root");
-  assert.equal(updateCall.props.visible, false);
+  assert.deepEqual(updateCalls.map(function (call) { return call.id; }), [
+    "ctdp-manual-annotation-root",
+    "ctdp-add-current-page-favorite"
+  ]);
+  assert.equal(updateCalls.every(function (call) { return call.props.visible === false; }), true);
 });
 
 test("background opens the data manager page with a normalized scope", () => {
