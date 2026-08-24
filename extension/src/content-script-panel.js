@@ -906,6 +906,17 @@
       }
     }
 
+    function isCurrentPageFavorite() {
+      const profile = collectPageFavoriteProfile(doc, editableTargetApi, smartFillApi);
+      const scope = getCurrentScopeKey();
+      if (!scope || !Object.keys(profile).length || !dataRecordsApi || typeof dataRecordsApi.hasFavoriteProfile !== "function") {
+        return Promise.resolve(false);
+      }
+      return dataRecordsApi.hasFavoriteProfile(scope, profile).catch(function () {
+        return false;
+      });
+    }
+
     async function autoFillPage() {
       if (autoFillRunning) {
         autoFillAborted = true;
@@ -1899,6 +1910,7 @@
       expand,
       exportFullBackup,
       getFieldValue,
+      isCurrentPageFavorite,
       isSiteFeatureEnabled,
       getVisibleFieldKeys,
       handleDocumentFocusIn,

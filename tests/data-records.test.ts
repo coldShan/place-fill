@@ -5,6 +5,7 @@ import {
   createFavoriteFromHistory,
   createFavoriteProfile,
   deleteFavoriteProfile,
+  hasFavoriteProfile,
   normalizeScopeKey,
   readFavoriteProfiles,
   readGeneratedProfiles,
@@ -129,6 +130,15 @@ test("createFavoriteProfile reuses an existing favorite with the same profile", 
   assert.equal(duplicate.id, first.id);
   assert.equal(favorites.length, 1);
   assert.equal(favorites[0]?.name, "常用数据 A");
+});
+
+test("hasFavoriteProfile uses the same normalized profile deduplication", async () => {
+  const storageArea = createStorageArea();
+  await createFavoriteProfile("alpha.example.com", { profile: buildProfile(1) }, { storageArea });
+
+  assert.equal(await hasFavoriteProfile("ALPHA.EXAMPLE.COM", buildProfile(1), { storageArea }), true);
+  assert.equal(await hasFavoriteProfile("alpha.example.com", buildProfile(2), { storageArea }), false);
+  assert.equal(await hasFavoriteProfile("beta.example.com", buildProfile(1), { storageArea }), false);
 });
 
 test("createFavoriteFromHistory moves one generated record into favorites without duplicates", async () => {

@@ -22,6 +22,7 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
   let hideDockMessageCalls = 0;
   let panelOptions = null;
   let runtimeMessageListener = null;
+  let smartFillOptions = null;
   const smartFillController = {
     fillTarget() {},
     handleDocumentPointerDown(target) {
@@ -135,6 +136,9 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
             getVisibleFieldKeys() {
               return env.visibleFieldKeys || [];
             },
+            isCurrentPageFavorite() {
+              return Promise.resolve(false);
+            },
             handleDocumentFocusIn(target) {
               panelFocusInCalls.push(target);
             },
@@ -157,7 +161,8 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
         }
       },
       ChromeTestDataContentScriptSmartFill: {
-        createContentScriptSmartFillController() {
+        createContentScriptSmartFillController(options) {
+          smartFillOptions = options;
           return smartFillController;
         }
       }
@@ -187,6 +192,7 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
     panelFocusInCalls,
     runtimeMessages,
     smartFillPointerDownCalls,
+    smartFillOptions,
     syncTargetCalls
   };
 }
@@ -268,6 +274,15 @@ test("quick favorite context action delegates page capture to the panel controll
   runtime.dispatchRuntimeMessage({ type: "add-current-page-to-favorites" });
 
   assert.equal(runtime.getAddCurrentPageToFavoritesCalls(), 1);
+});
+
+test("smart fill star action delegates page capture to the panel controller", () => {
+  const runtime = runContentScriptWithSmartFillStub();
+
+  runtime.smartFillOptions.onAddCurrentPageToFavorites();
+
+  assert.equal(runtime.getAddCurrentPageToFavoritesCalls(), 1);
+  assert.equal(typeof runtime.smartFillOptions.isCurrentPageFavorite, "function");
 });
 
 test("content script skips duplicate ai recognition snapshots", async () => {

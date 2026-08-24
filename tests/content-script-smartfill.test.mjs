@@ -2,71 +2,126 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import smartfillControllerPkg from "../extension/src/content-script-smartfill.js";
 
-const { buildRecommendationItems, MAX_RECOMMENDATION_ITEMS } = smartfillControllerPkg;
+const { createContentScriptSmartFillController } = smartfillControllerPkg;
 
-function createFavorite(id, profile) {
-  return {
-    id,
-    name: "常用数据",
-    createdAt: "1",
-    updatedAt: "1",
-    profile: {
-      creditCode: "",
-      companyName: "",
-      fullName: "",
-      idNumber: "",
-      bankCard: "",
-      account: "",
-      mobile: "",
-      email: "",
-      landline: "",
-      address: "",
-      ...profile
+test("star action adds the current page to favorites and fills yellow when already saved", async () => {
+  const listeners = {};
+  const smartButton = {
+    children: [{ offsetHeight: 42, offsetWidth: 42 }],
+    hidden: true,
+    innerHTML: "",
+    style: {},
+    addEventListener(type, listener) {
+      listeners[type] = listener;
+    },
+    contains() {
+      return false;
+    },
+    setAttribute() {}
+  };
+  const document = {
+    activeElement: null,
+    createElement() {
+      return smartButton;
+    },
+    documentElement: {
+      clientHeight: 720,
+      clientWidth: 1280,
+      appendChild() {}
     }
   };
-}
-
-test("recommendation items prioritize current field value, include context, and skip empty matches", () => {
-  assert.deepEqual(
-    buildRecommendationItems("mobile", [
-      createFavorite("mobile-1", { mobile: "13300000001", fullName: "张唯", companyName: "星海科技" }),
-      createFavorite("mobile-2", { mobile: "", fullName: "空值", companyName: "应被过滤" }),
-      createFavorite("mobile-3", { mobile: "13300000003", fullName: "李青" }),
-      createFavorite("mobile-4", { mobile: "13300000004", companyName: "远山物流" })
-    ]),
-    [
-      { id: "mobile-1", primaryText: "13300000001", secondaryText: "张唯 / 星海科技" },
-      { id: "mobile-3", primaryText: "13300000003", secondaryText: "李青" },
-      { id: "mobile-4", primaryText: "13300000004", secondaryText: "远山物流" }
-    ]
-  );
-});
-
-test("recommendation items are capped at ten records", () => {
-  const favorites = Array.from({ length: 12 }, function (_value, index) {
-    return createFavorite("mobile-" + index, {
-      mobile: "133000000" + String(index).padStart(2, "0"),
-      fullName: "用户" + index
-    });
+  const target = {
+    nodeType: 1,
+    parentElement: null,
+    style: {
+      removeProperty() {},
+      setProperty() {}
+    },
+    getAttribute() {
+      return "true";
+    },
+    getBoundingClientRect() {
+      return { height: 40, right: 400, top: 100 };
+    },
+    removeAttribute() {},
+    setAttribute() {}
+  };
+  let addCalls = 0;
+  const controller = createContentScriptSmartFillController({
+    document,
+    editableTargetApi: {
+      findEditableTarget(node) {
+        return node === target ? target : null;
+      }
+    },
+    getVisibleFieldKeys() {
+      return ["mobile"];
+    },
+    iconAssetsApi: {
+      renderIconMarkup(icon, className, label) {
+        return '<i data-icon="' + icon + '" class="' + className + '" aria-label="' + label + '"></i>';
+      }
+    },
+    onAddCurrentPageToFavorites() {
+      addCalls += 1;
+      return Promise.resolve(true);
+    },
+    isCurrentPageFavorite() {
+      return Promise.resolve(true);
+    },
+    smartFillApi: {
+      formatSmartFillButtonLabel() {
+        return "手机号";
+      },
+      getFieldIconName() {
+        return "smartphone";
+      },
+      getSupportedFieldKeys() {
+        return ["mobile"];
+      },
+      inferFieldKeyForSmartFill() {
+        return "mobile";
+      }
+    },
+    window: {
+      clearTimeout() {},
+      getComputedStyle() {
+        return { backgroundColor: "rgb(255, 255, 255)", borderRadius: "8px" };
+      },
+      innerHeight: 720,
+      innerWidth: 1280,
+      pageXOffset: 0,
+      pageYOffset: 0,
+      requestAnimationFrame(callback) {
+        callback();
+      },
+      setTimeout() {
+        return 1;
+      }
+    }
   });
 
-  const items = buildRecommendationItems("mobile", favorites);
+  controller.mount();
+  controller.syncTarget(target);
+  await Promise.resolve();
 
-  assert.equal(items.length, MAX_RECOMMENDATION_ITEMS);
-  assert.equal(items[0]?.id, "mobile-0");
-  assert.equal(items[MAX_RECOMMENDATION_ITEMS - 1]?.id, "mobile-9");
-});
+  assert.match(smartButton.innerHTML, /data-favorite="true"/);
+  assert.match(smartButton.innerHTML, /aria-label="已加入常用"/);
+  listeners.click({
+    target: {
+      closest() {
+        return {
+          getAttribute() {
+            return "smart-fill-add-favorite";
+          }
+        };
+      }
+    }
+  });
+  await Promise.resolve();
 
-test("recommendation items support account values", () => {
-  assert.deepEqual(
-    buildRecommendationItems("account", [
-      createFavorite("account-1", { account: "00123456", fullName: "张唯", companyName: "星海科技" }),
-      createFavorite("account-2", { account: "" }),
-      createFavorite("account-3", { account: "987654321012" })
-    ]),
-    [
-      { id: "account-1", primaryText: "00123456", secondaryText: "张唯 / 星海科技" },
-      { id: "account-3", primaryText: "987654321012", secondaryText: "" }
-    ]
-  );
+  assert.match(smartButton.innerHTML, /data-role="smart-fill-add-favorite"/);
+  assert.match(smartButton.innerHTML, /data-favorite="true"/);
+  assert.doesNotMatch(smartButton.innerHTML, /recommend|推荐数据/);
+  assert.equal(addCalls, 1);
 });

@@ -178,6 +178,15 @@ var ChromeTestDataDataRecordsBundle = (function() {
     const favoritesMap = await readFavoriteProfilesMap(env);
     return favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
   }
+  async function hasFavoriteProfile(scope, profile, env) {
+    const normalizedScope = normalizeScopeKey(scope);
+    if (!normalizedScope) return false;
+    const normalizedProfile = normalizeProfile(profile);
+    const favoritesMap = await readFavoriteProfilesMap(env);
+    return (favoritesMap[normalizedScope] || []).some(function(entry) {
+      return isSameProfile(entry.profile, normalizedProfile);
+    });
+  }
   async function createFavoriteProfile(scope, input, env) {
     const normalizedScope = normalizeScopeKey(scope);
     if (!normalizedScope) {
@@ -266,6 +275,7 @@ var ChromeTestDataDataRecordsBundle = (function() {
     createFavoriteProfile,
     deleteFavoriteProfile,
     formatProfileForCopy,
+    hasFavoriteProfile,
     listKnownScopes,
     normalizeProfile,
     normalizeScopeKey,
