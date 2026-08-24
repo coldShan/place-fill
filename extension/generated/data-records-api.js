@@ -178,14 +178,17 @@ var ChromeTestDataDataRecordsBundle = (function() {
     const favoritesMap = await readFavoriteProfilesMap(env);
     return favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
   }
-  async function hasFavoriteProfile(scope, profile, env) {
+  async function findFavoriteProfile(scope, profile, env) {
     const normalizedScope = normalizeScopeKey(scope);
-    if (!normalizedScope) return false;
+    if (!normalizedScope) return null;
     const normalizedProfile = normalizeProfile(profile);
     const favoritesMap = await readFavoriteProfilesMap(env);
-    return (favoritesMap[normalizedScope] || []).some(function(entry) {
+    return (favoritesMap[normalizedScope] || []).find(function(entry) {
       return isSameProfile(entry.profile, normalizedProfile);
-    });
+    }) || null;
+  }
+  async function hasFavoriteProfile(scope, profile, env) {
+    return !!await findFavoriteProfile(scope, profile, env);
   }
   async function createFavoriteProfile(scope, input, env) {
     const normalizedScope = normalizeScopeKey(scope);
@@ -274,6 +277,7 @@ var ChromeTestDataDataRecordsBundle = (function() {
     createFavoriteFromHistory,
     createFavoriteProfile,
     deleteFavoriteProfile,
+    findFavoriteProfile,
     formatProfileForCopy,
     hasFavoriteProfile,
     listKnownScopes,

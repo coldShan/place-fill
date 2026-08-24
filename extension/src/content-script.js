@@ -11,6 +11,7 @@
   const siteFeatureToggleApi = globalThis.ChromeTestDataSiteFeatureToggle;
   const smartFillApi = globalThis.ChromeTestDataSmartFill;
   const aiFormSnapshotApi = globalThis.ChromeTestDataAiFormSnapshot;
+  const dataRecordsApi = globalThis.ChromeTestDataDataRecords;
   const panelControllerApi = globalThis.ChromeTestDataContentScriptPanel;
   const smartFillControllerApi = globalThis.ChromeTestDataContentScriptSmartFill;
 
@@ -37,6 +38,11 @@
   let smartFillController = null;
   let aiRecognitionPromise = null;
   let lastAiRecognitionSignature = "";
+
+  function getCurrentScope() {
+    if (!window || !window.location || typeof window.location.hostname !== "string") return "";
+    return String(window.location.hostname || "").trim().toLowerCase();
+  }
 
   function sendRuntimeMessage(message) {
     return new Promise(function (resolve) {
@@ -208,12 +214,20 @@
     document,
     editableTargetApi,
     getFieldValue: panelController.getFieldValue,
+    getCurrentScope,
     getVisibleFieldKeys: panelController.getVisibleFieldKeys,
     iconAssetsApi,
     isEnabled: panelController.isSiteFeatureEnabled,
-    isCurrentPageFavorite: panelController.isCurrentPageFavorite,
+    getCurrentPageFavorite: panelController.getCurrentPageFavorite,
+    listRecommendedProfiles: function (scope) {
+      if (!dataRecordsApi || typeof dataRecordsApi.readFavoriteProfiles !== "function") return Promise.resolve([]);
+      return dataRecordsApi.readFavoriteProfiles(scope).then(function (entries) {
+        return Array.isArray(entries) ? entries : [];
+      });
+    },
     onAddCurrentPageToFavorites: panelController.addCurrentPageToFavorites,
     onFieldFilled: panelController.consumeFieldValue,
+    onRemoveFavorite: panelController.removeFavoriteProfile,
     smartFillApi,
     refreshAiRecognition,
     window

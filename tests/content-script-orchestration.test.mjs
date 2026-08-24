@@ -18,6 +18,7 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
   const runtimeMessages = [];
   let dockMessageArgs = null;
   let addCurrentPageToFavoritesCalls = 0;
+  const removeFavoriteCalls = [];
   let exportFullBackupCalls = 0;
   let hideDockMessageCalls = 0;
   let panelOptions = null;
@@ -124,6 +125,7 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
           return {
             addCurrentPageToFavorites() {
               addCurrentPageToFavoritesCalls += 1;
+              return Promise.resolve({ id: "added-page" });
             },
             consumeFieldValue() {},
             exportFullBackup() {
@@ -136,8 +138,12 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
             getVisibleFieldKeys() {
               return env.visibleFieldKeys || [];
             },
-            isCurrentPageFavorite() {
-              return Promise.resolve(false);
+            getCurrentPageFavorite() {
+              return Promise.resolve(null);
+            },
+            removeFavoriteProfile(id) {
+              removeFavoriteCalls.push(id);
+              return Promise.resolve(true);
             },
             handleDocumentFocusIn(target) {
               panelFocusInCalls.push(target);
@@ -188,6 +194,7 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
     getHideDockMessageCalls() {
       return hideDockMessageCalls;
     },
+    removeFavoriteCalls,
     panelOptions,
     panelFocusInCalls,
     runtimeMessages,
@@ -276,13 +283,17 @@ test("quick favorite context action delegates page capture to the panel controll
   assert.equal(runtime.getAddCurrentPageToFavoritesCalls(), 1);
 });
 
-test("smart fill star action delegates page capture to the panel controller", () => {
+test("smart fill star action delegates page add and removal to the panel controller", () => {
   const runtime = runContentScriptWithSmartFillStub();
 
   runtime.smartFillOptions.onAddCurrentPageToFavorites();
+  runtime.smartFillOptions.onRemoveFavorite("favorite-1");
 
   assert.equal(runtime.getAddCurrentPageToFavoritesCalls(), 1);
-  assert.equal(typeof runtime.smartFillOptions.isCurrentPageFavorite, "function");
+  assert.deepEqual(runtime.removeFavoriteCalls, ["favorite-1"]);
+  assert.equal(typeof runtime.smartFillOptions.getCurrentPageFavorite, "function");
+  assert.equal(typeof runtime.smartFillOptions.onRemoveFavorite, "function");
+  assert.equal(typeof runtime.smartFillOptions.listRecommendedProfiles, "function");
 });
 
 test("content script skips duplicate ai recognition snapshots", async () => {

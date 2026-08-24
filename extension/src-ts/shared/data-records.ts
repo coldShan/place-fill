@@ -204,18 +204,26 @@ export async function readFavoriteProfiles(scope: string, env?: DataRecordsEnv):
   return favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
 }
 
+export async function findFavoriteProfile(
+  scope: string,
+  profile: Partial<Record<string, unknown>>,
+  env?: DataRecordsEnv
+): Promise<FavoriteEntry | null> {
+  const normalizedScope = normalizeScopeKey(scope);
+  if (!normalizedScope) return null;
+  const normalizedProfile = normalizeProfile(profile);
+  const favoritesMap = await readFavoriteProfilesMap(env);
+  return (favoritesMap[normalizedScope] || []).find(function (entry) {
+    return isSameProfile(entry.profile, normalizedProfile);
+  }) || null;
+}
+
 export async function hasFavoriteProfile(
   scope: string,
   profile: Partial<Record<string, unknown>>,
   env?: DataRecordsEnv
 ): Promise<boolean> {
-  const normalizedScope = normalizeScopeKey(scope);
-  if (!normalizedScope) return false;
-  const normalizedProfile = normalizeProfile(profile);
-  const favoritesMap = await readFavoriteProfilesMap(env);
-  return (favoritesMap[normalizedScope] || []).some(function (entry) {
-    return isSameProfile(entry.profile, normalizedProfile);
-  });
+  return !!(await findFavoriteProfile(scope, profile, env));
 }
 
 export async function createFavoriteProfile(

@@ -896,25 +896,40 @@
         return false;
       }
       try {
-        await dataRecordsApi.createFavoriteProfile(scope, { profile });
+        const favorite = await dataRecordsApi.createFavoriteProfile(scope, { profile });
         await loadFavoriteProfiles();
         showDockMessage("已加入常用", true);
-        return true;
+        return favorite;
       } catch (_) {
         showDockMessage("加入常用失败", true);
         return false;
       }
     }
 
-    function isCurrentPageFavorite() {
+    function getCurrentPageFavorite() {
       const profile = collectPageFavoriteProfile(doc, editableTargetApi, smartFillApi);
       const scope = getCurrentScopeKey();
-      if (!scope || !Object.keys(profile).length || !dataRecordsApi || typeof dataRecordsApi.hasFavoriteProfile !== "function") {
-        return Promise.resolve(false);
+      if (!scope || !Object.keys(profile).length || !dataRecordsApi || typeof dataRecordsApi.findFavoriteProfile !== "function") {
+        return Promise.resolve(null);
       }
-      return dataRecordsApi.hasFavoriteProfile(scope, profile).catch(function () {
-        return false;
+      return dataRecordsApi.findFavoriteProfile(scope, profile).catch(function () {
+        return null;
       });
+    }
+
+    async function removeFavoriteProfile(id) {
+      const scope = getCurrentScopeKey();
+      if (!scope || !id || !dataRecordsApi || typeof dataRecordsApi.deleteFavoriteProfile !== "function") return false;
+      try {
+        const removed = await dataRecordsApi.deleteFavoriteProfile(scope, id);
+        if (!removed) return false;
+        await loadFavoriteProfiles();
+        showDockMessage("已移除常用", true);
+        return true;
+      } catch (_) {
+        showDockMessage("移除常用失败", true);
+        return false;
+      }
     }
 
     async function autoFillPage() {
@@ -1910,7 +1925,7 @@
       expand,
       exportFullBackup,
       getFieldValue,
-      isCurrentPageFavorite,
+      getCurrentPageFavorite,
       isSiteFeatureEnabled,
       getVisibleFieldKeys,
       handleDocumentFocusIn,
@@ -1919,6 +1934,7 @@
       loadSiteFeatureEnabled,
       loadVisibleFieldKeys,
       mount,
+      removeFavoriteProfile,
       showDockMessage,
       syncImportedOverrideState,
       toggleVisible
