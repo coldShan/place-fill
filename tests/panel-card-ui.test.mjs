@@ -15,6 +15,7 @@ const {
   closeOtherSettingsSections,
   collectPageAutoFillTargets,
   collectPageFavoriteProfile,
+  hasAutoFillTargetValue,
   sampleFavoriteProfiles
 } = panelControllerPkg.default || panelControllerPkg;
 const editableTargetApi = editableTargetPkg.default || editableTargetPkg;
@@ -179,7 +180,7 @@ test("auto fill toggles a page aura overlay while filling targets", () => {
   assert.match(panelScript, /finally\s*\{[\s\S]*?setAutoFillPageAuraState\(false\)/);
 });
 
-test("one-click fill collects native controls without requiring semantic matches", () => {
+test("one-click fill collects only empty native controls without requiring semantic matches", () => {
   const form = {};
   const rootNode = {};
   const textInput = {
@@ -187,12 +188,14 @@ test("one-click fill collects native controls without requiring semantic matches
     tagName: "INPUT",
     type: "text",
     disabled: false,
-    readOnly: false
+    readOnly: false,
+    value: ""
   };
   const select = {
     nodeType: 1,
     tagName: "SELECT",
     disabled: false,
+    value: "",
     options: []
   };
   const radioA = {
@@ -218,9 +221,13 @@ test("one-click fill collects native controls without requiring semantic matches
     name: "",
     form
   };
+  const filledTextInput = { ...textInput, value: "已有姓名" };
+  const filledSelect = { ...select, value: "software" };
+  const filledRadio = { ...radioA, name: "savedGender", checked: true };
+  const filledCheckbox = { ...checkbox, name: "savedTags", checked: true };
   const document = {
     querySelectorAll() {
-      return [textInput, select, radioA, radioB, checkbox];
+      return [textInput, filledTextInput, select, filledSelect, radioA, radioB, filledRadio, checkbox, filledCheckbox];
     }
   };
 
@@ -229,7 +236,7 @@ test("one-click fill collects native controls without requiring semantic matches
     editableTargetApi,
     {
       inferFieldKeyForSmartFill(node) {
-        return node === textInput ? "fullName" : null;
+        return node === textInput || node === filledTextInput ? "fullName" : null;
       }
     },
     {
@@ -245,6 +252,27 @@ test("one-click fill collects native controls without requiring semantic matches
   assert.equal(targets.find((entry) => entry.kind === "select")?.target, select);
   assert.equal(targets.find((entry) => entry.kind === "radio")?.targets.length, 2);
   assert.equal(targets.find((entry) => entry.kind === "checkbox")?.targets.length, 1);
+  assert.equal(targets.some((entry) => entry.target === filledTextInput || entry.target === filledSelect), false);
+  assert.equal(targets.some((entry) => entry.targets.includes(filledRadio) || entry.targets.includes(filledCheckbox)), false);
+});
+
+test("one-click fill detects existing values for text, choices and Element controls", () => {
+  assert.match(panelScript, /var entry = targets\[i\];\s*if \(hasAutoFillTargetValue\(entry\)\) continue;/);
+  assert.equal(hasAutoFillTargetValue({ target: { value: "已有值" }, targets: [] }), true);
+  assert.equal(hasAutoFillTargetValue({ target: { isContentEditable: true, textContent: "已有内容" }, targets: [] }), true);
+  assert.equal(hasAutoFillTargetValue({ kind: "radio", targets: [{ checked: false }, { checked: true }] }), true);
+  assert.equal(hasAutoFillTargetValue({ kind: "temporal", targets: [{ value: "2026-08-28" }] }), true);
+  assert.equal(hasAutoFillTargetValue({
+    adapter: "element",
+    kind: "select",
+    root: {
+      querySelector(selector) {
+        return selector === ".el-tag" ? {} : null;
+      }
+    },
+    targets: []
+  }), true);
+  assert.equal(hasAutoFillTargetValue({ target: { value: "" }, targets: [] }), false);
 });
 
 test("one-click fill deduplicates Element component internals into one adapter target", () => {

@@ -30,6 +30,24 @@
     });
   }
 
+  function hasAutoFillTargetValue(entry) {
+    if (!entry) return false;
+    const targets = Array.from(entry.targets || []);
+    if (entry.kind === "checkbox" || entry.kind === "radio" || entry.kind === "choice") {
+      return targets.some(function (target) { return !!target.checked; });
+    }
+    if (entry.adapter === "element" && entry.kind === "select" && entry.root && typeof entry.root.querySelector === "function") {
+      if (entry.root.querySelector(".el-tag")) return true;
+      const input = entry.root.querySelector('input[role="combobox"]') || entry.root.querySelector("input");
+      if (input && String(input.value || "").trim()) return true;
+    }
+    if (entry.target && !targets.includes(entry.target)) targets.push(entry.target);
+    return targets.some(function (target) {
+      const value = target && target.isContentEditable ? target.textContent : target && target.value;
+      return String(value == null ? "" : value).trim() !== "";
+    });
+  }
+
   function collectPageAutoFillTargets(doc, editableTargetApi, smartFillApi, fieldVisibilityApi, visibleFieldKeys, elementFormControlApi) {
     if (!doc || !editableTargetApi || !smartFillApi) return [];
     const candidates = Array.from(doc.querySelectorAll(
@@ -86,7 +104,7 @@
       targets.push({ fieldKey, target: editable, targets: [editable] });
     });
 
-    return targets;
+    return targets.filter(function (entry) { return !hasAutoFillTargetValue(entry); });
   }
 
   function collectPageFavoriteProfile(doc, editableTargetApi, smartFillApi) {
@@ -952,6 +970,7 @@
         for (var i = 0; i < targets.length; i++) {
           if (autoFillAborted) break;
           var entry = targets[i];
+          if (hasAutoFillTargetValue(entry)) continue;
           var value = entry.fieldKey ? getFieldValue(entry.fieldKey) : "";
           if (entry.fieldKey && !value) continue;
 
@@ -1946,6 +1965,7 @@
     collectPageAutoFillTargets,
     collectPageFavoriteProfile,
     createContentScriptPanelController,
+    hasAutoFillTargetValue,
     sampleFavoriteProfiles
   };
 
