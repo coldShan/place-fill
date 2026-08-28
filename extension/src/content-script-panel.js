@@ -48,9 +48,23 @@
     });
   }
 
+  function resolveAutoFillScope(doc) {
+    const scopes = Array.from(doc.querySelectorAll(
+      'dialog[open], [role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"], .el-dialog__wrapper, .el-overlay-dialog, .el-drawer__container'
+    )).filter(function (node) {
+      if (!node || typeof node.querySelectorAll !== "function" || node.hidden || node.getAttribute && node.getAttribute("aria-hidden") === "true") return false;
+      if (typeof node.getClientRects === "function" && node.getClientRects().length === 0) return false;
+      const win = node.ownerDocument && node.ownerDocument.defaultView;
+      if (!win || typeof win.getComputedStyle !== "function") return true;
+      const style = win.getComputedStyle(node);
+      return style.display !== "none" && style.visibility !== "hidden";
+    });
+    return scopes[scopes.length - 1] || doc;
+  }
+
   function collectPageAutoFillTargets(doc, editableTargetApi, smartFillApi, fieldVisibilityApi, visibleFieldKeys, elementFormControlApi) {
     if (!doc || !editableTargetApi || !smartFillApi) return [];
-    const candidates = Array.from(doc.querySelectorAll(
+    const candidates = Array.from(resolveAutoFillScope(doc).querySelectorAll(
       'input, textarea, select, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]'
     ));
     const targets = [];

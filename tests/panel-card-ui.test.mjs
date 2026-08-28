@@ -256,6 +256,62 @@ test("one-click fill collects only empty native controls without requiring seman
   assert.equal(targets.some((entry) => entry.targets.includes(filledRadio) || entry.targets.includes(filledCheckbox)), false);
 });
 
+test("one-click fill limits targets to the active modal form", () => {
+  const pageSearch = {
+    nodeType: 1,
+    tagName: "INPUT",
+    type: "search",
+    disabled: false,
+    readOnly: false,
+    value: ""
+  };
+  const modalInput = {
+    nodeType: 1,
+    tagName: "INPUT",
+    type: "text",
+    disabled: false,
+    readOnly: false,
+    value: ""
+  };
+  const modal = {
+    hidden: false,
+    getAttribute() {
+      return null;
+    },
+    getClientRects() {
+      return [{}];
+    },
+    querySelectorAll() {
+      return [modalInput];
+    }
+  };
+  const document = {
+    querySelectorAll(selector) {
+      return selector.includes("dialog[open]") ? [modal] : [pageSearch, modalInput];
+    }
+  };
+
+  const targets = collectPageAutoFillTargets(
+    document,
+    editableTargetApi,
+    {
+      inferFieldKeyForSmartFill(node) {
+        return node === modalInput ? "fullName" : "mobile";
+      }
+    },
+    {
+      isFieldVisible() {
+        return true;
+      }
+    },
+    ["fullName", "mobile"]
+  );
+
+  assert.equal(targets.length, 1);
+  assert.equal(targets[0].target, modalInput);
+  assert.equal(targets.some((entry) => entry.target === pageSearch), false);
+});
+
 test("one-click fill detects existing values for text, choices and Element controls", () => {
   assert.match(panelScript, /var entry = targets\[i\];\s*if \(hasAutoFillTargetValue\(entry\)\) continue;/);
   assert.equal(hasAutoFillTargetValue({ target: { value: "已有值" }, targets: [] }), true);
