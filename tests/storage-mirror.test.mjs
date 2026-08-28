@@ -38,7 +38,8 @@ function createMirrorStore(initialSnapshot) {
 test("storage mirror writes a full chrome local snapshot", async () => {
   const storageArea = createStorageArea({
     "ctdp.favoriteProfiles.v1": { "example.com": [{ id: "fav-1" }] },
-    "ctdp.siteFeatureEnabled.v1": { "example.com": true }
+    "ctdp.siteFeatureEnabled.v1": { "example.com": true },
+    "ctdp.floatingIconEnabled.v1": false
   });
   const mirrorStore = createMirrorStore();
 
@@ -47,6 +48,7 @@ test("storage mirror writes a full chrome local snapshot", async () => {
   assert.equal(snapshot.format, "place-fill-indexeddb-storage-mirror");
   assert.deepEqual(snapshot.storage["ctdp.favoriteProfiles.v1"], { "example.com": [{ id: "fav-1" }] });
   assert.deepEqual(snapshot.storage["ctdp.siteFeatureEnabled.v1"], { "example.com": true });
+  assert.equal(snapshot.storage["ctdp.floatingIconEnabled.v1"], false);
   assert.equal(snapshot.storage["ctdp.generatedProfiles.v1"], null);
   assert.equal(await storageMirror.readIndexedDbSnapshot({ mirrorStore }), snapshot);
 });

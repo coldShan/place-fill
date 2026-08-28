@@ -331,10 +331,8 @@ test("dock reuses one text bubble and keeps backup reminders until dismissed", (
   assert.match(panelStyles, /\.ctdp-dock-message-close:focus-visible/);
 });
 
-test("collapsing keeps the dock available when site features are disabled", () => {
-  assert.match(panelScript, /function collapse\(\)\s*\{[\s\S]*?panelState\.collapse\(\);[\s\S]*?updatePanelState\(\);[\s\S]*?\}/);
-  assert.doesNotMatch(panelScript, /function collapse\(\)\s*\{[\s\S]*?siteFeatureEnabled[\s\S]*?panelState\.toggleVisible\(\)/);
-  assert.doesNotMatch(panelStyles, /\.ctdp-root\[data-site-feature-enabled="false"\]\s+\.ctdp-dock/);
+test("collapsing hides the dock when the site or global floating icon setting is disabled", () => {
+  assert.match(panelScript, /function collapse\(\)\s*\{[\s\S]*?if \(shouldShowFloatingIcon\(\)\) panelState\.collapse\(\);[\s\S]*?else panelState\.hide\(\);[\s\S]*?updatePanelState\(\);[\s\S]*?\}/);
 });
 
 test("panel footer renders version info and update trigger while keeping fallback copy hidden by default", () => {
@@ -371,6 +369,9 @@ test("panel footer adds a settings entry and the panel includes a dedicated sett
   assert.doesNotMatch(panelScript, /按类型展开设置，一次专注一组|ctdp-settings-subtitle/);
   assert.match(panelScript, /data-role="site-feature-toggle"/);
   assert.match(panelScript, /data-role="site-feature-status"/);
+  assert.match(panelScript, /data-role="floating-icon-toggle"/);
+  assert.match(panelScript, /显示悬浮图标/);
+  assert.match(panelScript, /开启后仅在已启用的站点自动显示/);
   assert.match(panelScript, /data-site-feature-enabled/);
   assert.match(panelScript, /root\.setAttribute\("data-site-feature-enabled",\s*String\(state\.siteFeatureEnabled\)\)/);
   assert.match(panelScript, /当前站点已启用智能识别和右键标注/);
@@ -384,6 +385,21 @@ test("panel footer adds a settings entry and the panel includes a dedicated sett
   assert.match(panelScript, /renderSettingsActionMarkup\("export-full-backup"/);
   assert.match(panelScript, /renderSettingsActionMarkup\("import-full-backup"/);
   assert.match(panelScript, /data-role="import-file"/);
+});
+
+test("floating icon preference restores only on enabled sites and syncs across open tabs", () => {
+  assert.match(panelScript, /FLOATING_ICON_ENABLED_STORAGE_KEY\s*=\s*"ctdp\.floatingIconEnabled\.v1"/);
+  assert.match(panelScript, /floatingIconEnabled:\s*true/);
+  assert.match(panelScript, /return state\.floatingIconEnabled && state\.siteFeatureEnabled/);
+  assert.match(panelScript, /shouldShowFloatingIcon\(\) && !snap\.visible[\s\S]*?panelState\.showCollapsed\(\)/);
+  assert.match(panelScript, /!shouldShowFloatingIcon\(\) && snap\.collapsed[\s\S]*?panelState\.hide\(\)/);
+  assert.match(panelScript, /loadFloatingIconEnabled\(\)\.then\(loadSiteFeatureEnabled\)/);
+  assert.match(panelScript, /chrome\.storage\.onChanged\.addListener/);
+  assert.match(panelScript, /changes\[FLOATING_ICON_ENABLED_STORAGE_KEY\]\.newValue/);
+  assert.match(panelScript, /changes\[SITE_FEATURE_ENABLED_STORAGE_KEY\][\s\S]*?loadSiteFeatureEnabled\(\)/);
+  assert.match(panelScript, /if \(shouldShowFloatingIcon\(\)\) panelState\.collapse\(\);[\s\S]*?else panelState\.hide\(\)/);
+  assert.match(panelScript, /if \(ensureVisible && shouldShowFloatingIcon\(\)\)/);
+  assert.match(panelScript, /if \(panelState\.snapshot\(\)\.collapsed\) panelState\.expand\(\);[\s\S]*?else panelState\.toggleVisible\(\)/);
 });
 
 test("settings groups use an exclusive accordion with current-site settings open by default", () => {
@@ -421,6 +437,7 @@ test("settings view supports full data backup and restore", () => {
   assert.match(panelScript, /"ctdp\.smartFillOverrides\.v1"/);
   assert.match(panelScript, /"ctdp\.visibleFieldKeys\.v1"/);
   assert.match(panelScript, /"ctdp\.siteFeatureEnabled\.v1"/);
+  assert.match(panelScript, /"ctdp\.floatingIconEnabled\.v1"/);
   assert.match(panelScript, /function exportFullBackup\(\)/);
   assert.match(panelScript, /function importFullBackupFile\(file\)/);
   assert.match(panelScript, /place-fill-full-backup\.json/);

@@ -13,6 +13,7 @@
     "ctdp.smartFillOverrides.v1",
     "ctdp.visibleFieldKeys.v1",
     "ctdp.siteFeatureEnabled.v1",
+    "ctdp.floatingIconEnabled.v1",
     "ctdp.focusStyle.v1",
     "ctdp.dockTop.v1"
   ];

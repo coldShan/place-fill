@@ -42,3 +42,13 @@ test("panel state can collapse directly when focus leaves the panel", () => {
   assert.equal(snap.visible, true);
   assert.equal(snap.collapsed, true);
 });
+
+test("panel state can restore the floating icon and hide it explicitly", () => {
+  const state = createPanelState();
+
+  let snap = state.showCollapsed();
+  assert.deepEqual(snap, { visible: true, collapsed: true });
+
+  snap = state.hide();
+  assert.deepEqual(snap, { visible: false, collapsed: false });
+});

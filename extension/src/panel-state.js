@@ -39,9 +39,23 @@
       return snapshot();
     }
 
+    function showCollapsed() {
+      state.visible = true;
+      state.collapsed = true;
+      return snapshot();
+    }
+
+    function hide() {
+      state.visible = false;
+      state.collapsed = false;
+      return snapshot();
+    }
+
     return {
       collapse,
+      hide,
       snapshot,
+      showCollapsed,
       toggleVisible,
       toggleCollapsed,
       expand

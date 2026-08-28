@@ -168,6 +168,7 @@
     let visibilityList = null;
     let siteFeatureStatus = null;
     let siteFeatureToggle = null;
+    let floatingIconToggle = null;
     let focusStyleToggle = null;
     let aiRecognitionToggle = null;
     let aiBaseUrlInput = null;
@@ -189,6 +190,7 @@
 
     const FOCUS_STYLE_STORAGE_KEY = "ctdp.focusStyle.v1";
     const DOCK_TOP_STORAGE_KEY = "ctdp.dockTop.v1";
+    const FLOATING_ICON_ENABLED_STORAGE_KEY = "ctdp.floatingIconEnabled.v1";
     const FAVORITE_PROFILES_STORAGE_KEY = "ctdp.favoriteProfiles.v1";
     const GENERATED_PROFILES_STORAGE_KEY = "ctdp.generatedProfiles.v1";
     const SMART_FILL_OVERRIDES_STORAGE_KEY = "ctdp.smartFillOverrides.v1";
@@ -202,6 +204,7 @@
       SMART_FILL_OVERRIDES_STORAGE_KEY,
       VISIBLE_FIELD_KEYS_STORAGE_KEY,
       SITE_FEATURE_ENABLED_STORAGE_KEY,
+      FLOATING_ICON_ENABLED_STORAGE_KEY,
       FOCUS_STYLE_STORAGE_KEY,
       DOCK_TOP_STORAGE_KEY
     ];
@@ -217,6 +220,7 @@
       panelView: "main",
       profile: generators.generateProfile(),
       siteFeatureEnabled: siteFeatureToggleApi.getDefaultSiteFeatureEnabled(),
+      floatingIconEnabled: true,
       aiRecognitionConfig: {
         baseUrl: "",
         enabled: false,
@@ -237,6 +241,18 @@
       root.setAttribute("data-collapsed", String(snap.collapsed));
       root.setAttribute("data-view", state.panelView);
       root.setAttribute("data-site-feature-enabled", String(state.siteFeatureEnabled));
+      root.setAttribute("data-floating-icon-enabled", String(state.floatingIconEnabled));
+    }
+
+    function shouldShowFloatingIcon() {
+      return state.floatingIconEnabled && state.siteFeatureEnabled;
+    }
+
+    function syncFloatingIconVisibility() {
+      const snap = panelState.snapshot();
+      if (shouldShowFloatingIcon() && !snap.visible) panelState.showCollapsed();
+      if (!shouldShowFloatingIcon() && snap.collapsed) panelState.hide();
+      updatePanelState();
     }
 
     function updatePanelView() {
@@ -286,7 +302,7 @@
       hideDockMessage();
       dockMessageAction = typeof onAction === "function" ? onAction : null;
       dockMessageDismiss = typeof onDismiss === "function" ? onDismiss : null;
-      if (ensureVisible) {
+      if (ensureVisible && shouldShowFloatingIcon()) {
         const snap = panelState.snapshot();
         if (!snap.visible) panelState.toggleCollapsed();
         else if (!snap.collapsed) panelState.collapse();
@@ -406,6 +422,49 @@
         "  </span>",
         "</section>"
       ].join("");
+    }
+
+    function renderFloatingIconToggleMarkup() {
+      return [
+        '<section class="ctdp-settings-row ctdp-settings-row-static">',
+        '  <span class="ctdp-settings-row-head">',
+        '    <span class="ctdp-settings-row-copy">',
+        '      <span class="ctdp-settings-row-title">显示悬浮图标</span>',
+        '      <span class="ctdp-settings-row-note">开启后仅在已启用的站点自动显示</span>',
+        "    </span>",
+        '    <label class="ctdp-switch" aria-label="切换悬浮图标">',
+        '      <input class="ctdp-switch-input" type="checkbox" data-role="floating-icon-toggle"' + (state.floatingIconEnabled ? " checked" : "") + ">",
+        '      <span class="ctdp-switch-track"><span class="ctdp-switch-thumb"></span></span>',
+        "    </label>",
+        "  </span>",
+        "</section>"
+      ].join("");
+    }
+
+    function syncFloatingIconToggle() {
+      if (floatingIconToggle) floatingIconToggle.checked = state.floatingIconEnabled;
+    }
+
+    function syncFloatingIconEnabled(enabled) {
+      state.floatingIconEnabled = enabled !== false;
+      syncFloatingIconToggle();
+      syncFloatingIconVisibility();
+    }
+
+    async function loadFloatingIconEnabled() {
+      try {
+        const stored = await chrome.storage.local.get(FLOATING_ICON_ENABLED_STORAGE_KEY);
+        syncFloatingIconEnabled(stored && stored[FLOATING_ICON_ENABLED_STORAGE_KEY]);
+      } catch (_) {
+        syncFloatingIconEnabled(true);
+      }
+    }
+
+    async function setFloatingIconEnabled(enabled) {
+      syncFloatingIconEnabled(enabled);
+      try {
+        await chrome.storage.local.set({ [FLOATING_ICON_ENABLED_STORAGE_KEY]: state.floatingIconEnabled });
+      } catch (_) {}
     }
 
     function getAiRecognitionStatusText() {
@@ -1156,6 +1215,7 @@
       state.siteFeatureEnabled = siteFeatureToggleApi.isSiteFeatureEnabled(enabled);
       syncSiteFeatureToggle();
       syncSiteFeatureStatus();
+      syncFloatingIconVisibility();
       onSiteFeatureEnabledChanged(state.siteFeatureEnabled);
     }
 
@@ -1477,6 +1537,7 @@
 
     async function refreshAfterFullBackupImport() {
       await Promise.all([
+        loadFloatingIconEnabled(),
         loadSiteFeatureEnabled(),
         loadFocusStyle(),
         loadVisibleFieldKeys(),
@@ -1545,6 +1606,7 @@
       root.setAttribute("data-collapsed", "false");
       root.setAttribute("data-autofill-running", "false");
       root.setAttribute("data-site-feature-enabled", String(state.siteFeatureEnabled));
+      root.setAttribute("data-floating-icon-enabled", String(state.floatingIconEnabled));
       root.innerHTML = [
         '<div class="ctdp-autofill-aura" data-role="autofill-aura" aria-hidden="true">',
         '  <div class="ctdp-autofill-status" data-role="autofill-status">',
@@ -1628,7 +1690,7 @@
           "填充体验",
           getFocusStyleNoteText(),
           "wand-sparkles",
-          renderFocusStyleToggleMarkup(),
+          renderFloatingIconToggleMarkup() + renderFocusStyleToggleMarkup(),
           false,
           "focus-style-note"
         ),
@@ -1688,6 +1750,7 @@
       visibilityList = root.querySelector('[data-role="field-visibility-list"]');
       siteFeatureStatus = root.querySelector('[data-role="site-feature-status"]');
       siteFeatureToggle = root.querySelector('[data-role="site-feature-toggle"]');
+      floatingIconToggle = root.querySelector('[data-role="floating-icon-toggle"]');
       focusStyleToggle = root.querySelector('[data-role="focus-style-toggle"]');
       aiRecognitionToggle = root.querySelector('[data-role="ai-recognition-toggle"]');
       aiBaseUrlInput = root.querySelector('[data-role="ai-base-url"]');
@@ -1825,6 +1888,11 @@
           toggleSiteFeatureEnabled(siteFeatureTrigger.checked);
           return;
         }
+        const floatingIconTrigger = event.target.closest('[data-role="floating-icon-toggle"]');
+        if (floatingIconTrigger) {
+          setFloatingIconEnabled(floatingIconTrigger.checked);
+          return;
+        }
         const focusStyleTrigger = event.target.closest('[data-role="focus-style-toggle"]');
         if (focusStyleTrigger) {
           setFocusStyle(focusStyleTrigger.checked);
@@ -1881,11 +1949,20 @@
       recordGeneratedProfile();
       loadFavoriteProfiles();
       hideGithubControls();
-      loadSiteFeatureEnabled();
+      loadFloatingIconEnabled().then(loadSiteFeatureEnabled);
       loadAiRecognitionConfig();
       loadFocusStyle();
       loadVisibleFieldKeys();
       loadDockTop();
+      if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.onChanged) {
+        chrome.storage.onChanged.addListener(function (changes, areaName) {
+          if (areaName !== "local" || !changes) return;
+          if (changes[FLOATING_ICON_ENABLED_STORAGE_KEY]) {
+            syncFloatingIconEnabled(changes[FLOATING_ICON_ENABLED_STORAGE_KEY].newValue);
+          }
+          if (changes[SITE_FEATURE_ENABLED_STORAGE_KEY]) loadSiteFeatureEnabled();
+        });
+      }
       sendRuntimeMessage({ type: "check-github-reachable" }).then(function (res) {
         if (res && res.reachable) revealGithubControls();
       });
@@ -1893,7 +1970,8 @@
 
     function toggleVisible() {
       if (!canRenderPanel) return;
-      panelState.toggleVisible();
+      if (panelState.snapshot().collapsed) panelState.expand();
+      else panelState.toggleVisible();
       updatePanelState();
     }
 
@@ -1905,7 +1983,8 @@
 
     function collapse() {
       if (!canRenderPanel) return;
-      panelState.collapse();
+      if (shouldShowFloatingIcon()) panelState.collapse();
+      else panelState.hide();
       updatePanelState();
     }
 
