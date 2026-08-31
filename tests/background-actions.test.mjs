@@ -9,7 +9,9 @@ const script = readFileSync(join(here, "../extension/background.js"), "utf8");
 
 test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /chrome\.action\.onClicked\.addListener/);
-  assert.match(script, /importScripts\("src\/field-meta\.js",\s*"src\/field-visibility\.js",\s*"src\/site-feature-toggle\.js",\s*"src\/ai-recognition\.js",\s*"src\/smart-fill\.js",\s*"src\/storage-mirror\.js",\s*"src\/local-annotation-file\.js",\s*"generated\/data-manager-bridge\.js"\)/);
+  assert.match(script, /const localAnnotationFileSupported = getChromeMajorVersion\(\) >= 122/);
+  assert.match(script, /if \(localAnnotationFileSupported\) backgroundImports\.push\("src\/local-annotation-file\.js"\)/);
+  assert.match(script, /importScripts\.apply\(globalThis, backgroundImports\)/);
   assert.match(script, /chrome\.contextMenus\.create/);
   assert.match(script, /title:\s*"加入常用"/);
   assert.match(script, /contexts:\s*\["editable"\]/);
@@ -43,4 +45,9 @@ test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /buildDataManagerPageUrl/);
   assert.match(script, /https:\/\/api\.github\.com\/repos\/coldShan\/place-fill\/releases\/latest/);
   assert.match(script, /chrome\.tabs\.create\(\{\s*url:/);
+});
+
+test("background safely disables directory backup when its module is unavailable", () => {
+  assert.match(script, /if \(!localAnnotationFileApi\) \{\s*sendResponse\(\{ enabled: false, ok: true, supported: false \}\);/);
+  assert.match(script, /if \(localAnnotationFileApi && storageMirrorApi\.STORAGE_KEYS\.some/);
 });

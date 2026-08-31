@@ -16,6 +16,7 @@ function createEvent() {
 }
 
 test("background boots when contextMenus.onShown is unavailable", () => {
+  const importedScripts = [];
   const chrome = {
     action: { onClicked: createEvent() },
     contextMenus: {
@@ -104,9 +105,13 @@ test("background boots when contextMenus.onShown is unavailable", () => {
           }
         }
       },
-      importScripts() {}
+      navigator: { userAgent: "Mozilla/5.0 Chrome/109.0.0.0 Safari/537.36" },
+      importScripts(...paths) {
+        importedScripts.push(...paths);
+      }
     });
   });
+  assert.equal(importedScripts.includes("src/local-annotation-file.js"), false);
 });
 
 test("background accepts explicit site feature menu sync messages", () => {

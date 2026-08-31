@@ -1,6 +1,26 @@
 "use strict";
 
-importScripts("src/field-meta.js", "src/field-visibility.js", "src/site-feature-toggle.js", "src/ai-recognition.js", "src/smart-fill.js", "src/storage-mirror.js", "src/local-annotation-file.js", "generated/data-manager-bridge.js");
+function getChromeMajorVersion() {
+  try {
+    const match = String(navigator.userAgent || "").match(/(?:Chrome|Chromium)\/(\d+)/);
+    return match ? Number(match[1]) : 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+const backgroundImports = [
+  "src/field-meta.js",
+  "src/field-visibility.js",
+  "src/site-feature-toggle.js",
+  "src/ai-recognition.js",
+  "src/smart-fill.js",
+  "src/storage-mirror.js"
+];
+const localAnnotationFileSupported = getChromeMajorVersion() >= 122;
+if (localAnnotationFileSupported) backgroundImports.push("src/local-annotation-file.js");
+backgroundImports.push("generated/data-manager-bridge.js");
+importScripts.apply(globalThis, backgroundImports);
 
 const aiRecognitionApi = globalThis.ChromeTestDataAiRecognition;
 const dataManagerBridgeApi = globalThis.ChromeTestDataDataManagerBridge;
@@ -215,13 +235,15 @@ function openAiPermissionPage(origin) {
 }
 
 function openLocalAnnotationPermissionPage() {
-  if (!chrome.runtime || typeof chrome.runtime.getURL !== "function") return false;
+  if (!localAnnotationFileApi || !chrome.runtime || typeof chrome.runtime.getURL !== "function") return false;
   openExtensionPage(chrome.runtime.getURL("local-annotation-permission.html"));
   return true;
 }
 
 function prepareLocalAnnotationOverrides() {
-  if (!localAnnotationFileApi || !smartFillApi) return Promise.resolve({ enabled: false, source: "storage" });
+  if (!localAnnotationFileSupported || !localAnnotationFileApi || !smartFillApi) {
+    return Promise.resolve({ enabled: false, source: "storage", supported: false });
+  }
   if (localAnnotationPreparePromise) return localAnnotationPreparePromise;
   localAnnotationPreparePromise = localAnnotationFileApi.readPreferredOverrides().then(function (result) {
     if (!result || result.source !== "file") return result;
@@ -479,7 +501,7 @@ if (chrome.storage && chrome.storage.onChanged) {
       syncBackupReminderForActiveTab();
     }
     mirrorStorageLocal().catch(function () {});
-    if (storageMirrorApi.STORAGE_KEYS.some(function (key) {
+    if (localAnnotationFileApi && storageMirrorApi.STORAGE_KEYS.some(function (key) {
       return key !== localAnnotationFileApi.OVERRIDES_STORAGE_KEY && Object.prototype.hasOwnProperty.call(changes, key);
     })) {
       localAnnotationFileApi.syncFromStorage().catch(function () {});
@@ -594,6 +616,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return;
   }
   if (message.type === "disable-local-annotation-file") {
+    if (!localAnnotationFileApi) {
+      sendResponse({ enabled: false, ok: true, supported: false });
+      return;
+    }
     localAnnotationFileApi.disable()
       .then(function () {
         sendResponse({ enabled: false, ok: true });
@@ -604,6 +630,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return true;
   }
   if (message.type === "enable-local-annotation-file") {
+    if (!localAnnotationFileApi) {
+      sendResponse({ enabled: false, ok: true, supported: false });
+      return;
+    }
     localAnnotationFileApi.resumeStored()
       .then(function (result) {
         sendResponse({ ...result, ok: true });
@@ -614,6 +644,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return true;
   }
   if (message.type === "read-local-annotation-file-state") {
+    if (!localAnnotationFileApi) {
+      sendResponse({ enabled: false, ok: true, permissionState: "denied", supported: false });
+      return;
+    }
     localAnnotationFileApi.getState()
       .then(function (result) {
         sendResponse({ ...result, ok: true });
@@ -640,6 +674,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return true;
   }
   if (message.type === "sync-local-annotation-file") {
+    if (!localAnnotationFileApi) {
+      sendResponse({ enabled: false, ok: true, skipped: true, supported: false });
+      return;
+    }
     localAnnotationFileApi.syncFromStorage()
       .then(function (result) {
         sendResponse({ enabled: !!(result && result.enabled), ok: true, skipped: !!(result && result.skipped) });
