@@ -175,7 +175,7 @@
     let flashNode = null;
     let settingsStatus = null;
     let importInput = null;
-    let importMode = "overrides";
+    let importMode = "full-backup";
     let versionStatus = null;
     let githubBtn = null;
     let checkUpdateBtn = null;
@@ -622,15 +622,7 @@
       return [
         renderLocalAnnotationFileToggleMarkup(),
         renderSettingsActionMarkup("export-full-backup", "download", "备份全部数据", "备份常用数据、标注和站点设置"),
-        renderSettingsActionMarkup("import-full-backup", "upload", "恢复全部数据", "从完整备份恢复并覆盖本地数据", "ctdp-settings-row-restore"),
-        '<details class="ctdp-settings-more">',
-        '  <summary class="ctdp-settings-more-summary">更多数据工具</summary>',
-        '  <div class="ctdp-settings-more-content">',
-        renderSettingsActionMarkup("export-overrides", "download", "导出标注数据", "下载完整 JSON 标注"),
-        renderSettingsActionMarkup("import-overrides", "upload", "导入标注数据", "合并并覆盖同键标注"),
-        renderSettingsActionMarkup("export-sanitized-overrides", "shield", "脱敏导出", "仅保留输入框指纹"),
-        "  </div>",
-        "</details>"
+        renderSettingsActionMarkup("import-full-backup", "upload", "恢复全部数据", "从完整备份恢复并覆盖本地数据", "ctdp-settings-row-restore")
       ].join("");
     }
 
@@ -1560,23 +1552,6 @@
       };
     }
 
-    async function exportOverrides(mode) {
-      const isSanitized = mode === "sanitized";
-      const payload = isSanitized
-        ? await smartFillApi.exportSanitizedManualFieldOverrides()
-        : await smartFillApi.exportManualFieldOverrides();
-      const count = isSanitized ? payload.entries.length : Object.keys(payload.overrides).length;
-      if (!count) {
-        setSettingsStatus("暂无可导出的标注数据", "warning");
-        return;
-      }
-      downloadJsonFile(
-        isSanitized ? "place-fill-overrides-sanitized.json" : "place-fill-overrides.json",
-        payload
-      );
-      setSettingsStatus(isSanitized ? "已导出脱敏标注数据" : "已导出标注数据", "success");
-    }
-
     async function exportFullBackup() {
       const storedValues = await readStorageValues(FULL_BACKUP_STORAGE_KEYS);
       downloadJsonFile("place-fill-full-backup.json", buildFullBackupPayload(storedValues));
@@ -1665,20 +1640,6 @@
       await sendRuntimeMessage({ type: "mirror-storage-local" });
       await refreshAfterFullBackupImport();
       setSettingsStatus("已恢复全部数据", "success");
-    }
-
-    async function importOverridesFile(file) {
-      if (!file) return;
-      const rawText = await readImportFile(file);
-      let payload = null;
-      try {
-        payload = JSON.parse(rawText);
-      } catch (_) {
-        throw new Error("导入文件不是合法 JSON");
-      }
-      const result = await smartFillApi.importManualFieldOverrides(payload);
-      syncImportedOverrideState();
-      setSettingsStatus("已导入 " + result.importedCount + " 条标注", "success");
     }
 
     function mount() {
@@ -1922,17 +1883,6 @@
           setPanelView("main");
           return;
         }
-        if (role === "export-overrides") {
-          exportOverrides("raw").catch(function () {
-            setSettingsStatus("导出失败", "error");
-          });
-          return;
-        }
-        if (role === "import-overrides") {
-          importMode = "overrides";
-          if (importInput) importInput.click();
-          return;
-        }
         if (role === "export-full-backup") {
           exportFullBackup().catch(function (error) {
             setSettingsStatus(error && error.message ? error.message : "导出失败", "error");
@@ -1942,12 +1892,6 @@
         if (role === "import-full-backup") {
           importMode = "full-backup";
           if (importInput) importInput.click();
-          return;
-        }
-        if (role === "export-sanitized-overrides") {
-          exportOverrides("sanitized").catch(function () {
-            setSettingsStatus("导出失败", "error");
-          });
           return;
         }
         if (role === "save-ai-recognition") {
@@ -2029,17 +1973,13 @@
         if (!file) return;
         const isQuickImport = importMode === "quick-full-backup";
         try {
-          if (importMode === "full-backup" || isQuickImport) {
-            await importFullBackupFile(file);
-          } else {
-            await importOverridesFile(file);
-          }
+          await importFullBackupFile(file);
           if (isQuickImport) showDockMessage("已导入全部数据");
         } catch (error) {
           setSettingsStatus(error && error.message ? error.message : "导入失败", "error");
           if (isQuickImport) showDockMessage(error && error.message ? error.message : "导入失败");
         } finally {
-          importMode = "overrides";
+          importMode = "full-backup";
           importInput.value = "";
         }
       });

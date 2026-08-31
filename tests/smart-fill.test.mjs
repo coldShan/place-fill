@@ -6,13 +6,10 @@ import fieldMetaPkg from "../extension/src/field-meta.js";
 const {
   clearManualFieldOverride,
   clearAiFieldMappings,
-  exportManualFieldOverrides,
-  exportSanitizedManualFieldOverrides,
   formatSmartFillButtonLabel,
   getFieldIconName,
   getSmartFillMenuFieldKeys,
   getSupportedFieldKeys,
-  importManualFieldOverrides,
   inferFieldKeyForSmartFill,
   loadAiFieldMappings,
   loadManualFieldOverrides,
@@ -359,65 +356,6 @@ test("invalid override storage is ignored safely", async () => {
   assert.equal(inferFieldKeyForSmartFill(element, env), "mobile");
 });
 
-test("raw override export keeps the full stored override map with metadata", async () => {
-  const element = createElement({ name: "mobilePhone", id: "contact-input" });
-  const env = createEnv({ elements: [element] });
-  await setManualFieldOverride(element, "companyName", env);
-
-  const exported = await exportManualFieldOverrides(env);
-
-  assert.equal(exported.format, "ctdp-smart-fill-overrides");
-  assert.equal(exported.type, "raw");
-  assert.equal(exported.version, 1);
-  assert.equal(exported.storageKey, "ctdp.smartFillOverrides.v1");
-  assert.equal(Object.keys(exported.overrides).length, 1);
-  assert.equal(Object.values(exported.overrides)[0], "companyName");
-  assert.match(Object.keys(exported.overrides)[0], /^https:\/\/example\.com\/apply::top::tag=input/);
-});
-
-test("sanitized override export strips page address and only keeps field fingerprint data", async () => {
-  const element = createElement({ name: "mobilePhone", id: "contact-input" });
-  const env = createEnv({ elements: [element] });
-  await setManualFieldOverride(element, "companyName", env);
-
-  const exported = await exportSanitizedManualFieldOverrides(env);
-
-  assert.equal(exported.format, "ctdp-smart-fill-overrides");
-  assert.equal(exported.type, "sanitized");
-  assert.equal(exported.version, 1);
-  assert.deepEqual(exported.entries, [
-    {
-      fieldFingerprint: "tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=",
-      fieldKey: "companyName"
-    }
-  ]);
-  assert.doesNotMatch(JSON.stringify(exported), /https:\/\/example\.com/);
-  assert.doesNotMatch(JSON.stringify(exported), /apply\/form/);
-});
-
-test("raw override import merges data and overwrites the same key", async () => {
-  const element = createElement({ name: "mobilePhone", id: "contact-input" });
-  const env = createEnv({ elements: [element] });
-  await setManualFieldOverride(element, "fullName", env);
-  const existing = await exportManualFieldOverrides(env);
-  const targetKey = Object.keys(existing.overrides)[0];
-
-  const result = await importManualFieldOverrides(
-    {
-      format: "ctdp-smart-fill-overrides",
-      type: "raw",
-      version: 1,
-      overrides: {
-        [targetKey]: "companyName"
-      }
-    },
-    env
-  );
-
-  assert.deepEqual(result, { importedCount: 1, type: "raw" });
-  assert.equal(inferFieldKeyForSmartFill(element, env), "companyName");
-});
-
 test("manual override replacement refreshes the in-memory cache", async () => {
   const element = createElement({ name: "mobilePhone", id: "contact-input" });
   const env = createEnv({ elements: [element] });
@@ -506,52 +444,4 @@ test("ai field mappings can be loaded and cleared from storage", async () => {
   assert.equal(inferFieldKeyForSmartFill(element, env), "fullName");
   await clearAiFieldMappings(env);
   assert.equal(inferFieldKeyForSmartFill(element, env), null);
-});
-
-test("sanitized override import applies to the current site domain without restoring the source path", async () => {
-  const element = createElement({ name: "mobilePhone", id: "contact-input" });
-  const env = createEnv({ elements: [element], pathname: "/another/page" });
-
-  const result = await importManualFieldOverrides(
-    {
-      format: "ctdp-smart-fill-overrides",
-      type: "sanitized",
-      version: 1,
-      entries: [
-        {
-          fieldFingerprint: "tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=",
-          fieldKey: "companyName"
-        }
-      ]
-    },
-    env
-  );
-
-  assert.deepEqual(result, { importedCount: 1, type: "sanitized" });
-  assert.equal(inferFieldKeyForSmartFill(element, env), "companyName");
-  assert.deepEqual((await exportManualFieldOverrides(env)).overrides, {
-    "https://example.com::*::tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=":
-      "companyName"
-  });
-});
-
-test("invalid override import payloads fail fast", async () => {
-  const element = createElement({ name: "mobilePhone", id: "contact-input" });
-  const env = createEnv({ elements: [element] });
-
-  await assert.rejects(
-    () =>
-      importManualFieldOverrides(
-        {
-          format: "ctdp-smart-fill-overrides",
-          type: "raw",
-          version: 1,
-          overrides: {
-            "https://example.com/apply::top::tag=input": "unsupportedField"
-          }
-        },
-        env
-      ),
-    /Invalid override field key/
-  );
 });

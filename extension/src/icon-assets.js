@@ -43,13 +43,6 @@
     settings: "settings",
     updateCheck: "refresh-cw"
   };
-  const SETTINGS_CARD_ICONS = {
-    exportOverrides: "download",
-    exportSanitizedOverrides: "shield",
-    importOverrides: "upload",
-    visibleFields: "list-filter"
-  };
-
   function escapeAttribute(value) {
     return String(value || "")
       .replace(/&/g, "&amp;")
@@ -111,7 +104,6 @@
     ACTION_ICONS,
     ICON_PATHS,
     PRIMARY_LOGO_ICON,
-    SETTINGS_CARD_ICONS,
     getIconAssetPath,
     getIconAssetUrl,
     renderIconMarkup

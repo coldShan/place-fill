@@ -114,8 +114,6 @@
   const AI_SUPPLEMENT_CONFIDENCE = rootScope.ChromeTestDataAiRecognition && typeof rootScope.ChromeTestDataAiRecognition.AI_SUPPLEMENT_CONFIDENCE === "number"
     ? rootScope.ChromeTestDataAiRecognition.AI_SUPPLEMENT_CONFIDENCE
     : 0.65;
-  const EXPORT_FORMAT = "ctdp-smart-fill-overrides";
-  const EXPORT_VERSION = 1;
   const SANITIZED_FRAME_SCOPE = "*";
   const storageCacheEntries = typeof WeakMap !== "undefined" ? new WeakMap() : null;
   const fallbackCacheEntry = { loaded: false, loadPromise: null, map: {} };
@@ -654,112 +652,6 @@
     return writeOverrideMap(normalizeOverrideMap(overrides), env);
   }
 
-  function exportManualFieldOverrides(env) {
-    return loadManualFieldOverrides(env).then(function () {
-      return {
-        format: EXPORT_FORMAT,
-        storageKey: STORAGE_KEY,
-        type: "raw",
-        version: EXPORT_VERSION,
-        overrides: getNormalizedOverrideMap(env)
-      };
-    });
-  }
-
-  function exportSanitizedManualFieldOverrides(env) {
-    return loadManualFieldOverrides(env).then(function () {
-      const entries = [];
-      const seenFingerprints = new Map();
-
-      Object.entries(getNormalizedOverrideMap(env)).forEach(function ([key, fieldKey]) {
-        const parsed = parseStorageKey(key);
-        if (!parsed) return;
-        seenFingerprints.set(parsed.fieldFingerprint, fieldKey);
-      });
-
-      Array.from(seenFingerprints.entries())
-        .sort(function (left, right) {
-          return left[0].localeCompare(right[0]);
-        })
-        .forEach(function ([fieldFingerprint, fieldKey]) {
-          entries.push({ fieldFingerprint, fieldKey });
-        });
-
-      return {
-        entries,
-        format: EXPORT_FORMAT,
-        type: "sanitized",
-        version: EXPORT_VERSION
-      };
-    });
-  }
-
-  function assertImportPackageShape(payload) {
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-      throw new Error("Invalid override import payload");
-    }
-    if (payload.format !== EXPORT_FORMAT) {
-      throw new Error("Invalid override import format");
-    }
-    if (payload.version !== EXPORT_VERSION) {
-      throw new Error("Unsupported override import version");
-    }
-    if (payload.type !== "raw" && payload.type !== "sanitized") {
-      throw new Error("Invalid override import type");
-    }
-  }
-
-  function assertImportFieldKey(fieldKey) {
-    if (!isSupportedFieldKey(fieldKey)) {
-      throw new Error("Invalid override field key: " + fieldKey);
-    }
-  }
-
-  async function importRawOverrides(payload, env) {
-    if (!payload.overrides || typeof payload.overrides !== "object" || Array.isArray(payload.overrides)) {
-      throw new Error("Invalid raw override payload");
-    }
-    const overrides = getNormalizedOverrideMap(env);
-    const entries = Object.entries(payload.overrides);
-
-    entries.forEach(function ([key, fieldKey]) {
-      if (!parseStorageKey(key)) throw new Error("Invalid override storage key");
-      assertImportFieldKey(fieldKey);
-      overrides[key] = fieldKey;
-    });
-
-    if (!(await writeOverrideMap(overrides, env))) throw new Error("Failed to persist override import");
-    return { importedCount: entries.length, type: "raw" };
-  }
-
-  async function importSanitizedOverrides(payload, env) {
-    if (!Array.isArray(payload.entries)) throw new Error("Invalid sanitized override payload");
-    const siteScope = getSiteScope(env);
-    if (!siteScope) throw new Error("Cannot infer current site scope");
-    const overrides = getNormalizedOverrideMap(env);
-
-    payload.entries.forEach(function (entry) {
-      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-        throw new Error("Invalid sanitized override entry");
-      }
-      if (!String(entry.fieldFingerprint || "").trim()) {
-        throw new Error("Invalid sanitized field fingerprint");
-      }
-      assertImportFieldKey(entry.fieldKey);
-      overrides[buildStorageKey(siteScope, SANITIZED_FRAME_SCOPE, entry.fieldFingerprint)] = entry.fieldKey;
-    });
-
-    if (!(await writeOverrideMap(overrides, env))) throw new Error("Failed to persist override import");
-    return { importedCount: payload.entries.length, type: "sanitized" };
-  }
-
-  async function importManualFieldOverrides(payload, env) {
-    assertImportPackageShape(payload);
-    await loadManualFieldOverrides(env);
-    if (payload.type === "raw") return importRawOverrides(payload, env);
-    return importSanitizedOverrides(payload, env);
-  }
-
   function inferByAutocomplete(element, env) {
     const offlineField = getOfflineFormField(element, env);
     const autocomplete = normalizeText(
@@ -823,14 +715,11 @@
     applyAiFieldMappings,
     clearAiFieldMappings,
     clearManualFieldOverride,
-    exportManualFieldOverrides,
-    exportSanitizedManualFieldOverrides,
     formatSmartFillButtonLabel,
     getFieldIconName,
     getFieldFingerprint,
     getSmartFillMenuFieldKeys,
     getSupportedFieldKeys,
-    importManualFieldOverrides,
     inferFieldKeyForSmartFill,
     inferLocalFieldKeyForSmartFill,
     loadAiFieldMappings,

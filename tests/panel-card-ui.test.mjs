@@ -132,7 +132,7 @@ test("dock hover menu exposes one-click fill, full export and full import shortc
   assert.match(panelScript, /role === "auto-fill" \|\| role === "quick-auto-fill"[\s\S]*?autoFillPage\(\)/);
   assert.match(panelScript, /role === "quick-export"[\s\S]*?exportFullBackup\(\)/);
   assert.match(panelScript, /role === "quick-import"[\s\S]*?importMode = "quick-full-backup"[\s\S]*?importInput\.click\(\)/);
-  assert.match(panelScript, /importMode === "full-backup" \|\| isQuickImport[\s\S]*?importFullBackupFile\(file\)/);
+  assert.match(panelScript, /isQuickImport[\s\S]*?importFullBackupFile\(file\)/);
   assert.match(panelStyles, /\.ctdp-dock-actions\s*\{[\s\S]*?display:\s*grid;[\s\S]*?gap:\s*7px;[\s\S]*?visibility:\s*hidden;/);
   assert.match(panelStyles, /\.ctdp-dock-action\s*\{[\s\S]*?width:\s*40px;[\s\S]*?height:\s*40px;[\s\S]*?border-radius:\s*50%;/);
   assert.match(panelStyles, /\.ctdp-dock-action\[data-role="quick-auto-fill"\]\s*\{[\s\S]*?background:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
@@ -436,9 +436,7 @@ test("panel footer adds a settings entry and the panel includes a dedicated sett
   assert.doesNotMatch(panelScript, /关闭后，当前站点不启用智能识别和右键标注，其余功能不受影响/);
   assert.match(panelScript, /data-role="field-visibility-list"/);
   assert.match(panelScript, /data-role="field-visibility-toggle"/);
-  assert.match(panelScript, /renderSettingsActionMarkup\("export-overrides"/);
-  assert.match(panelScript, /renderSettingsActionMarkup\("import-overrides"/);
-  assert.match(panelScript, /renderSettingsActionMarkup\("export-sanitized-overrides"/);
+  assert.doesNotMatch(panelScript, /导出标注数据|导入标注数据|脱敏导出/);
   assert.match(panelScript, /renderSettingsActionMarkup\("export-full-backup"/);
   assert.match(panelScript, /renderSettingsActionMarkup\("import-full-backup"/);
   assert.match(panelScript, /data-role="import-file"/);
@@ -502,9 +500,7 @@ test("data settings keep backup and restore visible while nesting annotation too
   assert.match(orchestratorScript, /open-local-annotation-permission/);
   assert.match(readFileSync(join(here, "..\/extension\/src\/smart-fill.js"), "utf8"), /sync-local-annotation-file/);
   assert.match(panelScript, /renderSettingsActionMarkup\("export-full-backup"[\s\S]*?renderSettingsActionMarkup\("import-full-backup"/);
-  assert.match(panelScript, /<details class="ctdp-settings-more">/);
-  assert.match(panelScript, /ctdp-settings-more-summary">更多数据工具/);
-  assert.match(panelScript, /renderSettingsActionMarkup\("export-overrides"[\s\S]*?renderSettingsActionMarkup\("import-overrides"[\s\S]*?renderSettingsActionMarkup\("export-sanitized-overrides"/);
+  assert.doesNotMatch(panelScript, /export-overrides|import-overrides|export-sanitized-overrides/);
 });
 
 test("settings view supports full data backup and restore", () => {
