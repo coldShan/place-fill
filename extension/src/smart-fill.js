@@ -508,6 +508,16 @@
     return { ...getCacheEntry(env).map };
   }
 
+  function notifyLocalAnnotationChanged(env) {
+    if (env && env.suppressLocalAnnotationSync) return;
+    try {
+      if (typeof chrome === "undefined" || !chrome.runtime || typeof chrome.runtime.sendMessage !== "function") return;
+      chrome.runtime.sendMessage({ type: "sync-local-annotation-file" }, function () {
+        void chrome.runtime.lastError;
+      });
+    } catch (_) {}
+  }
+
   function writeOverrideMap(nextMap, env) {
     const storageArea = getStorageArea(env);
     const cacheEntry = getCacheEntry(env);
@@ -515,8 +525,13 @@
     cacheEntry.loaded = true;
     cacheEntry.map = normalizedMap;
     const keys = Object.keys(nextMap || {});
-    if (!keys.length) return removeStorageValue(storageArea, STORAGE_KEY);
-    return writeStorageValue(storageArea, STORAGE_KEY, normalizedMap);
+    const writePromise = !keys.length
+      ? removeStorageValue(storageArea, STORAGE_KEY)
+      : writeStorageValue(storageArea, STORAGE_KEY, normalizedMap);
+    return Promise.resolve(writePromise).then(function (ok) {
+      if (ok !== false) notifyLocalAnnotationChanged(env);
+      return ok;
+    });
   }
 
   function getNormalizedOverrideMap(env) {

@@ -183,6 +183,9 @@
     let siteFeatureStatus = null;
     let siteFeatureToggle = null;
     let floatingIconToggle = null;
+    let localAnnotationFileToggle = null;
+    let localAnnotationFileNote = null;
+    let localAnnotationFileAuthorizeButton = null;
     let focusStyleToggle = null;
     let aiRecognitionToggle = null;
     let aiBaseUrlInput = null;
@@ -208,6 +211,7 @@
     const FAVORITE_PROFILES_STORAGE_KEY = "ctdp.favoriteProfiles.v1";
     const GENERATED_PROFILES_STORAGE_KEY = "ctdp.generatedProfiles.v1";
     const SMART_FILL_OVERRIDES_STORAGE_KEY = "ctdp.smartFillOverrides.v1";
+    const LOCAL_ANNOTATION_FILE_ENABLED_STORAGE_KEY = "ctdp.localAnnotationFileEnabled.v1";
     const VISIBLE_FIELD_KEYS_STORAGE_KEY = "ctdp.visibleFieldKeys.v1";
     const SITE_FEATURE_ENABLED_STORAGE_KEY = "ctdp.siteFeatureEnabled.v1";
     const FULL_BACKUP_FORMAT = "place-fill-full-backup";
@@ -235,6 +239,8 @@
       profile: generators.generateProfile(),
       siteFeatureEnabled: siteFeatureToggleApi.getDefaultSiteFeatureEnabled(),
       floatingIconEnabled: true,
+      localAnnotationFileEnabled: false,
+      localAnnotationFilePermissionRequired: false,
       aiRecognitionConfig: {
         baseUrl: "",
         enabled: false,
@@ -311,7 +317,7 @@
       dockMessageDismiss = null;
     }
 
-    function showDockMessage(message, ensureVisible, dismissible, onDismiss, onAction) {
+    function showDockMessage(message, ensureVisible, dismissible, onDismiss, onAction, actionTitle) {
       if (!dockBtn || !dockMessage || !dockMessageActionButton || !dockMessageText || !message) return;
       hideDockMessage();
       dockMessageAction = typeof onAction === "function" ? onAction : null;
@@ -325,7 +331,7 @@
       }
       dockMessageText.textContent = message;
       dockMessageActionButton.disabled = !dockMessageAction;
-      if (dockMessageAction) dockMessageActionButton.setAttribute("title", "备份全部数据");
+      if (dockMessageAction) dockMessageActionButton.setAttribute("title", actionTitle || "备份全部数据");
       dockMessage.setAttribute("data-actionable", String(!!dockMessageAction));
       dockMessage.setAttribute("data-dismissible", String(!!dismissible));
       dockMessage.hidden = false;
@@ -455,6 +461,68 @@
       ].join("");
     }
 
+    function getLocalAnnotationFileNoteText() {
+      if (state.localAnnotationFilePermissionRequired) return "目录权限需要重新确认，浏览器内标注不受影响";
+      return state.localAnnotationFileEnabled
+        ? "已授权，标注后自动更新 place-fill-data/place-fill-user-data.json"
+        : "默认关闭；开启后自动创建 place-fill-data 数据目录";
+    }
+
+    function renderLocalAnnotationFileToggleMarkup() {
+      return [
+        '<section class="ctdp-settings-row ctdp-settings-row-static">',
+        '  <span class="ctdp-settings-row-head">',
+        '    <span class="ctdp-settings-row-copy">',
+        '      <span class="ctdp-settings-row-title">自动保存标注到本地</span>',
+        '      <span class="ctdp-settings-row-note" data-role="local-annotation-file-note">' + getLocalAnnotationFileNoteText() + "</span>",
+        "    </span>",
+        '    <label class="ctdp-switch" aria-label="切换本地标注自动保存">',
+        '      <input class="ctdp-switch-input" type="checkbox" data-role="local-annotation-file-toggle"' + (state.localAnnotationFileEnabled ? " checked" : "") + '>',
+        '      <span class="ctdp-switch-track"><span class="ctdp-switch-thumb"></span></span>',
+        "    </label>",
+        "  </span>",
+        '  <button class="ctdp-ai-action" type="button" data-role="reauthorize-local-annotation-file" hidden>恢复目录权限</button>',
+        "</section>"
+      ].join("");
+    }
+
+    function syncLocalAnnotationFileEnabled(enabled, permissionRequired) {
+      state.localAnnotationFileEnabled = enabled === true;
+      state.localAnnotationFilePermissionRequired = permissionRequired === true;
+      if (localAnnotationFileToggle) localAnnotationFileToggle.checked = state.localAnnotationFileEnabled;
+      if (localAnnotationFileNote) localAnnotationFileNote.textContent = getLocalAnnotationFileNoteText();
+      if (localAnnotationFileAuthorizeButton) localAnnotationFileAuthorizeButton.hidden = !state.localAnnotationFilePermissionRequired;
+    }
+
+    async function loadLocalAnnotationFileEnabled() {
+      try {
+        const response = await sendRuntimeMessage({ type: "read-local-annotation-file-state" });
+        syncLocalAnnotationFileEnabled(response && response.enabled, response && response.permissionRequired);
+      } catch (_) {
+        syncLocalAnnotationFileEnabled(false);
+      }
+    }
+
+    async function toggleLocalAnnotationFileEnabled(enabled) {
+      if (enabled) {
+        syncLocalAnnotationFileEnabled(false);
+        const restored = await sendRuntimeMessage({ type: "enable-local-annotation-file" });
+        if (restored && restored.enabled) {
+          if (typeof smartFillApi.loadManualFieldOverrides === "function") await smartFillApi.loadManualFieldOverrides();
+          syncLocalAnnotationFileEnabled(true);
+          setSettingsStatus("已恢复本地标注自动保存", "success");
+          return;
+        }
+        setSettingsStatus(restored && restored.permissionRequired ? "请恢复原目录访问权限" : "请完成目录读写授权", "warning");
+        const opened = await sendRuntimeMessage({ type: "open-local-annotation-permission" });
+        if (!opened || opened.ok !== true) setSettingsStatus("无法打开目录授权页", "error");
+        return;
+      }
+      const response = await sendRuntimeMessage({ type: "disable-local-annotation-file" });
+      syncLocalAnnotationFileEnabled(false);
+      setSettingsStatus(response && response.ok ? "已关闭本地标注自动保存" : (response && response.error ? response.error : "关闭失败"), response && response.ok ? "success" : "error");
+    }
+
     function syncFloatingIconToggle() {
       if (floatingIconToggle) floatingIconToggle.checked = state.floatingIconEnabled;
     }
@@ -552,6 +620,7 @@
 
     function renderDataSettingsMarkup() {
       return [
+        renderLocalAnnotationFileToggleMarkup(),
         renderSettingsActionMarkup("export-full-backup", "download", "备份全部数据", "备份常用数据、标注和站点设置"),
         renderSettingsActionMarkup("import-full-backup", "upload", "恢复全部数据", "从完整备份恢复并覆盖本地数据", "ctdp-settings-row-restore"),
         '<details class="ctdp-settings-more">',
@@ -1765,6 +1834,9 @@
       siteFeatureStatus = root.querySelector('[data-role="site-feature-status"]');
       siteFeatureToggle = root.querySelector('[data-role="site-feature-toggle"]');
       floatingIconToggle = root.querySelector('[data-role="floating-icon-toggle"]');
+      localAnnotationFileToggle = root.querySelector('[data-role="local-annotation-file-toggle"]');
+      localAnnotationFileNote = root.querySelector('[data-role="local-annotation-file-note"]');
+      localAnnotationFileAuthorizeButton = root.querySelector('[data-role="reauthorize-local-annotation-file"]');
       focusStyleToggle = root.querySelector('[data-role="focus-style-toggle"]');
       aiRecognitionToggle = root.querySelector('[data-role="ai-recognition-toggle"]');
       aiBaseUrlInput = root.querySelector('[data-role="ai-base-url"]');
@@ -1838,6 +1910,12 @@
         }
         if (role === "open-settings") {
           setPanelView("settings");
+          loadLocalAnnotationFileEnabled();
+          return;
+        }
+        if (role === "reauthorize-local-annotation-file") {
+          setSettingsStatus("请在授权页选择“每次访问都允许”或“始终允许”", "warning");
+          sendRuntimeMessage({ type: "open-local-annotation-permission" }).catch(function () {});
           return;
         }
         if (role === "settings-back") {
@@ -1912,6 +1990,14 @@
           setFocusStyle(focusStyleTrigger.checked);
           return;
         }
+        const localAnnotationFileTrigger = event.target.closest('[data-role="local-annotation-file-toggle"]');
+        if (localAnnotationFileTrigger) {
+          toggleLocalAnnotationFileEnabled(localAnnotationFileTrigger.checked).catch(function (error) {
+            syncLocalAnnotationFileEnabled(false);
+            setSettingsStatus(error && error.message ? error.message : "目录授权失败", "error");
+          });
+          return;
+        }
         const aiRecognitionTrigger = event.target.closest('[data-role="ai-recognition-toggle"]');
         if (aiRecognitionTrigger) {
           toggleAiRecognitionEnabled(aiRecognitionTrigger.checked);
@@ -1964,10 +2050,14 @@
       loadFavoriteProfiles();
       hideGithubControls();
       loadFloatingIconEnabled().then(loadSiteFeatureEnabled);
+      loadLocalAnnotationFileEnabled();
       loadAiRecognitionConfig();
       loadFocusStyle();
       loadVisibleFieldKeys();
       loadDockTop();
+      win.addEventListener("focus", function () {
+        if (state.panelView === "settings") loadLocalAnnotationFileEnabled();
+      });
       if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.onChanged) {
         chrome.storage.onChanged.addListener(function (changes, areaName) {
           if (areaName !== "local" || !changes) return;
@@ -1975,6 +2065,14 @@
             syncFloatingIconEnabled(changes[FLOATING_ICON_ENABLED_STORAGE_KEY].newValue);
           }
           if (changes[SITE_FEATURE_ENABLED_STORAGE_KEY]) loadSiteFeatureEnabled();
+          if (changes[LOCAL_ANNOTATION_FILE_ENABLED_STORAGE_KEY]) {
+            loadLocalAnnotationFileEnabled();
+            if (changes[LOCAL_ANNOTATION_FILE_ENABLED_STORAGE_KEY].newValue === true) {
+              setSettingsStatus("本地目录授权成功，已开启标注自动保存", "success");
+            } else if (changes[LOCAL_ANNOTATION_FILE_ENABLED_STORAGE_KEY].oldValue === true) {
+              setSettingsStatus("本地目录不可用，已关闭标注自动保存", "warning");
+            }
+          }
         });
       }
       sendRuntimeMessage({ type: "check-github-reachable" }).then(function (res) {

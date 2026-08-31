@@ -107,7 +107,15 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
         getSupportedFieldKeys() {
           return env.supportedFieldKeys || [];
         },
-        setManualFieldOverride() {}
+        setManualFieldOverride() {},
+        ...(env.loadManualFieldOverrides ? {
+          loadAiFieldMappings() {
+            return Promise.resolve();
+          },
+          loadManualFieldOverrides() {
+            return Promise.resolve();
+          }
+        } : {})
       },
       ChromeTestDataAiFormSnapshot: {
         buildAiFormSnapshot() {
@@ -224,6 +232,26 @@ test("clicking the backup reminder exports all data and dismisses it after succe
   assert.equal(runtime.getExportFullBackupCalls(), 1);
   assert.equal(runtime.getHideDockMessageCalls(), 1);
   assert.equal(runtime.runtimeMessages.at(-1).type, "dismiss-backup-reminder");
+});
+
+test("directory permission reminder appears outside settings and opens authorization", async () => {
+  const runtime = runContentScriptWithSmartFillStub({}, {
+    loadManualFieldOverrides: true,
+    runtimeResponse(message) {
+      if (message.type === "prepare-local-annotation-file") return { permissionRequired: true };
+      return {};
+    }
+  });
+
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  const args = runtime.getDockMessageArgs();
+  assert.equal(args[0], "本地标注目录需要重新授权");
+  assert.equal(args[1], true);
+  assert.equal(args[2], true);
+  assert.equal(args[5], "恢复目录权限");
+
+  await args[4]();
+  assert.equal(runtime.runtimeMessages.at(-1).type, "open-local-annotation-permission");
 });
 
 test("focusout keeps the smart-fill controller alive while it is preserving an internal interaction", () => {

@@ -9,7 +9,7 @@ const script = readFileSync(join(here, "../extension/background.js"), "utf8");
 
 test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /chrome\.action\.onClicked\.addListener/);
-  assert.match(script, /importScripts\("src\/field-meta\.js",\s*"src\/field-visibility\.js",\s*"src\/site-feature-toggle\.js",\s*"src\/ai-recognition\.js",\s*"src\/smart-fill\.js",\s*"src\/storage-mirror\.js",\s*"generated\/data-manager-bridge\.js"\)/);
+  assert.match(script, /importScripts\("src\/field-meta\.js",\s*"src\/field-visibility\.js",\s*"src\/site-feature-toggle\.js",\s*"src\/ai-recognition\.js",\s*"src\/smart-fill\.js",\s*"src\/storage-mirror\.js",\s*"src\/local-annotation-file\.js",\s*"generated\/data-manager-bridge\.js"\)/);
   assert.match(script, /chrome\.contextMenus\.create/);
   assert.match(script, /title:\s*"加入常用"/);
   assert.match(script, /contexts:\s*\["editable"\]/);
@@ -21,6 +21,7 @@ test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /readSiteFeatureEnabledMap/);
   assert.match(script, /siteFeatureToggleApi\.isSiteFeatureEnabled/);
   assert.match(script, /sync-site-feature-context-menu/);
+  assert.match(script, /message\.type === "enable-local-annotation-file"/);
   assert.match(script, /getSupportedFieldKeys\(\)/);
   assert.match(script, /if \(chrome\.storage && chrome\.storage\.onChanged\)/);
   assert.match(script, /apply-smart-fill-override/);

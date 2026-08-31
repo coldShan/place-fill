@@ -1,6 +1,6 @@
 "use strict";
 
-importScripts("src/field-meta.js", "src/field-visibility.js", "src/site-feature-toggle.js", "src/ai-recognition.js", "src/smart-fill.js", "src/storage-mirror.js", "generated/data-manager-bridge.js");
+importScripts("src/field-meta.js", "src/field-visibility.js", "src/site-feature-toggle.js", "src/ai-recognition.js", "src/smart-fill.js", "src/storage-mirror.js", "src/local-annotation-file.js", "generated/data-manager-bridge.js");
 
 const aiRecognitionApi = globalThis.ChromeTestDataAiRecognition;
 const dataManagerBridgeApi = globalThis.ChromeTestDataDataManagerBridge;
@@ -8,6 +8,7 @@ const fieldVisibilityApi = globalThis.ChromeTestDataFieldVisibility;
 const siteFeatureToggleApi = globalThis.ChromeTestDataSiteFeatureToggle;
 const smartFillApi = globalThis.ChromeTestDataSmartFill;
 const storageMirrorApi = globalThis.ChromeTestDataStorageMirror;
+const localAnnotationFileApi = globalThis.ChromeTestDataLocalAnnotationFile;
 const MENU_ROOT_ID = "ctdp-manual-annotation-root";
 const MENU_FIELD_PREFIX = "ctdp-manual-annotation:";
 const MENU_CLEAR_ID = "ctdp-manual-annotation:clear";
@@ -20,6 +21,7 @@ const BACKUP_REMINDER_MESSAGE = "该备份数据啦！";
 const BACKUP_REMINDER_PENDING_KEY = "ctdp.backupReminderPendingAt.v1";
 const WEEK_IN_MINUTES = 7 * 24 * 60;
 let siteFeatureEnabledMap = {};
+let localAnnotationPreparePromise = null;
 
 function getUrlHostname(url) {
   if (!url) return "";
@@ -210,6 +212,29 @@ function openAiPermissionPage(origin) {
   if (!origin) return false;
   openExtensionPage(chrome.runtime.getURL("ai-permission.html?origin=" + encodeURIComponent(origin)));
   return true;
+}
+
+function openLocalAnnotationPermissionPage() {
+  if (!chrome.runtime || typeof chrome.runtime.getURL !== "function") return false;
+  openExtensionPage(chrome.runtime.getURL("local-annotation-permission.html"));
+  return true;
+}
+
+function prepareLocalAnnotationOverrides() {
+  if (!localAnnotationFileApi || !smartFillApi) return Promise.resolve({ enabled: false, source: "storage" });
+  if (localAnnotationPreparePromise) return localAnnotationPreparePromise;
+  localAnnotationPreparePromise = localAnnotationFileApi.readPreferredOverrides().then(function (result) {
+    if (!result || result.source !== "file") return result;
+    return smartFillApi.replaceManualFieldOverrides(result.overrides, {
+      storageArea: chrome.storage.local,
+      suppressLocalAnnotationSync: true
+    }).then(function () {
+      return result;
+    });
+  }).finally(function () {
+    localAnnotationPreparePromise = null;
+  });
+  return localAnnotationPreparePromise;
 }
 
 async function checkExtensionUpdate() {
@@ -556,6 +581,65 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
       })
       .catch(function (error) {
         sendResponse({ error: error && error.message ? error.message : "镜像恢复失败", ok: false, restored: false });
+      });
+    return true;
+  }
+  if (message.type === "open-local-annotation-permission") {
+    sendResponse({ ok: openLocalAnnotationPermissionPage() });
+    return;
+  }
+  if (message.type === "disable-local-annotation-file") {
+    localAnnotationFileApi.disable()
+      .then(function () {
+        sendResponse({ enabled: false, ok: true });
+      })
+      .catch(function (error) {
+        sendResponse({ error: error && error.message ? error.message : "关闭本地自动保存失败", ok: false });
+      });
+    return true;
+  }
+  if (message.type === "enable-local-annotation-file") {
+    localAnnotationFileApi.resumeStored()
+      .then(function (result) {
+        sendResponse({ ...result, ok: true });
+      })
+      .catch(function (error) {
+        sendResponse({ enabled: false, error: error && error.message ? error.message : "恢复本地自动保存失败", ok: false });
+      });
+    return true;
+  }
+  if (message.type === "read-local-annotation-file-state") {
+    localAnnotationFileApi.getState()
+      .then(function (result) {
+        sendResponse({ ...result, ok: true });
+      })
+      .catch(function (error) {
+        sendResponse({ enabled: false, error: error && error.message ? error.message : "读取本地目录授权失败", ok: false });
+      });
+    return true;
+  }
+  if (message.type === "prepare-local-annotation-file") {
+    prepareLocalAnnotationOverrides()
+      .then(function (result) {
+        sendResponse({
+          enabled: !!(result && result.enabled),
+          ok: true,
+          permissionRequired: !!(result && result.permissionRequired),
+          source: result && result.source
+        });
+      })
+      .catch(function (error) {
+        sendResponse({ error: error && error.message ? error.message : "读取本地标注文件失败", ok: false });
+      });
+    return true;
+  }
+  if (message.type === "sync-local-annotation-file") {
+    localAnnotationFileApi.syncFromStorage()
+      .then(function (result) {
+        sendResponse({ enabled: !!(result && result.enabled), ok: true, skipped: !!(result && result.skipped) });
+      })
+      .catch(function (error) {
+        sendResponse({ error: error && error.message ? error.message : "保存本地标注文件失败", ok: false });
       });
     return true;
   }

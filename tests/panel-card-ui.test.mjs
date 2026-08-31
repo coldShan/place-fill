@@ -9,6 +9,7 @@ const panelScript = readFileSync(join(here, "../extension/src/content-script-pan
 const panelStyles = readFileSync(join(here, "../extension/src/sidepanel.css"), "utf8");
 const themeStyles = readFileSync(join(here, "../extension/src/theme.css"), "utf8");
 const smartfillScript = readFileSync(join(here, "../extension/src/content-script-smartfill.js"), "utf8");
+const localAnnotationPermissionScript = readFileSync(join(here, "../extension/src/local-annotation-permission-page.js"), "utf8");
 const panelControllerPkg = await import("../extension/src/content-script-panel.js");
 const editableTargetPkg = await import("../extension/src/editable-target.js");
 const {
@@ -370,7 +371,7 @@ test("dock reuses one text bubble and keeps backup reminders until dismissed", (
   assert.match(panelScript, /data-role="dock-message"[^>]*hidden/);
   assert.match(panelScript, /data-role="run-dock-message-action" aria-live="polite" disabled/);
   assert.match(panelScript, /data-role="dismiss-dock-message" aria-label="关闭提醒"/);
-  assert.match(panelScript, /function showDockMessage\(message,\s*ensureVisible,\s*dismissible,\s*onDismiss,\s*onAction\)/);
+  assert.match(panelScript, /function showDockMessage\(message,\s*ensureVisible,\s*dismissible,\s*onDismiss,\s*onAction,\s*actionTitle\)/);
   assert.match(panelScript, /showDockMessage\("填完啦！"\)/);
   assert.match(panelScript, /if \(!snap\.visible\) panelState\.toggleCollapsed\(\)/);
   assert.match(panelScript, /if \(!dismissible\) dockMessageTimer = win\.setTimeout\(hideDockMessage,\s*4000\)/);
@@ -480,6 +481,26 @@ test("AI switch is off by default and only reveals its configuration while enabl
 });
 
 test("data settings keep backup and restore visible while nesting annotation tools", () => {
+  assert.match(panelScript, /自动保存标注到本地/);
+  assert.match(panelScript, /data-role="local-annotation-file-toggle"/);
+  assert.match(panelScript, /open-local-annotation-permission/);
+  assert.match(panelScript, /enable-local-annotation-file/);
+  assert.match(panelScript, /已恢复本地标注自动保存/);
+  assert.match(panelScript, /reauthorize-local-annotation-file/);
+  assert.match(panelScript, /恢复目录权限/);
+  assert.match(panelScript, /目录权限需要重新确认/);
+  assert.match(panelScript, /本地目录不可用，已关闭标注自动保存/);
+  assert.match(localAnnotationPermissionScript, /id: "place-fill-user-data"/);
+  assert.match(localAnnotationPermissionScript, /mode: "readwrite"/);
+  assert.match(localAnnotationPermissionScript, /startIn: "documents"/);
+  assert.match(localAnnotationPermissionScript, /queryPermission\(\{ mode: "readwrite" \}\) === "prompt"/);
+  assert.match(localAnnotationPermissionScript, /window\.confirm/);
+  assert.match(localAnnotationPermissionScript, /取消：保留并使用已有本地文件/);
+  assert.match(orchestratorScript, /prepare-local-annotation-file/);
+  assert.match(orchestratorScript, /本地标注目录需要重新授权/);
+  assert.match(orchestratorScript, /showLocalAnnotationPermissionReminder/);
+  assert.match(orchestratorScript, /open-local-annotation-permission/);
+  assert.match(readFileSync(join(here, "..\/extension\/src\/smart-fill.js"), "utf8"), /sync-local-annotation-file/);
   assert.match(panelScript, /renderSettingsActionMarkup\("export-full-backup"[\s\S]*?renderSettingsActionMarkup\("import-full-backup"/);
   assert.match(panelScript, /<details class="ctdp-settings-more">/);
   assert.match(panelScript, /ctdp-settings-more-summary">更多数据工具/);

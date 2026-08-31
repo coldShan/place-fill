@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>place-fill 本地标注目录授权</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #f5f7fb;
+        color: #172033;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      main {
+        width: min(520px, calc(100vw - 32px));
+        display: grid;
+        gap: 16px;
+        padding: 28px;
+        border: 1px solid rgba(74, 111, 165, 0.18);
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 18px 48px rgba(23, 32, 51, 0.10);
+      }
+
+      h1,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 20px;
+      }
+
+      p {
+        color: #5d6b82;
+        line-height: 1.6;
+      }
+
+      code {
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: #eef3f9;
+        color: #1c3557;
+      }
+
+      button {
+        justify-self: start;
+        min-height: 44px;
+        padding: 10px 14px;
+        border: 0;
+        border-radius: 10px;
+        background: #4a6fa5;
+        color: #fff;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        cursor: default;
+        opacity: 0.62;
+      }
+
+      [data-role="status"] {
+        min-height: 22px;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>授权本地标注目录</h1>
+      <p>首次点击即选择父目录并申请读写权限。Chrome 提供持久授权选项时，请在本次提示中选择“每次访问都允许”或“始终允许”；place-fill 随后会自动创建 <code>place-fill-data/place-fill-user-data.json</code>。</p>
+      <button type="button" data-role="grant">选择目录并授权</button>
+      <p data-role="status">当前功能未开启。</p>
+    </main>
+    <script src="./src/local-annotation-file.js"></script>
+    <script src="./src/local-annotation-permission-page.js"></script>
+  </body>
+</html>

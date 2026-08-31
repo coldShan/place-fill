@@ -38,6 +38,7 @@
   let smartFillController = null;
   let aiRecognitionPromise = null;
   let lastAiRecognitionSignature = "";
+  let localAnnotationPermissionRequired = false;
 
   function getCurrentScope() {
     if (!window || !window.location || typeof window.location.hostname !== "string") return "";
@@ -203,11 +204,24 @@
   }
 
   function syncBackupReminderState() {
-    if (!canRenderPanel) return;
-    sendRuntimeMessage({ type: "read-backup-reminder-state" }).then(function (response) {
+    if (!canRenderPanel) return Promise.resolve();
+    return sendRuntimeMessage({ type: "read-backup-reminder-state" }).then(function (response) {
       if (response.pending) showBackupReminder(response.message);
       else panelController.hideDismissibleDockMessage();
     });
+  }
+
+  function showLocalAnnotationPermissionReminder() {
+    panelController.showDockMessage(
+      "本地标注目录需要重新授权",
+      true,
+      true,
+      function () {},
+      function () {
+        return sendRuntimeMessage({ type: "open-local-annotation-permission" });
+      },
+      "恢复目录权限"
+    );
   }
 
   smartFillController = smartFillControllerApi.createContentScriptSmartFillController({
@@ -236,7 +250,9 @@
   function startContentScript() {
     panelController.mount();
     smartFillController.mount();
-    syncBackupReminderState();
+    syncBackupReminderState().then(function () {
+      if (canRenderPanel && localAnnotationPermissionRequired) showLocalAnnotationPermissionReminder();
+    });
     window.setTimeout(refreshAiRecognition, 250);
 
     document.addEventListener(
@@ -330,10 +346,13 @@
   }
 
   if (typeof smartFillApi.loadManualFieldOverrides === "function") {
-    Promise.all([
-      Promise.resolve(smartFillApi.loadManualFieldOverrides()),
-      typeof smartFillApi.loadAiFieldMappings === "function" ? Promise.resolve(smartFillApi.loadAiFieldMappings()) : Promise.resolve()
-    ]).then(startContentScript, startContentScript);
+    sendRuntimeMessage({ type: "prepare-local-annotation-file" }).then(function (response) {
+      localAnnotationPermissionRequired = !!(response && response.permissionRequired);
+      return Promise.all([
+        Promise.resolve(smartFillApi.loadManualFieldOverrides()),
+        typeof smartFillApi.loadAiFieldMappings === "function" ? Promise.resolve(smartFillApi.loadAiFieldMappings()) : Promise.resolve()
+      ]);
+    }).then(startContentScript, startContentScript);
   } else {
     startContentScript();
   }
