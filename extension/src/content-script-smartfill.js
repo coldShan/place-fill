@@ -54,6 +54,7 @@
     let activeSmartFieldKey = null;
     let lastContextTarget = null;
     let focusTargetClearTimer = null;
+    let focusTargetClearTarget = null;
     let fillInProgress = false;
     let currentFavoriteId = "";
     let favoriteStatusRequestId = 0;
@@ -91,19 +92,23 @@
       target.removeAttribute("data-ctdp-smartfocus-target");
     }
 
-    function cancelFocusTargetMarkerClear() {
+    function cancelFocusTargetMarkerClear(nextTarget) {
       if (!focusTargetClearTimer) return;
       win.clearTimeout(focusTargetClearTimer);
+      if (focusTargetClearTarget && focusTargetClearTarget !== nextTarget) clearFocusTargetMarker(focusTargetClearTarget);
       focusTargetClearTimer = null;
+      focusTargetClearTarget = null;
     }
 
     function scheduleFocusTargetMarkerClear(target) {
-      cancelFocusTargetMarkerClear();
+      cancelFocusTargetMarkerClear(target);
       if (!target) return;
+      focusTargetClearTarget = target;
       focusTargetClearTimer = win.setTimeout(function () {
         if (target.getAttribute && target.getAttribute("data-ctdp-smartfocus-visible") === "true" && activeSmartTarget === target) return;
         clearFocusTargetMarker(target);
         focusTargetClearTimer = null;
+        focusTargetClearTarget = null;
       }, FOCUS_RING_FADE_OUT_MS);
     }
 
@@ -117,7 +122,7 @@
     }
 
     function syncFocusTargetMarker(target) {
-      cancelFocusTargetMarkerClear();
+      cancelFocusTargetMarkerClear(target);
       if (activeSmartTarget && activeSmartTarget !== target) clearFocusTargetMarker(activeSmartTarget);
       if (!target || typeof target.setAttribute !== "function") return;
       if (target.style && typeof target.style.setProperty === "function") {

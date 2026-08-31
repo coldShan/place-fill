@@ -29,6 +29,124 @@ test("favorite recommendations keep matching values and context", () => {
   assert.doesNotMatch(items.map(function (item) { return item.id; }).join(","), /empty/);
 });
 
+test("switching inputs clears the previous recognition effect", () => {
+  const timers = new Map();
+  let timerId = 0;
+  const smartButton = {
+    children: [{ offsetHeight: 42, offsetWidth: 42 }],
+    hidden: true,
+    innerHTML: "",
+    style: {},
+    addEventListener() {},
+    contains() {
+      return false;
+    },
+    setAttribute() {}
+  };
+  const document = {
+    activeElement: null,
+    addEventListener() {},
+    createElement() {
+      return smartButton;
+    },
+    documentElement: {
+      clientHeight: 720,
+      clientWidth: 1280,
+      appendChild() {}
+    }
+  };
+  function createTarget() {
+    const attributes = new Map();
+    return {
+      attributes,
+      nodeType: 1,
+      parentElement: null,
+      style: {
+        removeProperty() {},
+        setProperty() {}
+      },
+      getAttribute(name) {
+        return attributes.get(name) || null;
+      },
+      getBoundingClientRect() {
+        return { height: 40, right: 400, top: 100 };
+      },
+      removeAttribute(name) {
+        attributes.delete(name);
+      },
+      setAttribute(name, value) {
+        attributes.set(name, value);
+      }
+    };
+  }
+  const firstTarget = createTarget();
+  const secondTarget = createTarget();
+  const controller = createContentScriptSmartFillController({
+    document,
+    editableTargetApi: {
+      findEditableTarget(target) {
+        return target === firstTarget || target === secondTarget ? target : null;
+      }
+    },
+    getVisibleFieldKeys() {
+      return ["fullName"];
+    },
+    iconAssetsApi: {
+      PRIMARY_LOGO_ICON: "logo",
+      renderIconMarkup() {
+        return "";
+      }
+    },
+    listRecommendedProfiles() {
+      return Promise.resolve([]);
+    },
+    smartFillApi: {
+      formatSmartFillButtonLabel() {
+        return "姓名";
+      },
+      getFieldIconName() {
+        return "user";
+      },
+      getSupportedFieldKeys() {
+        return ["fullName"];
+      },
+      inferFieldKeyForSmartFill() {
+        return "fullName";
+      }
+    },
+    window: {
+      clearTimeout(id) {
+        timers.delete(id);
+      },
+      getComputedStyle() {
+        return { backgroundColor: "rgb(255, 255, 255)", borderRadius: "8px" };
+      },
+      innerHeight: 720,
+      innerWidth: 1280,
+      pageXOffset: 0,
+      pageYOffset: 0,
+      requestAnimationFrame(callback) {
+        callback();
+      },
+      setTimeout(callback) {
+        timerId += 1;
+        timers.set(timerId, callback);
+        return timerId;
+      }
+    }
+  });
+
+  controller.mount();
+  controller.syncTarget(firstTarget);
+  controller.handleDocumentPointerDown(secondTarget);
+  controller.syncTarget(secondTarget);
+
+  assert.equal(firstTarget.getAttribute("data-ctdp-smartfocus-target"), null);
+  assert.equal(firstTarget.getAttribute("data-ctdp-smartfocus-visible"), null);
+  assert.equal(secondTarget.getAttribute("data-ctdp-smartfocus-target"), "true");
+  assert.equal(secondTarget.getAttribute("data-ctdp-smartfocus-visible"), "true");
+});
+
 test("yellow favorite star confirms removal and can add the page again", async () => {
   const listeners = {};
   const documentListeners = {};
