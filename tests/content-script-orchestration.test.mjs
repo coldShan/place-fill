@@ -98,7 +98,14 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
       ChromeTestDataIconAssets: {},
       ChromeTestDataFieldMeta: {},
       ChromeTestDataFieldVisibility: {},
-      ChromeTestDataSiteFeatureToggle: {},
+      ChromeTestDataSiteFeatureToggle: {
+        isSiteFeatureEnabled(value) {
+          return value === true;
+        },
+        readSiteFeatureEnabled() {
+          return Promise.resolve(env.siteFeatureEnabled !== false);
+        }
+      },
       ChromeTestDataSmartFill: {
         applyAiFieldMappings() {
           return Promise.resolve(true);
@@ -252,6 +259,23 @@ test("directory permission reminder appears outside settings and opens authoriza
 
   await args[4]();
   assert.equal(runtime.runtimeMessages.at(-1).type, "open-local-annotation-permission");
+});
+
+test("directory permission reminder stays hidden on disabled sites", async () => {
+  const runtime = runContentScriptWithSmartFillStub({}, {
+    loadManualFieldOverrides: true,
+    siteFeatureEnabled: false,
+    runtimeResponse(message) {
+      if (message.type === "prepare-local-annotation-file") return { permissionRequired: true };
+      return {};
+    }
+  });
+
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  assert.equal(runtime.getDockMessageArgs(), null);
+  assert.equal(runtime.runtimeMessages.some(function (message) {
+    return message.type === "open-local-annotation-permission";
+  }), false);
 });
 
 test("focusout keeps the smart-fill controller alive while it is preserving an internal interaction", () => {

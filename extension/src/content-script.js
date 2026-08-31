@@ -212,16 +212,20 @@
   }
 
   function showLocalAnnotationPermissionReminder() {
-    panelController.showDockMessage(
-      "本地数据目录需要重新授权",
-      true,
-      true,
-      function () {},
-      function () {
-        return sendRuntimeMessage({ type: "open-local-annotation-permission" });
-      },
-      "恢复目录权限"
-    );
+    return siteFeatureToggleApi.readSiteFeatureEnabled().then(function (enabled) {
+      if (!canRenderPanel || !siteFeatureToggleApi.isSiteFeatureEnabled(enabled)) return false;
+      panelController.showDockMessage(
+        "本地数据目录需要重新授权",
+        true,
+        true,
+        function () {},
+        function () {
+          return sendRuntimeMessage({ type: "open-local-annotation-permission" });
+        },
+        "恢复目录权限"
+      );
+      return true;
+    });
   }
 
   smartFillController = smartFillControllerApi.createContentScriptSmartFillController({
@@ -251,7 +255,7 @@
     panelController.mount();
     smartFillController.mount();
     syncBackupReminderState().then(function () {
-      if (canRenderPanel && localAnnotationPermissionRequired) showLocalAnnotationPermissionReminder();
+      if (localAnnotationPermissionRequired) showLocalAnnotationPermissionReminder();
     });
     window.setTimeout(refreshAiRecognition, 250);
 
