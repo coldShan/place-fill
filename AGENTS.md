@@ -154,6 +154,7 @@ pnpm release:verify
 ## Browser Compatibility
 
 - Minimum supported Chrome is `109`.
+- Persistent local-directory backup requires Chrome `122`; Chrome `109`–`121` keep manual full-data backup and restore.
 - Do not use native CSS nesting in this repository; Chrome 109 does not support it reliably.
 - Keep `background.js` at the extension root rather than moving it under `src/`.
 

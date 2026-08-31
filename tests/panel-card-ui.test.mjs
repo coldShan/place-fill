@@ -481,6 +481,8 @@ test("AI switch is off by default and only reveals its configuration while enabl
 
 test("data settings keep backup and restore visible while nesting annotation tools", () => {
   assert.match(panelScript, /自动备份全部数据到本地/);
+  assert.match(panelScript, /Chrome 122 以下请使用手动备份与恢复/);
+  assert.match(panelScript, /state\.localAnnotationFileSupported \? "" : " disabled"/);
   assert.match(panelScript, /data-role="local-annotation-file-toggle"/);
   assert.match(panelScript, /open-local-annotation-permission/);
   assert.match(panelScript, /enable-local-annotation-file/);
@@ -490,6 +492,7 @@ test("data settings keep backup and restore visible while nesting annotation too
   assert.match(panelScript, /目录权限需要重新确认/);
   assert.match(panelScript, /本地目录不可用，已关闭全量数据自动备份/);
   assert.match(localAnnotationPermissionScript, /id: "place-fill-user-data"/);
+  assert.match(localAnnotationPermissionScript, /isPersistentDirectoryPermissionSupported\(\)/);
   assert.match(localAnnotationPermissionScript, /mode: "readwrite"/);
   assert.match(localAnnotationPermissionScript, /startIn: "documents"/);
   assert.match(localAnnotationPermissionScript, /queryPermission\(\{ mode: "readwrite" \}\) === "prompt"/);

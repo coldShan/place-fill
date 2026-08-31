@@ -128,10 +128,28 @@ function createDirectoryHandle(initialText) {
 
 function createEnv(overrides) {
   return {
+    chromeMajorVersion: overrides && overrides.chromeMajorVersion || 122,
     handleStore: (overrides && overrides.handleStore) || createHandleStore(),
     storageArea: (overrides && overrides.storageArea) || createStorageArea()
   };
 }
+
+test("Chrome below 122 keeps directory backup disabled", async () => {
+  const storageArea = createStorageArea({ [ENABLED_STORAGE_KEY]: true });
+  const env = createEnv({ chromeMajorVersion: 109, storageArea });
+
+  assert.deepEqual(await getState(env), {
+    enabled: false,
+    permissionState: "denied",
+    supported: false
+  });
+  assert.equal(storageArea.state[ENABLED_STORAGE_KEY], false);
+  assert.deepEqual(await readPreferredOverrides(env), {
+    enabled: false,
+    source: "storage",
+    supported: false
+  });
+});
 
 test("local data file stays disabled until authorization and first full backup write succeed", async () => {
   const storageArea = createStorageArea({

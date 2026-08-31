@@ -10,9 +10,9 @@
     if (statusNode) statusNode.textContent = text || "";
   }
 
-  if (!api || !grantButton || typeof window.showDirectoryPicker !== "function") {
+  if (!api || !grantButton || !api.isPersistentDirectoryPermissionSupported() || typeof window.showDirectoryPicker !== "function") {
     if (grantButton) grantButton.disabled = true;
-    setStatus("当前 Chrome 不支持目录授权，请升级浏览器后重试。");
+    setStatus("本地目录自动备份需要 Chrome 122 或更高版本；当前版本请使用手动备份与恢复。");
     return;
   }
 

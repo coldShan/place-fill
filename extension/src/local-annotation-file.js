@@ -10,7 +10,26 @@
   const DIRECTORY_NAME = "place-fill-data";
   const FILE_NAME = "place-fill-user-data.json";
   const LEGACY_FILE_FORMAT = "ctdp-smart-fill-overrides";
+  const MIN_PERSISTENT_PERMISSION_CHROME_VERSION = 122;
   const backupApi = rootScope.ChromeTestDataStorageMirror || (typeof require === "function" ? require("./storage-mirror.js") : null);
+
+  function getChromeMajorVersion(env) {
+    if (env && Number.isFinite(env.chromeMajorVersion)) return env.chromeMajorVersion;
+    try {
+      const match = String(navigator.userAgent || "").match(/(?:Chrome|Chromium)\/(\d+)/);
+      return match ? Number(match[1]) : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  function isPersistentDirectoryPermissionSupported(env) {
+    return getChromeMajorVersion(env) >= MIN_PERSISTENT_PERMISSION_CHROME_VERSION;
+  }
+
+  function assertPersistentDirectoryPermissionSupported(env) {
+    if (!isPersistentDirectoryPermissionSupported(env)) throw new Error("本地目录自动备份需要 Chrome 122 或更高版本");
+  }
 
   function getStorageArea(env) {
     if (env && Object.prototype.hasOwnProperty.call(env, "storageArea")) return env.storageArea || null;
@@ -228,6 +247,7 @@
 
   async function enable(directoryHandle, env, preserveExisting) {
     try {
+      assertPersistentDirectoryPermissionSupported(env);
       if ((await getPermissionState(directoryHandle)) !== "granted") throw new Error("未获得目录读写权限");
       if (preserveExisting) {
         const payload = await readExistingPayload(directoryHandle);
@@ -260,6 +280,10 @@
   }
 
   async function resumeStored(env) {
+    if (!isPersistentDirectoryPermissionSupported(env)) {
+      await disable(env);
+      return { enabled: false, supported: false };
+    }
     const directoryHandle = await getStoredDirectoryHandle(env);
     if (!directoryHandle) return { enabled: false, needsSelection: true };
     const permissionState = await getPermissionState(directoryHandle);
@@ -273,6 +297,10 @@
   }
 
   async function getState(env) {
+    if (!isPersistentDirectoryPermissionSupported(env)) {
+      if (await getEnabled(env)) await disable(env);
+      return { enabled: false, permissionState: "denied", supported: false };
+    }
     if (!(await getEnabled(env))) return { enabled: false, permissionState: "denied" };
     const directoryHandle = await getStoredDirectoryHandle(env);
     if (!directoryHandle) {
@@ -292,6 +320,7 @@
   }
 
   async function reauthorize(directoryHandle, env) {
+    assertPersistentDirectoryPermissionSupported(env);
     if (!directoryHandle || typeof directoryHandle.requestPermission !== "function") throw new Error("无法恢复目录授权");
     if ((await directoryHandle.requestPermission({ mode: "readwrite" })) !== "granted") {
       await disable(env);
@@ -301,6 +330,10 @@
   }
 
   async function readPreferredOverrides(env) {
+    if (!isPersistentDirectoryPermissionSupported(env)) {
+      if (await getEnabled(env)) await disable(env);
+      return { enabled: false, source: "storage", supported: false };
+    }
     if (!(await getEnabled(env))) return { enabled: false, source: "storage" };
     const directoryHandle = await getStoredDirectoryHandle(env);
     const permissionState = await getPermissionState(directoryHandle);
@@ -331,6 +364,10 @@
   }
 
   async function syncFromStorage(env) {
+    if (!isPersistentDirectoryPermissionSupported(env)) {
+      if (await getEnabled(env)) await disable(env);
+      return { enabled: false, skipped: true, supported: false };
+    }
     if (!(await getEnabled(env))) return { enabled: false, skipped: true };
     const directoryHandle = await getStoredDirectoryHandle(env);
     const permissionState = await getPermissionState(directoryHandle);
@@ -354,6 +391,7 @@
     DIRECTORY_NAME,
     ENABLED_STORAGE_KEY,
     FILE_NAME,
+    MIN_PERSISTENT_PERMISSION_CHROME_VERSION,
     OVERRIDES_STORAGE_KEY,
     STORAGE_KEYS: backupApi.STORAGE_KEYS,
     buildPayload,
@@ -363,6 +401,7 @@
     hasExistingFile,
     getState,
     getStoredDirectoryHandle,
+    isPersistentDirectoryPermissionSupported,
     parsePayload,
     readPreferredOverrides,
     reauthorize,

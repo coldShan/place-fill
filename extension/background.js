@@ -630,7 +630,8 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
           enabled: !!(result && result.enabled),
           ok: true,
           permissionRequired: !!(result && result.permissionRequired),
-          source: result && result.source
+          source: result && result.source,
+          supported: !result || result.supported !== false
         });
       })
       .catch(function (error) {

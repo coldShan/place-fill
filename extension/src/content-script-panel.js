@@ -229,6 +229,7 @@
       siteFeatureEnabled: siteFeatureToggleApi.getDefaultSiteFeatureEnabled(),
       floatingIconEnabled: true,
       localAnnotationFileEnabled: false,
+      localAnnotationFileSupported: true,
       localAnnotationFilePermissionRequired: false,
       aiRecognitionConfig: {
         baseUrl: "",
@@ -451,6 +452,7 @@
     }
 
     function getLocalAnnotationFileNoteText() {
+      if (!state.localAnnotationFileSupported) return "Chrome 122 以下请使用手动备份与恢复";
       if (state.localAnnotationFilePermissionRequired) return "目录权限需要重新确认，浏览器内数据不受影响";
       return state.localAnnotationFileEnabled
         ? "已授权，数据变化后自动更新 place-fill-data/place-fill-user-data.json"
@@ -466,7 +468,7 @@
         '      <span class="ctdp-settings-row-note" data-role="local-annotation-file-note">' + getLocalAnnotationFileNoteText() + "</span>",
         "    </span>",
         '    <label class="ctdp-switch" aria-label="切换本地全量数据自动备份">',
-        '      <input class="ctdp-switch-input" type="checkbox" data-role="local-annotation-file-toggle"' + (state.localAnnotationFileEnabled ? " checked" : "") + '>',
+        '      <input class="ctdp-switch-input" type="checkbox" data-role="local-annotation-file-toggle"' + (state.localAnnotationFileEnabled ? " checked" : "") + (state.localAnnotationFileSupported ? "" : " disabled") + '>',
         '      <span class="ctdp-switch-track"><span class="ctdp-switch-thumb"></span></span>',
         "    </label>",
         "  </span>",
@@ -475,10 +477,12 @@
       ].join("");
     }
 
-    function syncLocalAnnotationFileEnabled(enabled, permissionRequired) {
+    function syncLocalAnnotationFileEnabled(enabled, permissionRequired, supported) {
       state.localAnnotationFileEnabled = enabled === true;
+      state.localAnnotationFileSupported = supported !== false;
       state.localAnnotationFilePermissionRequired = permissionRequired === true;
       if (localAnnotationFileToggle) localAnnotationFileToggle.checked = state.localAnnotationFileEnabled;
+      if (localAnnotationFileToggle) localAnnotationFileToggle.disabled = !state.localAnnotationFileSupported;
       if (localAnnotationFileNote) localAnnotationFileNote.textContent = getLocalAnnotationFileNoteText();
       if (localAnnotationFileAuthorizeButton) localAnnotationFileAuthorizeButton.hidden = !state.localAnnotationFilePermissionRequired;
     }
@@ -486,13 +490,18 @@
     async function loadLocalAnnotationFileEnabled() {
       try {
         const response = await sendRuntimeMessage({ type: "read-local-annotation-file-state" });
-        syncLocalAnnotationFileEnabled(response && response.enabled, response && response.permissionRequired);
+        syncLocalAnnotationFileEnabled(response && response.enabled, response && response.permissionRequired, response && response.supported);
       } catch (_) {
         syncLocalAnnotationFileEnabled(false);
       }
     }
 
     async function toggleLocalAnnotationFileEnabled(enabled) {
+      if (!state.localAnnotationFileSupported) {
+        syncLocalAnnotationFileEnabled(false, false, false);
+        setSettingsStatus("Chrome 122 以下请使用手动备份与恢复", "warning");
+        return;
+      }
       if (enabled) {
         syncLocalAnnotationFileEnabled(false);
         const restored = await sendRuntimeMessage({ type: "enable-local-annotation-file" });
