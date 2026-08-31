@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>place-fill 本地标注目录授权</title>
+    <title>place-fill 本地数据目录授权</title>
     <style>
       body {
         margin: 0;
@@ -72,11 +72,12 @@
   </head>
   <body>
     <main>
-      <h1>授权本地标注目录</h1>
+      <h1>授权本地数据目录</h1>
       <p>首次点击即选择父目录并申请读写权限。Chrome 提供持久授权选项时，请在本次提示中选择“每次访问都允许”或“始终允许”；place-fill 随后会自动创建 <code>place-fill-data/place-fill-user-data.json</code>。</p>
       <button type="button" data-role="grant">选择目录并授权</button>
       <p data-role="status">当前功能未开启。</p>
     </main>
+    <script src="./src/storage-mirror.js"></script>
     <script src="./src/local-annotation-file.js"></script>
     <script src="./src/local-annotation-permission-page.js"></script>
   </body>

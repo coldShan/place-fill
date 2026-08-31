@@ -107,10 +107,11 @@ pnpm release:verify
 10. `generated/offline-form-snapshot-api.js`: shared offline snapshot helpers
 11. `smart-fill.js`: field recognition and manual annotation storage
 12. `ai-form-snapshot.js`: sanitized form snapshot orchestration
-13. `generated/data-records-api.js`: shared data-record helpers
-14. `content-script-panel.js`: side panel controller
-15. `content-script-smartfill.js`: floating fill UI near inputs
-16. `content-script.js`: top-level orchestrator
+13. `storage-mirror.js`: shared full-backup data shape and IndexedDB mirror helpers
+14. `generated/data-records-api.js`: shared data-record helpers
+15. `content-script-panel.js`: side panel controller
+16. `content-script-smartfill.js`: floating fill UI near inputs
+17. `content-script.js`: top-level orchestrator
 
 ### Background Worker Load Order
 

@@ -164,6 +164,7 @@
     const panelState = panelStateApi.createPanelState();
     const runtimeApi = typeof chrome !== "undefined" ? chrome.runtime : null;
     const dataRecordsApi = rootScope.ChromeTestDataDataRecords;
+    const userDataBackupApi = rootScope.ChromeTestDataStorageMirror;
     const extensionVersion = runtimeApi && typeof runtimeApi.getManifest === "function" ? String(runtimeApi.getManifest().version || "") : "";
     let root = null;
     let fieldGrid = null;
@@ -214,18 +215,6 @@
     const LOCAL_ANNOTATION_FILE_ENABLED_STORAGE_KEY = "ctdp.localAnnotationFileEnabled.v1";
     const VISIBLE_FIELD_KEYS_STORAGE_KEY = "ctdp.visibleFieldKeys.v1";
     const SITE_FEATURE_ENABLED_STORAGE_KEY = "ctdp.siteFeatureEnabled.v1";
-    const FULL_BACKUP_FORMAT = "place-fill-full-backup";
-    const FULL_BACKUP_VERSION = 1;
-    const FULL_BACKUP_STORAGE_KEYS = [
-      FAVORITE_PROFILES_STORAGE_KEY,
-      GENERATED_PROFILES_STORAGE_KEY,
-      SMART_FILL_OVERRIDES_STORAGE_KEY,
-      VISIBLE_FIELD_KEYS_STORAGE_KEY,
-      SITE_FEATURE_ENABLED_STORAGE_KEY,
-      FLOATING_ICON_ENABLED_STORAGE_KEY,
-      FOCUS_STYLE_STORAGE_KEY,
-      DOCK_TOP_STORAGE_KEY
-    ];
     const DOCK_DEFAULT_TOP = 112;
     const DOCK_HEIGHT = 72;
     const CTDP_ROOT_TOP = 18;
@@ -462,10 +451,10 @@
     }
 
     function getLocalAnnotationFileNoteText() {
-      if (state.localAnnotationFilePermissionRequired) return "目录权限需要重新确认，浏览器内标注不受影响";
+      if (state.localAnnotationFilePermissionRequired) return "目录权限需要重新确认，浏览器内数据不受影响";
       return state.localAnnotationFileEnabled
-        ? "已授权，标注后自动更新 place-fill-data/place-fill-user-data.json"
-        : "默认关闭；开启后自动创建 place-fill-data 数据目录";
+        ? "已授权，数据变化后自动更新 place-fill-data/place-fill-user-data.json"
+        : "默认关闭；开启后自动创建 place-fill-data 全量备份目录";
     }
 
     function renderLocalAnnotationFileToggleMarkup() {
@@ -473,10 +462,10 @@
         '<section class="ctdp-settings-row ctdp-settings-row-static">',
         '  <span class="ctdp-settings-row-head">',
         '    <span class="ctdp-settings-row-copy">',
-        '      <span class="ctdp-settings-row-title">自动保存标注到本地</span>',
+        '      <span class="ctdp-settings-row-title">自动备份全部数据到本地</span>',
         '      <span class="ctdp-settings-row-note" data-role="local-annotation-file-note">' + getLocalAnnotationFileNoteText() + "</span>",
         "    </span>",
-        '    <label class="ctdp-switch" aria-label="切换本地标注自动保存">',
+        '    <label class="ctdp-switch" aria-label="切换本地全量数据自动备份">',
         '      <input class="ctdp-switch-input" type="checkbox" data-role="local-annotation-file-toggle"' + (state.localAnnotationFileEnabled ? " checked" : "") + '>',
         '      <span class="ctdp-switch-track"><span class="ctdp-switch-thumb"></span></span>',
         "    </label>",
@@ -510,7 +499,7 @@
         if (restored && restored.enabled) {
           if (typeof smartFillApi.loadManualFieldOverrides === "function") await smartFillApi.loadManualFieldOverrides();
           syncLocalAnnotationFileEnabled(true);
-          setSettingsStatus("已恢复本地标注自动保存", "success");
+          setSettingsStatus("已恢复本地全量数据自动备份", "success");
           return;
         }
         setSettingsStatus(restored && restored.permissionRequired ? "请恢复原目录访问权限" : "请完成目录读写授权", "warning");
@@ -520,7 +509,7 @@
       }
       const response = await sendRuntimeMessage({ type: "disable-local-annotation-file" });
       syncLocalAnnotationFileEnabled(false);
-      setSettingsStatus(response && response.ok ? "已关闭本地标注自动保存" : (response && response.error ? response.error : "关闭失败"), response && response.ok ? "success" : "error");
+      setSettingsStatus(response && response.ok ? "已关闭本地全量数据自动备份" : (response && response.error ? response.error : "关闭失败"), response && response.ok ? "success" : "error");
     }
 
     function syncFloatingIconToggle() {
@@ -1539,22 +1528,9 @@
       });
     }
 
-    function buildFullBackupPayload(storedValues) {
-      const storage = {};
-      FULL_BACKUP_STORAGE_KEYS.forEach(function (key) {
-        storage[key] = hasOwn(storedValues, key) ? storedValues[key] : null;
-      });
-      return {
-        exportedAt: new Date().toISOString(),
-        format: FULL_BACKUP_FORMAT,
-        storage,
-        version: FULL_BACKUP_VERSION
-      };
-    }
-
     async function exportFullBackup() {
-      const storedValues = await readStorageValues(FULL_BACKUP_STORAGE_KEYS);
-      downloadJsonFile("place-fill-full-backup.json", buildFullBackupPayload(storedValues));
+      const storedValues = await readStorageValues(userDataBackupApi.STORAGE_KEYS);
+      downloadJsonFile("place-fill-full-backup.json", userDataBackupApi.buildFullBackupPayload(storedValues));
       setSettingsStatus("已导出全部数据备份", "success");
     }
 
@@ -1573,24 +1549,6 @@
 
     function syncImportedOverrideState() {
       onOverridesImported();
-    }
-
-    function assertFullBackupPayload(payload) {
-      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-        throw new Error("导入文件不是合法备份");
-      }
-      if (payload.format !== FULL_BACKUP_FORMAT) {
-        throw new Error("导入文件不是全量备份");
-      }
-      if (payload.version !== FULL_BACKUP_VERSION) {
-        throw new Error("备份版本不兼容");
-      }
-      if (!payload.storage || typeof payload.storage !== "object" || Array.isArray(payload.storage)) {
-        throw new Error("备份文件缺少本地数据");
-      }
-      if (!FULL_BACKUP_STORAGE_KEYS.some(function (key) { return hasOwn(payload.storage, key); })) {
-        throw new Error("备份文件没有可恢复的数据");
-      }
     }
 
     async function refreshAfterFullBackupImport() {
@@ -1615,18 +1573,10 @@
       } catch (_) {
         throw new Error("导入文件不是合法 JSON");
       }
-      assertFullBackupPayload(payload);
-
-      const values = {};
-      const removeKeys = [];
-      FULL_BACKUP_STORAGE_KEYS.forEach(function (key) {
-        if (key === SMART_FILL_OVERRIDES_STORAGE_KEY || !hasOwn(payload.storage, key)) return;
-        if (payload.storage[key] == null) {
-          removeKeys.push(key);
-          return;
-        }
-        values[key] = payload.storage[key];
-      });
+      const changes = userDataBackupApi.getFullBackupStorageChanges(payload);
+      const values = changes.values;
+      const removeKeys = changes.removeKeys.filter(function (key) { return key !== SMART_FILL_OVERRIDES_STORAGE_KEY; });
+      delete values[SMART_FILL_OVERRIDES_STORAGE_KEY];
 
       await removeStorageValues(removeKeys);
       await writeStorageValues(values);
@@ -2008,9 +1958,9 @@
           if (changes[LOCAL_ANNOTATION_FILE_ENABLED_STORAGE_KEY]) {
             loadLocalAnnotationFileEnabled();
             if (changes[LOCAL_ANNOTATION_FILE_ENABLED_STORAGE_KEY].newValue === true) {
-              setSettingsStatus("本地目录授权成功，已开启标注自动保存", "success");
+              setSettingsStatus("本地目录授权成功，已开启全量数据自动备份", "success");
             } else if (changes[LOCAL_ANNOTATION_FILE_ENABLED_STORAGE_KEY].oldValue === true) {
-              setSettingsStatus("本地目录不可用，已关闭标注自动保存", "warning");
+              setSettingsStatus("本地目录不可用，已关闭全量数据自动备份", "warning");
             }
           }
         });

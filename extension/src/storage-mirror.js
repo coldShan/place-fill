@@ -7,6 +7,8 @@
   const SNAPSHOT_KEY = "chrome.storage.local";
   const MIRROR_FORMAT = "place-fill-indexeddb-storage-mirror";
   const MIRROR_VERSION = 1;
+  const FULL_BACKUP_FORMAT = "place-fill-full-backup";
+  const FULL_BACKUP_VERSION = 1;
   const STORAGE_KEYS = [
     "ctdp.favoriteProfiles.v1",
     "ctdp.generatedProfiles.v1",
@@ -142,6 +144,47 @@
     };
   }
 
+  function buildFullBackupPayload(storedValues) {
+    const storage = {};
+    STORAGE_KEYS.forEach(function (key) {
+      storage[key] = hasOwn(storedValues, key) ? storedValues[key] : null;
+    });
+    return {
+      exportedAt: new Date().toISOString(),
+      format: FULL_BACKUP_FORMAT,
+      storage,
+      version: FULL_BACKUP_VERSION
+    };
+  }
+
+  function assertFullBackupPayload(payload) {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error("导入文件不是合法备份");
+    if (payload.format !== FULL_BACKUP_FORMAT) throw new Error("导入文件不是全量备份");
+    if (payload.version !== FULL_BACKUP_VERSION) throw new Error("备份版本不兼容");
+    if (!payload.storage || typeof payload.storage !== "object" || Array.isArray(payload.storage)) {
+      throw new Error("备份文件缺少本地数据");
+    }
+    if (!STORAGE_KEYS.some(function (key) { return hasOwn(payload.storage, key); })) {
+      throw new Error("备份文件没有可恢复的数据");
+    }
+    const overrides = payload.storage["ctdp.smartFillOverrides.v1"];
+    if (overrides != null && (typeof overrides !== "object" || Array.isArray(overrides))) {
+      throw new Error("备份中的标注数据无效");
+    }
+  }
+
+  function getFullBackupStorageChanges(payload) {
+    assertFullBackupPayload(payload);
+    const removeKeys = [];
+    const values = {};
+    STORAGE_KEYS.forEach(function (key) {
+      if (!hasOwn(payload.storage, key)) return;
+      if (payload.storage[key] == null) removeKeys.push(key);
+      else values[key] = payload.storage[key];
+    });
+    return { removeKeys, values };
+  }
+
   function isSupportedSnapshot(snapshot) {
     return !!(
       snapshot &&
@@ -203,8 +246,13 @@
 
   const api = {
     DB_NAME,
+    FULL_BACKUP_FORMAT,
+    FULL_BACKUP_VERSION,
     MIRROR_FORMAT,
     STORAGE_KEYS,
+    assertFullBackupPayload,
+    buildFullBackupPayload,
+    getFullBackupStorageChanges,
     mirrorStorageLocalToIndexedDb,
     readIndexedDbSnapshot,
     restoreStorageLocalFromIndexedDbIfEmpty

@@ -36,6 +36,13 @@ function createStorageArea(initialState) {
       Object.assign(state, values || {});
       if (callback) callback();
       return Promise.resolve();
+    },
+    remove(keys, callback) {
+      (Array.isArray(keys) ? keys : [keys]).forEach(function (key) {
+        delete state[key];
+      });
+      if (callback) callback();
+      return Promise.resolve();
     }
   };
 }
@@ -126,8 +133,9 @@ function createEnv(overrides) {
   };
 }
 
-test("local annotation file stays disabled until authorization and first write succeed", async () => {
+test("local data file stays disabled until authorization and first full backup write succeed", async () => {
   const storageArea = createStorageArea({
+    "ctdp.favoriteProfiles.v1": [{ id: "favorite-1" }],
     "ctdp.smartFillOverrides.v1": { "https://example.com/app::top::name": "fullName" }
   });
   const directoryHandle = createDirectoryHandle();
@@ -138,18 +146,43 @@ test("local annotation file stays disabled until authorization and first write s
 
   assert.equal(await getEnabled(env), true);
   assert.equal(storageArea.state[ENABLED_STORAGE_KEY], true);
-  assert.deepEqual(JSON.parse(directoryHandle.getText()).overrides, {
+  const payload = JSON.parse(directoryHandle.getText());
+  assert.equal(payload.format, "place-fill-full-backup");
+  assert.deepEqual(payload.storage["ctdp.favoriteProfiles.v1"], [{ id: "favorite-1" }]);
+  assert.deepEqual(payload.storage["ctdp.smartFillOverrides.v1"], {
     "https://example.com/app::top::name": "fullName"
   });
 });
 
 test("existing local annotation file is detected before overwrite", async () => {
   assert.equal(await hasExistingFile(createDirectoryHandle()), false);
-  assert.equal(await hasExistingFile(createDirectoryHandle(JSON.stringify(buildPayload({ local: "email" })))), true);
+  assert.equal(await hasExistingFile(createDirectoryHandle(JSON.stringify(buildPayload({
+    "ctdp.smartFillOverrides.v1": { local: "email" }
+  })))), true);
 });
 
-test("canceling overwrite preserves and loads the existing local annotation file", async () => {
-  const localPayload = JSON.stringify(buildPayload({ local: "companyName" }));
+test("legacy annotation-only files migrate without clearing other browser data", async () => {
+  const directoryHandle = createDirectoryHandle(JSON.stringify({
+    format: "ctdp-smart-fill-overrides",
+    storageKey: "ctdp.smartFillOverrides.v1",
+    type: "raw",
+    version: 1,
+    overrides: { legacy: "email" }
+  }));
+  const storageArea = createStorageArea({ "ctdp.favoriteProfiles.v1": [{ id: "favorite-1" }] });
+
+  await enable(directoryHandle, createEnv({ storageArea }), true);
+
+  assert.deepEqual(storageArea.state["ctdp.favoriteProfiles.v1"], [{ id: "favorite-1" }]);
+  assert.deepEqual(storageArea.state["ctdp.smartFillOverrides.v1"], { legacy: "email" });
+  assert.equal(JSON.parse(directoryHandle.getText()).format, "place-fill-full-backup");
+});
+
+test("canceling overwrite preserves and restores the existing full backup", async () => {
+  const localPayload = JSON.stringify(buildPayload({
+    "ctdp.favoriteProfiles.v1": [{ id: "local-favorite" }],
+    "ctdp.smartFillOverrides.v1": { local: "companyName" }
+  }));
   const directoryHandle = createDirectoryHandle(localPayload);
   const storageArea = createStorageArea({ "ctdp.smartFillOverrides.v1": { browser: "mobile" } });
   const env = createEnv({ storageArea });
@@ -158,6 +191,7 @@ test("canceling overwrite preserves and loads the existing local annotation file
 
   assert.equal(result.source, "file");
   assert.equal(directoryHandle.getText(), localPayload);
+  assert.deepEqual(storageArea.state["ctdp.favoriteProfiles.v1"], [{ id: "local-favorite" }]);
   assert.deepEqual(storageArea.state["ctdp.smartFillOverrides.v1"], { local: "companyName" });
   assert.equal(await getEnabled(env), true);
 });
@@ -199,8 +233,9 @@ test("stored handle only asks for recovery or reselection when permission requir
   });
 });
 
-test("enabled local annotation file is preferred and follows later storage changes", async () => {
+test("enabled local data file is preferred and follows all later storage changes", async () => {
   const storageArea = createStorageArea({
+    "ctdp.favoriteProfiles.v1": [{ id: "browser-favorite" }],
     "ctdp.smartFillOverrides.v1": { browser: "mobile" }
   });
   const directoryHandle = createDirectoryHandle();
@@ -208,21 +243,29 @@ test("enabled local annotation file is preferred and follows later storage chang
   await enable(directoryHandle, env);
 
   directoryHandle.clearFile();
+  storageArea.state["ctdp.favoriteProfiles.v1"] = [{ id: "fallback-favorite" }];
   storageArea.state["ctdp.smartFillOverrides.v1"] = { fallback: "email" };
   const missingResult = await readPreferredOverrides(env);
   assert.equal(missingResult.source, "storage");
-  assert.deepEqual(JSON.parse(directoryHandle.getText()).overrides, { fallback: "email" });
+  assert.deepEqual(JSON.parse(directoryHandle.getText()).storage["ctdp.favoriteProfiles.v1"], [{ id: "fallback-favorite" }]);
+  assert.deepEqual(JSON.parse(directoryHandle.getText()).storage["ctdp.smartFillOverrides.v1"], { fallback: "email" });
 
+  storageArea.state["ctdp.favoriteProfiles.v1"] = [{ id: "current-favorite" }];
   storageArea.state["ctdp.smartFillOverrides.v1"] = { current: "address" };
   await syncFromStorage(env);
-  assert.deepEqual(JSON.parse(directoryHandle.getText()).overrides, { current: "address" });
+  assert.deepEqual(JSON.parse(directoryHandle.getText()).storage["ctdp.favoriteProfiles.v1"], [{ id: "current-favorite" }]);
+  assert.deepEqual(JSON.parse(directoryHandle.getText()).storage["ctdp.smartFillOverrides.v1"], { current: "address" });
 
-  const localPayload = buildPayload({ local: "companyName" });
+  const localPayload = buildPayload({
+    "ctdp.favoriteProfiles.v1": [{ id: "local-favorite" }],
+    "ctdp.smartFillOverrides.v1": { local: "companyName" }
+  });
   const backupDirectory = await directoryHandle.getDirectoryHandle(DIRECTORY_NAME);
   const writable = await (await backupDirectory.getFileHandle(FILE_NAME)).createWritable();
   await writable.write(JSON.stringify(localPayload));
   await writable.close();
   assert.deepEqual((await readPreferredOverrides(env)).overrides, { local: "companyName" });
+  assert.deepEqual(storageArea.state["ctdp.favoriteProfiles.v1"], [{ id: "local-favorite" }]);
 });
 
 test("refresh prompt keeps local annotation auto-save enabled for reauthorization", async () => {

@@ -213,7 +213,7 @@
 
   function showLocalAnnotationPermissionReminder() {
     panelController.showDockMessage(
-      "本地标注目录需要重新授权",
+      "本地数据目录需要重新授权",
       true,
       true,
       function () {},

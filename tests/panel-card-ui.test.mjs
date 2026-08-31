@@ -479,23 +479,23 @@ test("AI switch is off by default and only reveals its configuration while enabl
 });
 
 test("data settings keep backup and restore visible while nesting annotation tools", () => {
-  assert.match(panelScript, /自动保存标注到本地/);
+  assert.match(panelScript, /自动备份全部数据到本地/);
   assert.match(panelScript, /data-role="local-annotation-file-toggle"/);
   assert.match(panelScript, /open-local-annotation-permission/);
   assert.match(panelScript, /enable-local-annotation-file/);
-  assert.match(panelScript, /已恢复本地标注自动保存/);
+  assert.match(panelScript, /已恢复本地全量数据自动备份/);
   assert.match(panelScript, /reauthorize-local-annotation-file/);
   assert.match(panelScript, /恢复目录权限/);
   assert.match(panelScript, /目录权限需要重新确认/);
-  assert.match(panelScript, /本地目录不可用，已关闭标注自动保存/);
+  assert.match(panelScript, /本地目录不可用，已关闭全量数据自动备份/);
   assert.match(localAnnotationPermissionScript, /id: "place-fill-user-data"/);
   assert.match(localAnnotationPermissionScript, /mode: "readwrite"/);
   assert.match(localAnnotationPermissionScript, /startIn: "documents"/);
   assert.match(localAnnotationPermissionScript, /queryPermission\(\{ mode: "readwrite" \}\) === "prompt"/);
   assert.match(localAnnotationPermissionScript, /window\.confirm/);
-  assert.match(localAnnotationPermissionScript, /取消：保留并使用已有本地文件/);
+  assert.match(localAnnotationPermissionScript, /取消：保留并恢复已有本地备份/);
   assert.match(orchestratorScript, /prepare-local-annotation-file/);
-  assert.match(orchestratorScript, /本地标注目录需要重新授权/);
+  assert.match(orchestratorScript, /本地数据目录需要重新授权/);
   assert.match(orchestratorScript, /showLocalAnnotationPermissionReminder/);
   assert.match(orchestratorScript, /open-local-annotation-permission/);
   assert.match(readFileSync(join(here, "..\/extension\/src\/smart-fill.js"), "utf8"), /sync-local-annotation-file/);
@@ -504,13 +504,8 @@ test("data settings keep backup and restore visible while nesting annotation too
 });
 
 test("settings view supports full data backup and restore", () => {
-  assert.match(panelScript, /FULL_BACKUP_FORMAT\s*=\s*"place-fill-full-backup"/);
-  assert.match(panelScript, /"ctdp\.favoriteProfiles\.v1"/);
-  assert.match(panelScript, /"ctdp\.generatedProfiles\.v1"/);
-  assert.match(panelScript, /"ctdp\.smartFillOverrides\.v1"/);
-  assert.match(panelScript, /"ctdp\.visibleFieldKeys\.v1"/);
-  assert.match(panelScript, /"ctdp\.siteFeatureEnabled\.v1"/);
-  assert.match(panelScript, /"ctdp\.floatingIconEnabled\.v1"/);
+  assert.match(panelScript, /userDataBackupApi\.buildFullBackupPayload/);
+  assert.match(panelScript, /userDataBackupApi\.getFullBackupStorageChanges/);
   assert.match(panelScript, /function exportFullBackup\(\)/);
   assert.match(panelScript, /function importFullBackupFile\(file\)/);
   assert.match(panelScript, /place-fill-full-backup\.json/);

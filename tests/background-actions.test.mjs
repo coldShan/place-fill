@@ -24,6 +24,8 @@ test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /message\.type === "enable-local-annotation-file"/);
   assert.match(script, /getSupportedFieldKeys\(\)/);
   assert.match(script, /if \(chrome\.storage && chrome\.storage\.onChanged\)/);
+  assert.match(script, /storageMirrorApi\.STORAGE_KEYS\.some/);
+  assert.match(script, /localAnnotationFileApi\.syncFromStorage\(\)/);
   assert.match(script, /apply-smart-fill-override/);
   assert.match(script, /clear-smart-fill-override/);
   assert.match(script, /add-current-page-to-favorites/);

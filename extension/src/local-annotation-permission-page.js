@@ -45,14 +45,14 @@
         });
         const hasExistingFile = await api.hasExistingFile(directoryHandle);
         const preserveExisting = hasExistingFile && !window.confirm(
-          "检测到已有 place-fill-data/place-fill-user-data.json。\n\n确定：使用当前浏览器标注覆盖本地文件。\n取消：保留并使用已有本地文件。"
+          "检测到已有 place-fill-data/place-fill-user-data.json。\n\n确定：使用当前浏览器全部数据覆盖本地文件。\n取消：保留并恢复已有本地备份。"
         );
         await api.enable(directoryHandle, undefined, preserveExisting);
       }
-      grantButton.textContent = "自动保存已开启";
+      grantButton.textContent = "自动备份已开启";
       setStatus(permissionRequired
-        ? "目录访问权限已恢复，当前标注已同步。"
-        : "目录授权成功，标注文件已就绪。");
+        ? "目录访问权限已恢复，全部数据已同步。"
+        : "目录授权成功，全量备份文件已就绪。");
     } catch (error) {
       grantButton.disabled = false;
       setStatus(error && error.name === "AbortError" ? "已取消授权，功能仍处于关闭状态。" : (error && error.message ? error.message : "目录授权失败，请重试。"));

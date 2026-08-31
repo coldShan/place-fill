@@ -9,8 +9,8 @@
   const OVERRIDES_STORAGE_KEY = "ctdp.smartFillOverrides.v1";
   const DIRECTORY_NAME = "place-fill-data";
   const FILE_NAME = "place-fill-user-data.json";
-  const FILE_FORMAT = "ctdp-smart-fill-overrides";
-  const FILE_VERSION = 1;
+  const LEGACY_FILE_FORMAT = "ctdp-smart-fill-overrides";
+  const backupApi = rootScope.ChromeTestDataStorageMirror || (typeof require === "function" ? require("./storage-mirror.js") : null);
 
   function getStorageArea(env) {
     if (env && Object.prototype.hasOwnProperty.call(env, "storageArea")) return env.storageArea || null;
@@ -78,6 +78,19 @@
     });
   }
 
+  function storageRemove(keys, env) {
+    const storageArea = getStorageArea(env);
+    if (!storageArea || typeof storageArea.remove !== "function" || !keys.length) return Promise.resolve();
+    return new Promise(function (resolve, reject) {
+      try {
+        const result = storageArea.remove(keys, resolve);
+        if (result && typeof result.then === "function") result.then(resolve, reject);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
   function requestToPromise(request) {
     return new Promise(function (resolve, reject) {
       request.onsuccess = function () {
@@ -130,14 +143,8 @@
     }, env);
   }
 
-  function buildPayload(overrides) {
-    return {
-      format: FILE_FORMAT,
-      storageKey: OVERRIDES_STORAGE_KEY,
-      type: "raw",
-      version: FILE_VERSION,
-      overrides: overrides && typeof overrides === "object" && !Array.isArray(overrides) ? overrides : {}
-    };
+  function buildPayload(storedValues) {
+    return backupApi.buildFullBackupPayload(storedValues || {});
   }
 
   function parsePayload(text) {
@@ -145,20 +152,38 @@
     try {
       payload = JSON.parse(text);
     } catch (_) {
-      throw new Error("本地标注文件不是有效 JSON");
+      throw new Error("本地数据文件不是有效 JSON");
     }
     if (
-      !payload ||
-      payload.format !== FILE_FORMAT ||
-      payload.version !== FILE_VERSION ||
-      payload.type !== "raw" ||
-      !payload.overrides ||
-      typeof payload.overrides !== "object" ||
-      Array.isArray(payload.overrides)
+      payload &&
+      payload.format === LEGACY_FILE_FORMAT &&
+      payload.version === 1 &&
+      payload.type === "raw" &&
+      payload.overrides &&
+      typeof payload.overrides === "object" &&
+      !Array.isArray(payload.overrides)
     ) {
-      throw new Error("本地标注文件格式无效");
+      payload = {
+        exportedAt: new Date().toISOString(),
+        format: backupApi.FULL_BACKUP_FORMAT,
+        migratedFromLegacy: true,
+        storage: { [OVERRIDES_STORAGE_KEY]: payload.overrides },
+        version: backupApi.FULL_BACKUP_VERSION
+      };
     }
+    backupApi.assertFullBackupPayload(payload);
     return payload;
+  }
+
+  async function restorePayload(payload, env) {
+    const changes = backupApi.getFullBackupStorageChanges(payload);
+    await storageRemove(changes.removeKeys, env);
+    await storageSet(changes.values, env);
+  }
+
+  async function writeStoredPayload(directoryHandle, env) {
+    const stored = await storageGet(backupApi.STORAGE_KEYS, env);
+    await writePayload(directoryHandle, buildPayload(stored));
   }
 
   async function getPermissionState(directoryHandle) {
@@ -206,10 +231,10 @@
       if ((await getPermissionState(directoryHandle)) !== "granted") throw new Error("未获得目录读写权限");
       if (preserveExisting) {
         const payload = await readExistingPayload(directoryHandle);
-        await storageSet({ [OVERRIDES_STORAGE_KEY]: payload.overrides }, env);
+        await restorePayload(payload, env);
+        if (payload.migratedFromLegacy) await writeStoredPayload(directoryHandle, env);
       } else {
-        const stored = await storageGet(OVERRIDES_STORAGE_KEY, env);
-        await writePayload(directoryHandle, buildPayload(stored[OVERRIDES_STORAGE_KEY]));
+        await writeStoredPayload(directoryHandle, env);
       }
       await writeDirectoryHandle(directoryHandle, env);
       await storageSet({ [ENABLED_STORAGE_KEY]: true }, env);
@@ -291,11 +316,13 @@
       const backupDirectoryHandle = await directoryHandle.getDirectoryHandle(DIRECTORY_NAME);
       const fileHandle = await backupDirectoryHandle.getFileHandle(FILE_NAME);
       const file = await fileHandle.getFile();
-      return { enabled: true, overrides: parsePayload(await file.text()).overrides, source: "file" };
+      const payload = parsePayload(await file.text());
+      await restorePayload(payload, env);
+      if (payload.migratedFromLegacy) await writeStoredPayload(directoryHandle, env);
+      return { enabled: true, overrides: payload.storage[OVERRIDES_STORAGE_KEY] || {}, source: "file" };
     } catch (error) {
       if (error && error.name === "NotFoundError") {
-        const stored = await storageGet(OVERRIDES_STORAGE_KEY, env);
-        await writePayload(directoryHandle, buildPayload(stored[OVERRIDES_STORAGE_KEY]));
+        await writeStoredPayload(directoryHandle, env);
         return { enabled: true, source: "storage" };
       }
       await disable(env);
@@ -315,8 +342,7 @@
       return { enabled: false, permissionLost: true };
     }
     try {
-      const stored = await storageGet(OVERRIDES_STORAGE_KEY, env);
-      await writePayload(directoryHandle, buildPayload(stored[OVERRIDES_STORAGE_KEY]));
+      await writeStoredPayload(directoryHandle, env);
       return { directoryName: DIRECTORY_NAME, enabled: true, fileName: FILE_NAME };
     } catch (error) {
       await disable(env);
@@ -328,6 +354,8 @@
     DIRECTORY_NAME,
     ENABLED_STORAGE_KEY,
     FILE_NAME,
+    OVERRIDES_STORAGE_KEY,
+    STORAGE_KEYS: backupApi.STORAGE_KEYS,
     buildPayload,
     disable,
     enable,

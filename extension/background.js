@@ -479,6 +479,11 @@ if (chrome.storage && chrome.storage.onChanged) {
       syncBackupReminderForActiveTab();
     }
     mirrorStorageLocal().catch(function () {});
+    if (storageMirrorApi.STORAGE_KEYS.some(function (key) {
+      return key !== localAnnotationFileApi.OVERRIDES_STORAGE_KEY && Object.prototype.hasOwnProperty.call(changes, key);
+    })) {
+      localAnnotationFileApi.syncFromStorage().catch(function () {});
+    }
   });
 }
 
@@ -629,7 +634,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         });
       })
       .catch(function (error) {
-        sendResponse({ error: error && error.message ? error.message : "读取本地标注文件失败", ok: false });
+        sendResponse({ error: error && error.message ? error.message : "读取本地数据文件失败", ok: false });
       });
     return true;
   }
@@ -639,7 +644,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         sendResponse({ enabled: !!(result && result.enabled), ok: true, skipped: !!(result && result.skipped) });
       })
       .catch(function (error) {
-        sendResponse({ error: error && error.message ? error.message : "保存本地标注文件失败", ok: false });
+        sendResponse({ error: error && error.message ? error.message : "保存本地数据文件失败", ok: false });
       });
     return true;
   }

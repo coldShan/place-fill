@@ -36,6 +36,7 @@ test("manifest enables all-sites editable injection with context menu permission
     "generated/offline-form-snapshot-api.js",
     "src/smart-fill.js",
     "src/ai-form-snapshot.js",
+    "src/storage-mirror.js",
     "generated/data-records-api.js",
     "src/content-script-panel.js",
     "src/content-script-smartfill.js",

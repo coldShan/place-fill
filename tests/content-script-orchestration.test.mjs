@@ -245,7 +245,7 @@ test("directory permission reminder appears outside settings and opens authoriza
 
   await new Promise(function (resolve) { setImmediate(resolve); });
   const args = runtime.getDockMessageArgs();
-  assert.equal(args[0], "本地标注目录需要重新授权");
+  assert.equal(args[0], "本地数据目录需要重新授权");
   assert.equal(args[1], true);
   assert.equal(args[2], true);
   assert.equal(args[5], "恢复目录权限");
