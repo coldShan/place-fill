@@ -1680,6 +1680,14 @@
           "site-feature-status"
         ),
         renderSettingsSectionMarkup(
+          "data",
+          "数据与隐私",
+          "备份、恢复与标注工具",
+          "download",
+          renderDataSettingsMarkup(),
+          false
+        ),
+        renderSettingsSectionMarkup(
           "experience",
           "填充体验",
           getFocusStyleNoteText(),
@@ -1696,14 +1704,6 @@
           renderAiRecognitionMarkup(),
           false,
           "ai-recognition-status"
-        ),
-        renderSettingsSectionMarkup(
-          "data",
-          "数据与隐私",
-          "备份、恢复与标注工具",
-          "download",
-          renderDataSettingsMarkup(),
-          false
         ),
         "    </div>",
         '    <p class="ctdp-settings-status" data-role="settings-status" data-tone="muted" hidden></p>',

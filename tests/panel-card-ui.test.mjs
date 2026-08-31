@@ -463,6 +463,7 @@ test("settings groups use an exclusive accordion with current-site settings open
   assert.match(panelScript, /renderSettingsSectionMarkup\(\s*"experience"[\s\S]*?false,\s*"focus-style-note"/);
   assert.match(panelScript, /renderSettingsSectionMarkup\(\s*"ai"[\s\S]*?false,\s*"ai-recognition-status"/);
   assert.match(panelScript, /renderSettingsSectionMarkup\(\s*"data"[\s\S]*?false\s*\)/);
+  assert.match(panelScript, /renderSettingsSectionMarkup\(\s*"site"[\s\S]*?renderSettingsSectionMarkup\(\s*"data"[\s\S]*?renderSettingsSectionMarkup\(\s*"experience"[\s\S]*?renderSettingsSectionMarkup\(\s*"ai"/);
   assert.match(panelScript, /function setupSettingsAccordion\(\)/);
 
   const sections = [{ open: true }, { open: true }, { open: false }];
