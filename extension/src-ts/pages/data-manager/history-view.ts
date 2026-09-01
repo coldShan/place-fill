@@ -14,11 +14,11 @@ export function renderHistoryView(_scope: string, entries: HistoryEntry[]): stri
             .map(function (entry) {
               return [
                 "<tr>",
-                "  <td>" + escapeHtml(formatDisplayTime(entry.createdAt)) + "</td>",
-                "  <td>" + escapeHtml(entry.profile.fullName) + "</td>",
-                "  <td>" + escapeHtml(entry.profile.companyName) + "</td>",
-                "  <td>" + escapeHtml(entry.profile.mobile) + "</td>",
-                "  <td>" + escapeHtml(entry.profile.email) + "</td>",
+                "  <td>" + escapeHtml(formatDisplayTime(entry.createdAt) || "—") + "</td>",
+                "  <td>" + escapeHtml(entry.profile.fullName || "—") + "</td>",
+                "  <td>" + escapeHtml(entry.profile.companyName || "—") + "</td>",
+                "  <td>" + escapeHtml(entry.profile.mobile || "—") + "</td>",
+                "  <td>" + escapeHtml(entry.profile.email || "—") + "</td>",
                 '  <td class="dm-table-actions">',
                 renderActionButton("history-favorite", entry.id, "favorite", "收藏"),
                 renderActionButton("history-copy", entry.id, "copy", "复制"),

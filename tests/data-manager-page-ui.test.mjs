@@ -68,6 +68,8 @@ test("favorites view renders as a regular table instead of cards", () => {
   assert.doesNotMatch(pageSource, /favorite-title/);
   assert.doesNotMatch(pageSource, /dm-favorite-grid/);
   assert.doesNotMatch(pageSource, /dm-card-summary/);
+  assert.doesNotMatch(pageSource, /未填写/);
+  assert.match(pageSource, /entry\.note \|\| "—"/);
 });
 
 test("history table stays single-row only and does not render a detail row", () => {

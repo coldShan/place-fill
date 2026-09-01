@@ -347,11 +347,11 @@ function renderFavoritesView(_scope, entries) {
       entries.map(function(entry) {
         return [
           "<tr>",
-          "  <td>" + escapeHtml(entry.profile.fullName || "未填写") + "</td>",
-          "  <td>" + escapeHtml(entry.profile.companyName || "未填写") + "</td>",
-          "  <td>" + escapeHtml(entry.profile.mobile || "未填写") + "</td>",
-          "  <td>" + escapeHtml(entry.profile.email || "未填写") + "</td>",
-          "  <td>" + escapeHtml(entry.note || "未填写") + "</td>",
+          "  <td>" + escapeHtml(entry.profile.fullName || "—") + "</td>",
+          "  <td>" + escapeHtml(entry.profile.companyName || "—") + "</td>",
+          "  <td>" + escapeHtml(entry.profile.mobile || "—") + "</td>",
+          "  <td>" + escapeHtml(entry.profile.email || "—") + "</td>",
+          "  <td>" + escapeHtml(entry.note || "—") + "</td>",
           '  <td class="dm-table-actions">',
           renderActionButton("favorite-edit", entry.id, "edit", "编辑"),
           renderActionButton("favorite-delete", entry.id, "delete", "删除", " is-danger"),
@@ -383,11 +383,11 @@ function renderHistoryView(_scope, entries) {
       entries.map(function(entry) {
         return [
           "<tr>",
-          "  <td>" + escapeHtml(formatDisplayTime(entry.createdAt)) + "</td>",
-          "  <td>" + escapeHtml(entry.profile.fullName) + "</td>",
-          "  <td>" + escapeHtml(entry.profile.companyName) + "</td>",
-          "  <td>" + escapeHtml(entry.profile.mobile) + "</td>",
-          "  <td>" + escapeHtml(entry.profile.email) + "</td>",
+          "  <td>" + escapeHtml(formatDisplayTime(entry.createdAt) || "—") + "</td>",
+          "  <td>" + escapeHtml(entry.profile.fullName || "—") + "</td>",
+          "  <td>" + escapeHtml(entry.profile.companyName || "—") + "</td>",
+          "  <td>" + escapeHtml(entry.profile.mobile || "—") + "</td>",
+          "  <td>" + escapeHtml(entry.profile.email || "—") + "</td>",
           '  <td class="dm-table-actions">',
           renderActionButton("history-favorite", entry.id, "favorite", "收藏"),
           renderActionButton("history-copy", entry.id, "copy", "复制"),
