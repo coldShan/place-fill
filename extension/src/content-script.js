@@ -339,6 +339,14 @@
         });
         return;
       }
+      if (message.type === "suppress-smart-fill-recognition") {
+        const target = smartFillController.resolveManualOverrideTarget();
+        if (!target) return;
+        Promise.resolve(smartFillApi.setManualFieldOverride(target, smartFillApi.MANUAL_FIELD_OVERRIDE_NONE)).then(function (ok) {
+          if (ok !== false) smartFillController.syncTarget(target);
+        });
+        return;
+      }
       if (message.type === "clear-smart-fill-override") {
         const target = smartFillController.resolveManualOverrideTarget();
         if (!target) return;

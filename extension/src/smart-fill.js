@@ -107,6 +107,7 @@
     "cc-name": "fullName"
   };
   const STORAGE_KEY = "ctdp.smartFillOverrides.v1";
+  const MANUAL_FIELD_OVERRIDE_NONE = "__none__";
   const AI_FIELD_MAPPING_STORAGE_KEY = "ctdp.aiFieldMappings.v1";
   const AI_OVERRIDE_CONFIDENCE = rootScope.ChromeTestDataAiRecognition && typeof rootScope.ChromeTestDataAiRecognition.AI_OVERRIDE_CONFIDENCE === "number"
     ? rootScope.ChromeTestDataAiRecognition.AI_OVERRIDE_CONFIDENCE
@@ -476,7 +477,7 @@
     if (!overrides || typeof overrides !== "object" || Array.isArray(overrides)) return nextMap;
     Object.keys(overrides).forEach(function (key) {
       if (!parseStorageKey(key)) return;
-      if (!isSupportedFieldKey(overrides[key])) return;
+      if (overrides[key] !== MANUAL_FIELD_OVERRIDE_NONE && !isSupportedFieldKey(overrides[key])) return;
       nextMap[key] = overrides[key];
     });
     return nextMap;
@@ -626,11 +627,11 @@
     const siteKey = getSanitizedStorageKey(element, env);
     const overrides = getNormalizedOverrideMap(env);
     const override = overrides[exactKey] || overrides[siteKey];
-    return isSupportedFieldKey(override) ? override : null;
+    return override === MANUAL_FIELD_OVERRIDE_NONE || isSupportedFieldKey(override) ? override : null;
   }
 
   function setManualFieldOverride(element, fieldKey, env) {
-    if (!element || !isSupportedFieldKey(fieldKey)) return false;
+    if (!element || (fieldKey !== MANUAL_FIELD_OVERRIDE_NONE && !isSupportedFieldKey(fieldKey))) return false;
     const key = getTargetStorageKey(element, env);
     if (!key) return false;
     const overrides = getNormalizedOverrideMap(env);
@@ -686,6 +687,7 @@
     if (!element) return null;
 
     const override = getManualFieldOverride(element, env);
+    if (override === MANUAL_FIELD_OVERRIDE_NONE) return null;
     if (override) return override;
 
     const localFieldKey = inferLocalFieldKeyForSmartFill(element, env);
@@ -712,6 +714,7 @@
 
   const api = {
     AI_FIELD_MAPPING_STORAGE_KEY,
+    MANUAL_FIELD_OVERRIDE_NONE,
     applyAiFieldMappings,
     clearAiFieldMappings,
     clearManualFieldOverride,

@@ -572,12 +572,14 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(orchestratorScript, /listRecommendedProfiles:/);
   assert.match(orchestratorScript, /getCurrentScope,/);
   assert.match(orchestratorScript, /message\.type === "apply-smart-fill-override"/);
+  assert.match(orchestratorScript, /message\.type === "suppress-smart-fill-recognition"/);
   assert.match(orchestratorScript, /message\.type === "clear-smart-fill-override"/);
   assert.match(orchestratorScript, /message\.type === "add-current-page-to-favorites"/);
   assert.match(orchestratorScript, /panelController\.addCurrentPageToFavorites\(\)/);
   assert.match(orchestratorScript, /onSiteFeatureEnabledChanged/);
   assert.match(orchestratorScript, /isEnabled:\s*panelController\.isSiteFeatureEnabled/);
   assert.match(orchestratorScript, /setManualFieldOverride/);
+  assert.match(orchestratorScript, /smartFillApi\.MANUAL_FIELD_OVERRIDE_NONE/);
   assert.match(orchestratorScript, /panelController\.loadVisibleFieldKeys\(\)\.then/);
   assert.match(orchestratorScript, /smartFillController\.fillTarget\(target,\s*message\.fieldKey\)/);
   assert.match(orchestratorScript, /clearManualFieldOverride/);

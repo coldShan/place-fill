@@ -31,6 +31,7 @@ const storageMirrorApi = globalThis.ChromeTestDataStorageMirror;
 const localAnnotationFileApi = globalThis.ChromeTestDataLocalAnnotationFile;
 const MENU_ROOT_ID = "ctdp-manual-annotation-root";
 const MENU_FIELD_PREFIX = "ctdp-manual-annotation:";
+const MENU_NONE_ID = "ctdp-manual-annotation:none";
 const MENU_CLEAR_ID = "ctdp-manual-annotation:clear";
 const MENU_FAVORITE_ID = "ctdp-add-current-page-favorite";
 const REPOSITORY_URL = "https://github.com/coldShan/place-fill";
@@ -81,6 +82,13 @@ async function buildContextMenus() {
         title: smartFillApi.formatSmartFillButtonLabel(fieldKey),
         contexts: ["editable"]
       });
+    });
+
+    chrome.contextMenus.create({
+      id: MENU_NONE_ID,
+      parentId: MENU_ROOT_ID,
+      title: "无",
+      contexts: ["editable"]
     });
 
     chrome.contextMenus.create({
@@ -540,6 +548,10 @@ chrome.contextMenus.onClicked.addListener(function (info, tab) {
   }
   if (info.menuItemId === MENU_CLEAR_ID) {
     sendTabMessage(tab.id, info, { type: "clear-smart-fill-override" });
+    return;
+  }
+  if (info.menuItemId === MENU_NONE_ID) {
+    sendTabMessage(tab.id, info, { type: "suppress-smart-fill-recognition" });
     return;
   }
   if (typeof info.menuItemId !== "string" || !info.menuItemId.startsWith(MENU_FIELD_PREFIX)) return;

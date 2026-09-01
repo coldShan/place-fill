@@ -14,6 +14,7 @@ test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /importScripts\.apply\(globalThis, backgroundImports\)/);
   assert.match(script, /chrome\.contextMenus\.create/);
   assert.match(script, /title:\s*"加入常用"/);
+  assert.match(script, /title:\s*"无"/);
   assert.match(script, /contexts:\s*\["editable"\]/);
   assert.match(script, /chrome\.contextMenus\.onClicked\.addListener/);
   assert.match(script, /new URL\(tab\.url\)\.hostname/);
@@ -29,6 +30,7 @@ test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /storageMirrorApi\.STORAGE_KEYS\.some/);
   assert.match(script, /localAnnotationFileApi\.syncFromStorage\(\)/);
   assert.match(script, /apply-smart-fill-override/);
+  assert.match(script, /suppress-smart-fill-recognition/);
   assert.match(script, /clear-smart-fill-override/);
   assert.match(script, /add-current-page-to-favorites/);
   assert.match(script, /check-extension-update/);

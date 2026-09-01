@@ -4,6 +4,7 @@ import smartFillPkg from "../extension/src/smart-fill.js";
 import fieldMetaPkg from "../extension/src/field-meta.js";
 
 const {
+  MANUAL_FIELD_OVERRIDE_NONE,
   clearManualFieldOverride,
   clearAiFieldMappings,
   formatSmartFillButtonLabel,
@@ -287,6 +288,24 @@ test("manual smart fill override takes precedence over heuristic inference", asy
 
   await setManualFieldOverride(element, "companyName", env);
 
+  assert.equal(inferFieldKeyForSmartFill(element, env), "companyName");
+});
+
+test("manual none override suppresses local and ai recognition until cleared", async () => {
+  const element = createElement({ name: "mobilePhone", id: "contact-input" });
+  const env = createEnv({ elements: [element] });
+
+  await replaceAiFieldMappings({
+    "https://example.com/apply::top::tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=": {
+      confidence: 0.95,
+      fieldKey: "companyName",
+      localFieldKey: "mobile"
+    }
+  }, env);
+  await setManualFieldOverride(element, MANUAL_FIELD_OVERRIDE_NONE, env);
+  assert.equal(inferFieldKeyForSmartFill(element, env), null);
+
+  await clearManualFieldOverride(element, env);
   assert.equal(inferFieldKeyForSmartFill(element, env), "companyName");
 });
 
