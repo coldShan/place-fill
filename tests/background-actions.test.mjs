@@ -14,6 +14,7 @@ test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /importScripts\.apply\(globalThis, backgroundImports\)/);
   assert.match(script, /chrome\.contextMenus\.create/);
   assert.match(script, /title:\s*"加入常用"/);
+  assert.match(script, /id:\s*MENU_FAVORITE_ID,[\s\S]*?contexts:\s*\["all"\]/);
   assert.match(script, /title:\s*"无"/);
   assert.match(script, /contexts:\s*\["editable"\]/);
   assert.match(script, /chrome\.contextMenus\.onClicked\.addListener/);

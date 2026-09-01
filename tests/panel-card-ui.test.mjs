@@ -76,8 +76,9 @@ test("floating panel renders common-data cards only when favorites exist", () =>
 test("quick favorite capture keeps the first non-empty value for every recognized field", () => {
   const nodes = [
     { nodeType: 1, tagName: "INPUT", type: "text", fieldKey: "mobile", value: "" },
-    { nodeType: 1, tagName: "INPUT", type: "text", fieldKey: "mobile", value: "13800138000" },
-    { nodeType: 1, tagName: "TEXTAREA", fieldKey: "address", value: "郑州市金水区" },
+    { nodeType: 1, tagName: "INPUT", type: "text", disabled: true, fieldKey: "mobile", value: "13800138000" },
+    { nodeType: 1, tagName: "INPUT", type: "text", readOnly: true, fieldKey: "fullName", value: "张三" },
+    { nodeType: 1, tagName: "TEXTAREA", disabled: true, fieldKey: "address", value: "郑州市金水区" },
     { nodeType: 1, tagName: "INPUT", type: "password", fieldKey: "account", value: "secret" }
   ];
   const profile = collectPageFavoriteProfile(
@@ -88,6 +89,7 @@ test("quick favorite capture keeps the first non-empty value for every recognize
 
   assert.deepEqual(profile, {
     address: "郑州市金水区",
+    fullName: "张三",
     mobile: "13800138000"
   });
 });

@@ -66,7 +66,7 @@ async function buildContextMenus() {
     chrome.contextMenus.create({
       id: MENU_FAVORITE_ID,
       title: "加入常用",
-      contexts: ["editable"]
+      contexts: ["all"]
     });
 
     chrome.contextMenus.create({

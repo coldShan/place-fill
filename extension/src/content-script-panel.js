@@ -128,9 +128,10 @@
     Array.from(doc.querySelectorAll(
       'input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]'
     )).forEach(function (node) {
-      const target = editableTargetApi.findEditableTarget(node);
-      if (!target || seen.has(target)) return;
+      const target = node;
+      if (seen.has(target)) return;
       seen.add(target);
+      if (String(target.tagName || "").toUpperCase() === "INPUT" && /^(?:button|checkbox|color|file|hidden|image|radio|range|reset|submit)$/i.test(String(target.type || "text"))) return;
       if (String(target.type || "").toLowerCase() === "password") return;
       const fieldKey = smartFillApi.inferFieldKeyForSmartFill(target);
       const value = String(target.isContentEditable ? target.textContent || "" : target.value || "");
