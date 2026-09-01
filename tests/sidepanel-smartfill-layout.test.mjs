@@ -18,6 +18,8 @@ test("smart fill keeps add-favorite beside the automatic common-data list", () =
   assert.match(stylesheet, /\.ctdp-smartfill-favorite-trigger\[data-favorite="true"\] \.ctdp-smartfill-favorite-icon::before\s*\{[\s\S]*?clip-path:\s*polygon\(/);
   assert.match(stylesheet, /\.ctdp-smartfill-recommend-panel\s*\{[\s\S]*?top:\s*50px;[\s\S]*?right:\s*50px;[\s\S]*?width:\s*248px;/);
   assert.match(stylesheet, /\.ctdp-smartfill-recommend-list\s*\{[\s\S]*?max-height:\s*184px;[\s\S]*?overflow-y:\s*auto;/);
+  assert.match(stylesheet, /\.ctdp-smartfill-note-popover\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?pointer-events:\s*none;/);
+  assert.match(stylesheet, /\.ctdp-smartfill-note-popover\[hidden\]\s*\{[\s\S]*?display:\s*none;/);
   assert.doesNotMatch(stylesheet, /\.ctdp-smartfill-recommend-trigger/);
   assert.doesNotMatch(stylesheet, /\.ctdp-smartfill-item\s*\{/);
   assert.doesNotMatch(stylesheet, /\.ctdp-smartfill-item-label/);

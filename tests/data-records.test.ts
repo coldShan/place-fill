@@ -60,6 +60,22 @@ test("normalizeScopeKey rejects invalid scope input", () => {
   assert.equal(normalizeScopeKey("example.com/path"), "");
 });
 
+test("legacy favorites without notes remain readable", async () => {
+  const storageArea = createStorageArea({
+    "ctdp.favoriteProfiles.v1": {
+      "alpha.example.com": [{
+        createdAt: "1200",
+        id: "legacy-1",
+        name: "旧常用数据",
+        profile: buildProfile(1),
+        updatedAt: "1200"
+      }]
+    }
+  });
+
+  assert.equal((await readFavoriteProfiles("alpha.example.com", { storageArea }))[0]?.note, "");
+});
+
 test("recordGeneratedProfile isolates scopes and keeps the latest 30 entries", async () => {
   const storageArea = createStorageArea();
 
@@ -84,24 +100,28 @@ test("favorite profiles support create update and delete within a scope", async 
     "alpha.example.com",
     {
       name: "常用数据 A",
+      note: "财务测试账号",
       profile: buildProfile(1)
     },
     { storageArea, now: () => 1200 }
   );
 
   assert.equal(created.name, "常用数据 A");
+  assert.equal(created.note, "财务测试账号");
 
   const updated = await updateFavoriteProfile(
     "alpha.example.com",
     created.id,
     {
       name: "常用数据 B",
+      note: "更新后的备注",
       profile: buildProfile(2)
     },
     { storageArea, now: () => 1300 }
   );
 
   assert.equal(updated?.name, "常用数据 B");
+  assert.equal(updated?.note, "更新后的备注");
   assert.equal(updated?.profile.fullName, "测试用户2");
   assert.equal(updated?.profile.account, "100002");
 

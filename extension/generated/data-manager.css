@@ -343,8 +343,8 @@ select:focus-visible {
   width: 168px;
 }
 
-.dm-table td:nth-child(4),
-.dm-table td:nth-child(5) {
+.dm-table td:nth-child(3),
+.dm-table td:nth-child(4) {
   font-variant-numeric: tabular-nums;
 }
 
@@ -461,6 +461,10 @@ select:focus-visible {
   gap: 8px;
   color: var(--dm-ink-2);
   font-size: 13px;
+}
+
+.dm-form-field-wide {
+  grid-column: 1 / -1;
 }
 
 .dm-form-field span {

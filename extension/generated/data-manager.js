@@ -122,6 +122,7 @@ function normalizeFavoriteProfilesMap(rawValue) {
         createdAt,
         id: normalizeId(current.id),
         name: String(current.name || "").trim() || "常用数据",
+        note: String(current.note || "").trim(),
         profile: normalizeProfile(current.profile),
         updatedAt
       };
@@ -178,6 +179,7 @@ async function createFavoriteProfile(scope, input, env) {
     createdAt: String(now),
     id: createId(now, random),
     name: String(input.name || "").trim() || "常用数据",
+    note: String(input.note || "").trim(),
     profile: normalizedProfile,
     updatedAt: String(now)
   };
@@ -201,6 +203,7 @@ async function updateFavoriteProfile(scope, id, input, env) {
     createdAt: currentEntry.createdAt,
     id: currentEntry.id,
     name: String(input.name || "").trim() || currentEntry.name,
+    note: Object.prototype.hasOwnProperty.call(input, "note") ? String(input.note || "").trim() : currentEntry.note,
     profile: normalizeProfile(input.profile),
     updatedAt: String(now)
   };
@@ -290,6 +293,10 @@ function renderFavoriteModal() {
         "</label>"
       ].join("");
     }).join(""),
+    '        <label class="dm-form-field dm-form-field-wide">',
+    "          <span>备注</span>",
+    '          <input type="text" data-role="favorite-note" maxlength="120" placeholder="填写这组常用数据的备注">',
+    "        </label>",
     "      </div>",
     '      <div class="dm-modal-actions">',
     '        <button type="button" class="dm-subtle-btn" data-action="close-favorite-modal">取消</button>',
@@ -312,6 +319,9 @@ function readFavoriteDraft(form) {
     )
   );
 }
+function readFavoriteNote(form) {
+  return form?.querySelector('[data-role="favorite-note"]')?.value.trim() || "";
+}
 function syncFavoriteForm(form, titleNode, noteNode, entry) {
   if (!form) return;
   if (titleNode) titleNode.textContent = entry ? "编辑常用数据" : "新增常用数据";
@@ -323,6 +333,8 @@ function syncFavoriteForm(form, titleNode, noteNode, entry) {
     const input = form.querySelector('[data-field-key="' + fieldKey + '"]');
     if (input) input.value = profile[fieldKey];
   });
+  const noteInput = form.querySelector('[data-role="favorite-note"]');
+  if (noteInput) noteInput.value = entry?.note || "";
 }
 function renderFavoritesView(_scope, entries) {
   return [
@@ -330,7 +342,7 @@ function renderFavoritesView(_scope, entries) {
     entries.length ? [
       '<div class="dm-table-shell dm-favorites-shell">',
       '  <table class="dm-table dm-favorites-table">',
-      "    <thead><tr><th>姓名</th><th>公司</th><th>手机</th><th>邮箱</th><th>操作</th></tr></thead>",
+      "    <thead><tr><th>姓名</th><th>公司</th><th>手机</th><th>邮箱</th><th>备注</th><th>操作</th></tr></thead>",
       "    <tbody>",
       entries.map(function(entry) {
         return [
@@ -339,6 +351,7 @@ function renderFavoritesView(_scope, entries) {
           "  <td>" + escapeHtml(entry.profile.companyName || "未填写") + "</td>",
           "  <td>" + escapeHtml(entry.profile.mobile || "未填写") + "</td>",
           "  <td>" + escapeHtml(entry.profile.email || "未填写") + "</td>",
+          "  <td>" + escapeHtml(entry.note || "未填写") + "</td>",
           '  <td class="dm-table-actions">',
           renderActionButton("favorite-edit", entry.id, "edit", "编辑"),
           renderActionButton("favorite-delete", entry.id, "delete", "删除", " is-danger"),
@@ -530,11 +543,12 @@ async function handleFavoriteSubmit(event) {
     return;
   }
   const draft = readFavoriteDraft(favoriteForm);
+  const note = readFavoriteNote(favoriteForm);
   if (state.editingFavoriteId) {
-    await updateFavoriteProfile(state.activeScope, state.editingFavoriteId, { profile: draft });
+    await updateFavoriteProfile(state.activeScope, state.editingFavoriteId, { note, profile: draft });
     setToast("常用数据已更新", "success");
   } else {
-    await createFavoriteProfile(state.activeScope, { profile: draft });
+    await createFavoriteProfile(state.activeScope, { note, profile: draft });
     setToast("已新增常用数据", "success");
   }
   closeFavoriteModal();

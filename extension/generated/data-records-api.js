@@ -119,6 +119,7 @@ var ChromeTestDataDataRecordsBundle = (function() {
           createdAt,
           id: normalizeId(current.id),
           name: String(current.name || "").trim() || "常用数据",
+          note: String(current.note || "").trim(),
           profile: normalizeProfile(current.profile),
           updatedAt
         };
@@ -208,6 +209,7 @@ var ChromeTestDataDataRecordsBundle = (function() {
       createdAt: String(now),
       id: createId(now, random),
       name: String(input.name || "").trim() || "常用数据",
+      note: String(input.note || "").trim(),
       profile: normalizedProfile,
       updatedAt: String(now)
     };
@@ -231,6 +233,7 @@ var ChromeTestDataDataRecordsBundle = (function() {
       createdAt: currentEntry.createdAt,
       id: currentEntry.id,
       name: String(input.name || "").trim() || currentEntry.name,
+      note: Object.prototype.hasOwnProperty.call(input, "note") ? String(input.note || "").trim() : currentEntry.note,
       profile: normalizeProfile(input.profile),
       updatedAt: String(now)
     };

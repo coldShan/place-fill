@@ -4,8 +4,8 @@ import smartfillControllerPkg from "../extension/src/content-script-smartfill.js
 
 const { buildRecommendationItems, createContentScriptSmartFillController, MAX_RECOMMENDATION_ITEMS } = smartfillControllerPkg;
 
-function createFavorite(id, profile) {
-  return { id, profile: { account: "", companyName: "", fullName: "", mobile: "", ...profile } };
+function createFavorite(id, profile, note = "") {
+  return { id, note, profile: { account: "", companyName: "", fullName: "", mobile: "", ...profile } };
 }
 
 test("favorite recommendations keep matching values and context", () => {
@@ -14,7 +14,7 @@ test("favorite recommendations keep matching values and context", () => {
       companyName: index === 0 ? "星海科技" : "",
       fullName: "用户" + index,
       mobile: "133000000" + String(index).padStart(2, "0")
-    });
+    }, index === 0 ? "财务测试账号" : "");
   });
   favorites.splice(1, 0, createFavorite("empty", { mobile: "" }));
 
@@ -24,8 +24,10 @@ test("favorite recommendations keep matching values and context", () => {
   assert.deepEqual(items[0], {
     id: "mobile-0",
     primaryText: "13300000000",
-    secondaryText: "用户0 / 星海科技"
+    secondaryText: "用户0 / 星海科技",
+    titleText: "财务测试账号"
   });
+  assert.equal(items[1].titleText, items[1].primaryText);
   assert.doesNotMatch(items.map(function (item) { return item.id; }).join(","), /empty/);
 });
 

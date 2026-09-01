@@ -8,7 +8,7 @@ export function renderFavoritesView(_scope: string, entries: FavoriteEntry[]): s
       ? [
           '<div class="dm-table-shell dm-favorites-shell">',
           '  <table class="dm-table dm-favorites-table">',
-          "    <thead><tr><th>姓名</th><th>公司</th><th>手机</th><th>邮箱</th><th>操作</th></tr></thead>",
+          "    <thead><tr><th>姓名</th><th>公司</th><th>手机</th><th>邮箱</th><th>备注</th><th>操作</th></tr></thead>",
           "    <tbody>",
           entries.map(function (entry) {
             return [
@@ -17,6 +17,7 @@ export function renderFavoritesView(_scope: string, entries: FavoriteEntry[]): s
               "  <td>" + escapeHtml(entry.profile.companyName || "未填写") + "</td>",
               "  <td>" + escapeHtml(entry.profile.mobile || "未填写") + "</td>",
               "  <td>" + escapeHtml(entry.profile.email || "未填写") + "</td>",
+              "  <td>" + escapeHtml(entry.note || "未填写") + "</td>",
               '  <td class="dm-table-actions">',
               renderActionButton("favorite-edit", entry.id, "edit", "编辑"),
               renderActionButton("favorite-delete", entry.id, "delete", "删除", " is-danger"),

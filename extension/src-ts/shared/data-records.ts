@@ -11,6 +11,7 @@ export interface HistoryEntry {
 export interface FavoriteEntry {
   id: string;
   name: string;
+  note: string;
   createdAt: string;
   updatedAt: string;
   profile: ProfileFieldMap;
@@ -131,6 +132,7 @@ function normalizeFavoriteProfilesMap(rawValue: unknown): Record<ScopeKey, Favor
           createdAt,
           id: normalizeId(current.id),
           name: String(current.name || "").trim() || "常用数据",
+          note: String(current.note || "").trim(),
           profile: normalizeProfile(current.profile as Partial<Record<string, unknown>>),
           updatedAt
         };
@@ -228,7 +230,7 @@ export async function hasFavoriteProfile(
 
 export async function createFavoriteProfile(
   scope: string,
-  input: { name?: string; profile: Partial<Record<string, unknown>> },
+  input: { name?: string; note?: string; profile: Partial<Record<string, unknown>> },
   env?: DataRecordsEnv
 ): Promise<FavoriteEntry> {
   const normalizedScope = normalizeScopeKey(scope);
@@ -250,6 +252,7 @@ export async function createFavoriteProfile(
     createdAt: String(now),
     id: createId(now, random),
     name: String(input.name || "").trim() || "常用数据",
+    note: String(input.note || "").trim(),
     profile: normalizedProfile,
     updatedAt: String(now)
   };
@@ -262,7 +265,7 @@ export async function createFavoriteProfile(
 export async function updateFavoriteProfile(
   scope: string,
   id: string,
-  input: { name?: string; profile: Partial<Record<string, unknown>> },
+  input: { name?: string; note?: string; profile: Partial<Record<string, unknown>> },
   env?: DataRecordsEnv
 ): Promise<FavoriteEntry | null> {
   const normalizedScope = normalizeScopeKey(scope);
@@ -282,6 +285,7 @@ export async function updateFavoriteProfile(
     createdAt: currentEntry.createdAt,
     id: currentEntry.id,
     name: String(input.name || "").trim() || currentEntry.name,
+    note: Object.prototype.hasOwnProperty.call(input, "note") ? String(input.note || "").trim() : currentEntry.note,
     profile: normalizeProfile(input.profile),
     updatedAt: String(now)
   };

@@ -49,6 +49,7 @@ test("data manager page uses top tabs dual routes instead of a left sidebar layo
 test("favorite create and edit share a modal form instead of an inline persistent form", () => {
   assert.match(pageSource, /data-role="favorite-modal"/);
   assert.match(pageSource, /data-role="favorite-modal-title"/);
+  assert.match(pageSource, /data-role="favorite-note"/);
   assert.match(pageSource, /data-action="open-create-favorite"/);
   assert.match(pageSource, /FIELD_KEYS\.map/);
   assert.match(sharedFieldMetaSource, /key:\s*"account"/);
@@ -57,7 +58,7 @@ test("favorite create and edit share a modal form instead of an inline persisten
 
 test("favorites view renders as a regular table instead of cards", () => {
   assert.match(pageSource, /dm-favorites-table/);
-  assert.match(pageSource, /<th>姓名<\/th><th>公司<\/th><th>手机<\/th><th>邮箱<\/th><th>操作<\/th>/);
+  assert.match(pageSource, /<th>姓名<\/th><th>公司<\/th><th>手机<\/th><th>邮箱<\/th><th>备注<\/th><th>操作<\/th>/);
   assert.doesNotMatch(pageSource, /data-action="favorite-copy"/);
   assert.match(pageSource, /renderActionButton\("favorite-edit",\s*entry\.id,\s*"edit",\s*"编辑"/);
   assert.match(pageSource, /renderActionButton\("favorite-delete",\s*entry\.id,\s*"delete",\s*"删除",\s*" is-danger"/);

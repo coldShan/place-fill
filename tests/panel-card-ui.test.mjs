@@ -580,6 +580,9 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(smartfillScript, /function fillTarget\(target,\s*fieldKey\)/);
   assert.match(smartfillScript, /function renderAddFavoriteTriggerMarkup\(\)/);
   assert.match(smartfillScript, /data-role="smart-fill-add-favorite"/);
+  assert.match(smartfillScript, /data-note="' \+ escapeHtml\(item\.titleText\) \+ '"/);
+  assert.match(smartfillScript, /data-recommend-note-popover/);
+  assert.doesNotMatch(smartfillScript, /title="' \+ escapeHtml\(item\.titleText\) \+ '"/);
   assert.match(smartfillScript, /if \(role === "smart-fill-add-favorite"\) \{\s*if \(currentFavoriteId\)/);
   assert.match(smartfillScript, /win\.confirm\("确认从常用中移除这组数据？"\)/);
   assert.match(smartfillScript, /Promise\.resolve\(onRemoveFavorite\(favoriteId\)\)/);

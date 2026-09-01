@@ -24,7 +24,8 @@
         return {
           id: String(entry && entry.id ? entry.id : ""),
           primaryText,
-          secondaryText: context.join(" / ")
+          secondaryText: context.join(" / "),
+          titleText: typeof entry.note === "string" && entry.note.trim() ? entry.note.trim() : primaryText
         };
       })
       .filter(Boolean)
@@ -150,15 +151,35 @@
         '  <div class="ctdp-smartfill-recommend-list" data-role="smart-fill-recommend-list">',
         recommendationItems.map(function (item) {
           return [
-            '<button class="ctdp-smartfill-recommend-item" type="button" data-role="smart-fill-recommend-item" data-id="' + escapeHtml(item.id) + '" aria-label="填充常用数据" title="' + escapeHtml(item.primaryText) + '">',
+            '<button class="ctdp-smartfill-recommend-item" type="button" data-role="smart-fill-recommend-item" data-id="' + escapeHtml(item.id) + '" data-note="' + escapeHtml(item.titleText) + '" aria-label="填充常用数据" aria-describedby="ctdp-smartfill-note-popover">',
             '  <span class="ctdp-smartfill-recommend-item-primary">' + escapeHtml(item.primaryText) + "</span>",
             item.secondaryText ? '  <span class="ctdp-smartfill-recommend-item-secondary">' + escapeHtml(item.secondaryText) + "</span>" : "",
             "</button>"
           ].join("");
         }).join(""),
         "  </div>",
-        "</section>"
+        "</section>",
+        '<div class="ctdp-smartfill-note-popover" id="ctdp-smartfill-note-popover" role="tooltip" data-recommend-note-popover hidden></div>'
       ].join("");
+    }
+
+    function hideRecommendationNotePopover() {
+      const popover = smartButton && smartButton.querySelector("[data-recommend-note-popover]");
+      if (popover) popover.hidden = true;
+    }
+
+    function showRecommendationNotePopover(trigger) {
+      const popover = smartButton && smartButton.querySelector("[data-recommend-note-popover]");
+      const note = trigger && trigger.getAttribute("data-note");
+      if (!popover || !note) return;
+      popover.textContent = note;
+      popover.hidden = false;
+      const triggerRect = trigger.getBoundingClientRect();
+      const rootRect = smartButton.getBoundingClientRect();
+      const left = Math.max(8, Math.min(triggerRect.left, win.innerWidth - popover.offsetWidth - 8));
+      const above = triggerRect.top - popover.offsetHeight - 8;
+      popover.style.left = left - rootRect.left + "px";
+      popover.style.top = (above >= 8 ? above : triggerRect.bottom + 8) - rootRect.top + "px";
     }
 
     function renderSmartFillMenuMarkup(primaryFieldKey) {
@@ -419,6 +440,23 @@
           event.preventDefault();
         }
       });
+
+      smartButton.addEventListener("mouseover", function (event) {
+        const trigger = event.target.closest('[data-role="smart-fill-recommend-item"]');
+        if (trigger) showRecommendationNotePopover(trigger);
+      });
+
+      smartButton.addEventListener("mouseout", function (event) {
+        const trigger = event.target.closest('[data-role="smart-fill-recommend-item"]');
+        if (trigger && !trigger.contains(event.relatedTarget)) hideRecommendationNotePopover();
+      });
+
+      smartButton.addEventListener("focusin", function (event) {
+        const trigger = event.target.closest('[data-role="smart-fill-recommend-item"]');
+        if (trigger) showRecommendationNotePopover(trigger);
+      });
+
+      smartButton.addEventListener("focusout", hideRecommendationNotePopover);
 
       if (typeof doc.addEventListener === "function") doc.addEventListener("input", function (event) {
         if (fillInProgress) return;

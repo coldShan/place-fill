@@ -23,6 +23,10 @@ export function renderFavoriteModal(): string {
         "</label>"
       ].join("");
     }).join(""),
+    '        <label class="dm-form-field dm-form-field-wide">',
+    "          <span>备注</span>",
+    '          <input type="text" data-role="favorite-note" maxlength="120" placeholder="填写这组常用数据的备注">',
+    "        </label>",
     "      </div>",
     '      <div class="dm-modal-actions">',
     '        <button type="button" class="dm-subtle-btn" data-action="close-favorite-modal">取消</button>',
@@ -47,6 +51,10 @@ export function readFavoriteDraft(form: HTMLFormElement | null): ProfileFieldMap
   );
 }
 
+export function readFavoriteNote(form: HTMLFormElement | null): string {
+  return form?.querySelector<HTMLInputElement>('[data-role="favorite-note"]')?.value.trim() || "";
+}
+
 export function syncFavoriteForm(
   form: HTMLFormElement | null,
   titleNode: HTMLElement | null,
@@ -65,4 +73,6 @@ export function syncFavoriteForm(
     const input = form.querySelector<HTMLInputElement>('[data-field-key="' + fieldKey + '"]');
     if (input) input.value = profile[fieldKey];
   });
+  const noteInput = form.querySelector<HTMLInputElement>('[data-role="favorite-note"]');
+  if (noteInput) noteInput.value = entry?.note || "";
 }

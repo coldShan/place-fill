@@ -11,7 +11,7 @@ import {
   type HistoryEntry,
   type ProfileFieldMap
 } from "./page-model";
-import { renderFavoriteModal, readFavoriteDraft, syncFavoriteForm } from "./favorite-modal";
+import { renderFavoriteModal, readFavoriteDraft, readFavoriteNote, syncFavoriteForm } from "./favorite-modal";
 import { renderFavoritesView } from "./favorites-view";
 import { renderHistoryView } from "./history-view";
 import "./style.css";
@@ -162,11 +162,12 @@ async function handleFavoriteSubmit(event: SubmitEvent): Promise<void> {
     return;
   }
   const draft = readFavoriteDraft(favoriteForm);
+  const note = readFavoriteNote(favoriteForm);
   if (state.editingFavoriteId) {
-    await updateFavoriteProfile(state.activeScope, state.editingFavoriteId, { profile: draft });
+    await updateFavoriteProfile(state.activeScope, state.editingFavoriteId, { note, profile: draft });
     setToast("常用数据已更新", "success");
   } else {
-    await createFavoriteProfile(state.activeScope, { profile: draft });
+    await createFavoriteProfile(state.activeScope, { note, profile: draft });
     setToast("已新增常用数据", "success");
   }
   closeFavoriteModal();
