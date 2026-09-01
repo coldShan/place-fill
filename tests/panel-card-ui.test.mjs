@@ -16,7 +16,9 @@ const {
   closeOtherSettingsSections,
   collectPageAutoFillTargets,
   collectPageFavoriteProfile,
+  generateFallbackAutoFillValue,
   hasAutoFillTargetValue,
+  isSensitiveFormControl,
   sampleFavoriteProfiles
 } = panelControllerPkg.default || panelControllerPkg;
 const editableTargetApi = editableTargetPkg.default || editableTargetPkg;
@@ -79,7 +81,9 @@ test("quick favorite capture keeps the first non-empty value for every recognize
     { nodeType: 1, tagName: "INPUT", type: "text", disabled: true, fieldKey: "mobile", value: "13800138000" },
     { nodeType: 1, tagName: "INPUT", type: "text", readOnly: true, fieldKey: "fullName", value: "张三" },
     { nodeType: 1, tagName: "TEXTAREA", disabled: true, fieldKey: "address", value: "郑州市金水区" },
-    { nodeType: 1, tagName: "INPUT", type: "password", fieldKey: "account", value: "secret" }
+    { nodeType: 1, tagName: "INPUT", type: "password", fieldKey: "account", value: "secret" },
+    { nodeType: 1, tagName: "INPUT", type: "text", name: "api_key", fieldKey: "account", value: "sk-secret" },
+    { nodeType: 1, tagName: "INPUT", type: "text", autocomplete: "one-time-code", fieldKey: "account", value: "123456" }
   ];
   const profile = collectPageFavoriteProfile(
     { querySelectorAll() { return nodes; } },
@@ -92,6 +96,14 @@ test("quick favorite capture keeps the first non-empty value for every recognize
     fullName: "张三",
     mobile: "13800138000"
   });
+});
+
+test("bulk page actions reject password and credential-like controls", () => {
+  assert.equal(isSensitiveFormControl({ type: "password" }), true);
+  assert.equal(isSensitiveFormControl({ type: "text", autocomplete: "one-time-code" }), true);
+  assert.equal(isSensitiveFormControl({ type: "text", name: "api_key" }), true);
+  assert.equal(isSensitiveFormControl({ type: "text", placeholder: "请输入验证码" }), true);
+  assert.equal(isSensitiveFormControl({ type: "text", name: "companyName" }), false);
 });
 
 test("floating panel renders one generated card and up to five common-data style cards", () => {
@@ -225,12 +237,17 @@ test("one-click fill collects only empty native controls without requiring seman
     form
   };
   const filledTextInput = { ...textInput, value: "已有姓名" };
+  const unknownTextInput = { ...textInput, name: "notes" };
+  const unknownNumberInput = { ...textInput, type: "number", min: "10", max: "20", step: "2" };
+  const passwordInput = { ...textInput, type: "password", name: "password" };
+  const otpInput = { ...textInput, name: "verification_code" };
+  const apiKeyInput = { ...textInput, name: "api_key" };
   const filledSelect = { ...select, value: "software" };
   const filledRadio = { ...radioA, name: "savedGender", checked: true };
   const filledCheckbox = { ...checkbox, name: "savedTags", checked: true };
   const document = {
     querySelectorAll() {
-      return [textInput, filledTextInput, select, filledSelect, radioA, radioB, filledRadio, checkbox, filledCheckbox];
+      return [textInput, unknownTextInput, unknownNumberInput, passwordInput, otpInput, apiKeyInput, filledTextInput, select, filledSelect, radioA, radioB, filledRadio, checkbox, filledCheckbox];
     }
   };
 
@@ -250,13 +267,25 @@ test("one-click fill collects only empty native controls without requiring seman
     ["fullName"]
   );
 
-  assert.equal(targets.length, 4);
+  assert.equal(targets.length, 6);
   assert.equal(targets.find((entry) => entry.fieldKey === "fullName")?.target, textInput);
+  assert.deepEqual(targets.filter((entry) => entry.kind === "fallback").map((entry) => entry.target), [unknownTextInput, unknownNumberInput]);
   assert.equal(targets.find((entry) => entry.kind === "select")?.target, select);
   assert.equal(targets.find((entry) => entry.kind === "radio")?.targets.length, 2);
   assert.equal(targets.find((entry) => entry.kind === "checkbox")?.targets.length, 1);
   assert.equal(targets.some((entry) => entry.target === filledTextInput || entry.target === filledSelect), false);
+  assert.equal(targets.some((entry) => entry.target === passwordInput), false);
+  assert.equal(targets.some((entry) => entry.target === otpInput || entry.target === apiKeyInput), false);
   assert.equal(targets.some((entry) => entry.targets.includes(filledRadio) || entry.targets.includes(filledCheckbox)), false);
+});
+
+test("one-click fill generates type-safe fallback values for unknown fields", () => {
+  assert.equal(generateFallbackAutoFillValue({ type: "number", min: "10", max: "20", step: "2" }, function () { return 0.5; }), "16");
+  assert.equal(generateFallbackAutoFillValue({ type: "tel" }, function () { return 0.5; }), "550000");
+  assert.equal(generateFallbackAutoFillValue({ type: "email" }, function () { return 0.5; }), "test550000@example.com");
+  assert.equal(generateFallbackAutoFillValue({ type: "url" }, function () { return 0.5; }), "https://example.com/550000");
+  assert.equal(generateFallbackAutoFillValue({ type: "text", maxLength: 4 }, function () { return 0.5; }), "测试55");
+  assert.match(panelScript, /entry\.kind === "fallback"[\s\S]*?fillEditableTarget\(entry\.target, value\)/);
 });
 
 test("one-click fill limits targets to the active modal form", () => {

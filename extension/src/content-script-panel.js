@@ -48,6 +48,44 @@
     });
   }
 
+  function generateFallbackAutoFillValue(target, randomFn) {
+    const random = Number((typeof randomFn === "function" ? randomFn : Math.random)());
+    const sample = Number.isFinite(random) ? Math.max(0, Math.min(0.999999999999, random)) : 0;
+    const type = String(target && target.type || "text").toLowerCase();
+    const seed = String(100000 + Math.floor(sample * 900000));
+    if (type === "number") {
+      const rawMin = String(target && target.min || "").trim();
+      const rawMax = String(target && target.max || "").trim();
+      const rawStep = String(target && target.step || "").trim();
+      const min = rawMin && Number.isFinite(Number(rawMin)) ? Number(rawMin) : 0;
+      const max = rawMax && Number.isFinite(Number(rawMax)) && Number(rawMax) >= min ? Number(rawMax) : min + 999;
+      const step = rawStep && rawStep !== "any" && Number(rawStep) > 0 ? Number(rawStep) : 1;
+      const count = Math.max(0, Math.floor((max - min) / step));
+      return String(Math.round((min + Math.floor(sample * (count + 1)) * step) * 1e8) / 1e8);
+    }
+    if (type === "email") return "test" + seed + "@example.com";
+    if (type === "url") return "https://example.com/" + seed;
+    if (type === "tel" || /^(?:decimal|numeric)$/.test(String(target && target.inputMode || "").toLowerCase())) return seed;
+    const value = "测试" + seed;
+    const maxLength = Number(target && target.maxLength);
+    return Number.isInteger(maxLength) && maxLength > 0 ? value.slice(0, maxLength) : value;
+  }
+
+  function isSensitiveFormControl(target) {
+    if (!target) return false;
+    const getAttribute = function (name) {
+      return typeof target.getAttribute === "function" ? target.getAttribute(name) || "" : target[name] || "";
+    };
+    const type = String(target.type || getAttribute("type") || "").toLowerCase();
+    const autocomplete = String(getAttribute("autocomplete")).toLowerCase();
+    if (type === "password" || /(?:^|\s)(?:current-password|new-password|one-time-code|cc-csc)(?:\s|$)/.test(autocomplete)) return true;
+    const labels = Array.from(target.labels || []).map(function (label) {
+      return label && (label.textContent || label.innerText || "");
+    });
+    const description = ["name", "id", "aria-label", "placeholder"].map(getAttribute).concat(labels).join(" ");
+    return /(?:密码|口令|验证码|动态码|安全码|密钥|令牌|password|passwd|passcode|\bpwd\b|\botp\b|verification[\s_-]*code|security[\s_-]*code|api[\s_-]*key|access[\s_-]*token|auth[\s_-]*token|secret|\bcvv\b|\bcvc\b|\bpin\b)/i.test(description);
+  }
+
   function resolveAutoFillScope(doc) {
     const scopes = Array.from(doc.querySelectorAll(
       'dialog[open], [role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"], .el-dialog__wrapper, .el-overlay-dialog, .el-drawer__container'
@@ -72,6 +110,7 @@
     const elementRoots = new Set();
 
     candidates.forEach(function (node) {
+      if (isSensitiveFormControl(node)) return;
       const elementEntry = elementFormControlApi && elementFormControlApi.describeElementControl(node);
       if (elementEntry) {
         if (elementRoots.has(elementEntry.root)) return;
@@ -112,8 +151,12 @@
       const editable = editableTargetApi.findEditableTarget(node);
       if (!editable || seen.has(editable)) return;
       seen.add(editable);
+      if (isSensitiveFormControl(editable)) return;
       const fieldKey = smartFillApi.inferFieldKeyForSmartFill(editable);
-      if (!fieldKey) return;
+      if (!fieldKey) {
+        targets.push({ kind: "fallback", target: editable, targets: [editable] });
+        return;
+      }
       if (!fieldVisibilityApi.isFieldVisible(fieldKey, visibleFieldKeys)) return;
       targets.push({ fieldKey, target: editable, targets: [editable] });
     });
@@ -132,7 +175,7 @@
       if (seen.has(target)) return;
       seen.add(target);
       if (String(target.tagName || "").toUpperCase() === "INPUT" && /^(?:button|checkbox|color|file|hidden|image|radio|range|reset|submit)$/i.test(String(target.type || "text"))) return;
-      if (String(target.type || "").toLowerCase() === "password") return;
+      if (isSensitiveFormControl(target)) return;
       const fieldKey = smartFillApi.inferFieldKeyForSmartFill(target);
       const value = String(target.isContentEditable ? target.textContent || "" : target.value || "");
       if (fieldKey && value.trim() && !profile[fieldKey]) profile[fieldKey] = value;
@@ -1104,8 +1147,12 @@
           if (autoFillAborted) break;
           var entry = targets[i];
           if (hasAutoFillTargetValue(entry)) continue;
-          var value = entry.fieldKey ? getFieldValue(entry.fieldKey) : "";
-          if (entry.fieldKey && !value) continue;
+          var value = entry.fieldKey
+            ? getFieldValue(entry.fieldKey)
+            : entry.kind === "fallback"
+              ? generateFallbackAutoFillValue(entry.target)
+              : "";
+          if ((entry.fieldKey || entry.kind === "fallback") && !value) continue;
 
           entry.target.scrollIntoView({ behavior: "smooth", block: "center" });
           await delay(120);
@@ -1116,7 +1163,7 @@
               document: doc,
               editableTargetApi: editableTargetApi
             })
-            : entry.fieldKey
+            : entry.fieldKey || entry.kind === "fallback"
               ? editableTargetApi.fillEditableTarget(entry.target, value)
               : editableTargetApi.fillGenericFormControl(entry.targets);
           if (!filled) continue;
@@ -2056,7 +2103,9 @@
     collectPageAutoFillTargets,
     collectPageFavoriteProfile,
     createContentScriptPanelController,
+    generateFallbackAutoFillValue,
     hasAutoFillTargetValue,
+    isSensitiveFormControl,
     sampleFavoriteProfiles
   };
 
