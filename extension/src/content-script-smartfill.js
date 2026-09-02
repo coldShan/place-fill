@@ -23,9 +23,9 @@
         }).filter(Boolean);
         return {
           id: String(entry && entry.id ? entry.id : ""),
+          noteText: typeof entry.note === "string" ? entry.note.trim() : "",
           primaryText,
-          secondaryText: context.join(" / "),
-          titleText: typeof entry.note === "string" && entry.note.trim() ? entry.note.trim() : primaryText
+          secondaryText: context.join(" / ")
         };
       })
       .filter(Boolean)
@@ -150,8 +150,11 @@
         '  <div class="ctdp-smartfill-recommend-title">常用数据</div>',
         '  <div class="ctdp-smartfill-recommend-list" data-role="smart-fill-recommend-list">',
         recommendationItems.map(function (item) {
+          const noteAttributes = item.noteText
+            ? ' data-note="' + escapeHtml(item.noteText) + '" aria-describedby="ctdp-smartfill-note-popover"'
+            : "";
           return [
-            '<button class="ctdp-smartfill-recommend-item" type="button" data-role="smart-fill-recommend-item" data-id="' + escapeHtml(item.id) + '" data-note="' + escapeHtml(item.titleText) + '" aria-label="填充常用数据" aria-describedby="ctdp-smartfill-note-popover">',
+            '<button class="ctdp-smartfill-recommend-item" type="button" data-role="smart-fill-recommend-item" data-id="' + escapeHtml(item.id) + '"' + noteAttributes + ' aria-label="填充常用数据">',
             '  <span class="ctdp-smartfill-recommend-item-primary">' + escapeHtml(item.primaryText) + "</span>",
             item.secondaryText ? '  <span class="ctdp-smartfill-recommend-item-secondary">' + escapeHtml(item.secondaryText) + "</span>" : "",
             "</button>"

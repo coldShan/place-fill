@@ -23,11 +23,11 @@ test("favorite recommendations keep matching values and context", () => {
   assert.equal(items.length, MAX_RECOMMENDATION_ITEMS);
   assert.deepEqual(items[0], {
     id: "mobile-0",
+    noteText: "财务测试账号",
     primaryText: "13300000000",
-    secondaryText: "用户0 / 星海科技",
-    titleText: "财务测试账号"
+    secondaryText: "用户0 / 星海科技"
   });
-  assert.equal(items[1].titleText, items[1].primaryText);
+  assert.equal(items[1].noteText, "");
   assert.doesNotMatch(items.map(function (item) { return item.id; }).join(","), /empty/);
 });
 
