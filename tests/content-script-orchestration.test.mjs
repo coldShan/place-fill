@@ -229,7 +229,7 @@ test("clicking the backup reminder exports all data and dismisses it after succe
     }
   });
 
-  await Promise.resolve();
+  await new Promise(function (resolve) { setImmediate(resolve); });
   const args = runtime.getDockMessageArgs();
   assert.equal(args[0], "该备份数据啦！");
   assert.equal(typeof args[4], "function");
@@ -239,6 +239,18 @@ test("clicking the backup reminder exports all data and dismisses it after succe
   assert.equal(runtime.getExportFullBackupCalls(), 1);
   assert.equal(runtime.getHideDockMessageCalls(), 1);
   assert.equal(runtime.runtimeMessages.at(-1).type, "dismiss-backup-reminder");
+});
+
+test("backup reminder messages stay hidden on disabled sites", async () => {
+  const runtime = runContentScriptWithSmartFillStub({}, { siteFeatureEnabled: false });
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  const hideCalls = runtime.getHideDockMessageCalls();
+
+  runtime.dispatchRuntimeMessage({ message: "该备份数据啦！", type: "show-backup-reminder" });
+  await new Promise(function (resolve) { setImmediate(resolve); });
+
+  assert.equal(runtime.getDockMessageArgs(), null);
+  assert.equal(runtime.getHideDockMessageCalls(), hideCalls + 1);
 });
 
 test("directory permission reminder appears outside settings and opens authorization", async () => {
@@ -335,16 +347,15 @@ test("quick favorite context action delegates page capture to the panel controll
   assert.equal(runtime.getAddCurrentPageToFavoritesCalls(), 1);
 });
 
-test("smart fill star action delegates page add and removal to the panel controller", () => {
+test("smart fill star delegates capture without favorite state or removal callbacks", () => {
   const runtime = runContentScriptWithSmartFillStub();
 
   runtime.smartFillOptions.onAddCurrentPageToFavorites();
-  runtime.smartFillOptions.onRemoveFavorite("favorite-1");
 
   assert.equal(runtime.getAddCurrentPageToFavoritesCalls(), 1);
-  assert.deepEqual(runtime.removeFavoriteCalls, ["favorite-1"]);
-  assert.equal(typeof runtime.smartFillOptions.getCurrentPageFavorite, "function");
-  assert.equal(typeof runtime.smartFillOptions.onRemoveFavorite, "function");
+  assert.deepEqual(runtime.removeFavoriteCalls, []);
+  assert.equal(runtime.smartFillOptions.getCurrentPageFavorite, undefined);
+  assert.equal(runtime.smartFillOptions.onRemoveFavorite, undefined);
   assert.equal(typeof runtime.smartFillOptions.listRecommendedProfiles, "function");
 });
 

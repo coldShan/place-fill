@@ -43,11 +43,9 @@
     const getCurrentScope = typeof opts.getCurrentScope === "function" ? opts.getCurrentScope : function () { return ""; };
     const getVisibleFieldKeys = typeof opts.getVisibleFieldKeys === "function" ? opts.getVisibleFieldKeys : function () { return smartFillApi.getSupportedFieldKeys(); };
     const isEnabled = typeof opts.isEnabled === "function" ? opts.isEnabled : function () { return true; };
-    const getCurrentPageFavorite = typeof opts.getCurrentPageFavorite === "function" ? opts.getCurrentPageFavorite : function () { return Promise.resolve(null); };
     const listRecommendedProfiles = typeof opts.listRecommendedProfiles === "function" ? opts.listRecommendedProfiles : function () { return Promise.resolve([]); };
     const onAddCurrentPageToFavorites = typeof opts.onAddCurrentPageToFavorites === "function" ? opts.onAddCurrentPageToFavorites : function () {};
     const onFieldFilled = typeof opts.onFieldFilled === "function" ? opts.onFieldFilled : function () {};
-    const onRemoveFavorite = typeof opts.onRemoveFavorite === "function" ? opts.onRemoveFavorite : function () { return Promise.resolve(false); };
     const FOCUS_RING_FADE_OUT_MS = 120;
 
     let smartButton = null;
@@ -57,9 +55,6 @@
     let focusTargetClearTimer = null;
     let focusTargetClearTarget = null;
     let fillInProgress = false;
-    let currentFavoriteId = "";
-    let favoriteStatusRequestId = 0;
-    const favoriteByTarget = new WeakMap();
     let recommendationItems = [];
     let recommendationRequestId = 0;
     let preserveFocusOut = false;
@@ -135,9 +130,9 @@
     }
 
     function renderAddFavoriteTriggerMarkup() {
-      const label = currentFavoriteId ? "从常用中移除" : "添加到常用";
+      const label = "添加到常用";
       return [
-        '<button class="ctdp-smartfill-favorite-trigger" type="button" data-role="smart-fill-add-favorite" data-favorite="' + String(!!currentFavoriteId) + '" aria-label="' + label + '" title="' + label + '">',
+        '<button class="ctdp-smartfill-favorite-trigger" type="button" data-role="smart-fill-add-favorite" aria-label="' + label + '" title="' + label + '">',
         '  ' + iconAssetsApi.renderIconMarkup("star", "ctdp-smartfill-favorite-icon", label),
         "</button>"
       ].join("");
@@ -228,33 +223,6 @@
       scheduleSmartButtonPosition();
     }
 
-    function readTargetValue(target) {
-      if (!target) return "";
-      if (typeof target.value === "string") return target.value;
-      return typeof target.textContent === "string" ? target.textContent : "";
-    }
-
-    function setCurrentFavorite(id, render) {
-      favoriteStatusRequestId += 1;
-      currentFavoriteId = id ? String(id) : "";
-      if (render !== false) renderSmartButton();
-    }
-
-    function rememberTargetFavorite(target, id) {
-      if (!target || !id) return;
-      favoriteByTarget.set(target, { id: String(id), value: readTargetValue(target) });
-    }
-
-    function getTargetFavoriteId(target) {
-      const favorite = target && favoriteByTarget.get(target);
-      return favorite && favorite.value === readTargetValue(target) ? favorite.id : "";
-    }
-
-    function forgetTargetFavorite(target, id) {
-      const favorite = target && favoriteByTarget.get(target);
-      if (favorite && (!id || favorite.id === id)) favoriteByTarget.delete(target);
-    }
-
     function hideFocusTargetMarker() {
       if (!activeSmartTarget || typeof activeSmartTarget.removeAttribute !== "function") return;
       activeSmartTarget.removeAttribute("data-ctdp-smartfocus-visible");
@@ -272,7 +240,6 @@
 
     function hideSmartButton() {
       if (!smartButton) return;
-      setCurrentFavorite("", false);
       recommendationRequestId += 1;
       recommendationItems = [];
       smartButton.hidden = true;
@@ -280,17 +247,6 @@
       hideFocusTargetMarker();
       activeSmartTarget = null;
       activeSmartFieldKey = null;
-    }
-
-    function refreshFavoriteState(target) {
-      const requestId = favoriteStatusRequestId + 1;
-      favoriteStatusRequestId = requestId;
-      Promise.resolve(getCurrentPageFavorite()).then(function (favorite) {
-        if (!smartButton || requestId !== favoriteStatusRequestId || activeSmartTarget !== target) return;
-        const favoriteId = favorite && favorite.id ? String(favorite.id) : "";
-        if (favoriteId) rememberTargetFavorite(target, favoriteId);
-        setCurrentFavorite(favoriteId);
-      }, function () {});
     }
 
     async function refreshRecommendationItems(target, fieldKey) {
@@ -303,11 +259,6 @@
         return;
       }
       if (requestId !== recommendationRequestId || activeSmartTarget !== target || activeSmartFieldKey !== fieldKey) return;
-      const linkedFavorite = favoriteByTarget.get(target);
-      if (linkedFavorite && !favorites.some(function (favorite) { return String(favorite && favorite.id || "") === linkedFavorite.id; })) {
-        forgetTargetFavorite(target, linkedFavorite.id);
-        if (currentFavoriteId === linkedFavorite.id) setCurrentFavorite("", false);
-      }
       recommendationItems = buildRecommendationItems(fieldKey, favorites);
       renderSmartButton();
     }
@@ -321,7 +272,6 @@
       if (activeSmartTarget && activeSmartTarget !== target) clearFocusTargetMarker(activeSmartTarget);
       activeSmartTarget = target;
       activeSmartFieldKey = fieldKey;
-      setCurrentFavorite(getTargetFavoriteId(target), false);
       recommendationItems = [];
       recommendationRequestId += 1;
       smartButton.hidden = false;
@@ -331,7 +281,6 @@
       smartButton.setAttribute("aria-label", fieldKey ? "智能填充" + smartFillApi.formatSmartFillButtonLabel(fieldKey) : "选择测试数据类型");
       smartButton.title = fieldKey ? smartFillApi.formatSmartFillButtonLabel(fieldKey) : "选择测试数据类型";
       scheduleSmartButtonPosition();
-      if (!currentFavoriteId) refreshFavoriteState(target);
       if (showRecommendations !== false) refreshRecommendationItems(target, fieldKey);
     }
 
@@ -358,10 +307,7 @@
     function fillRecommendedValue(id) {
       const item = recommendationItems.find(function (entry) { return entry.id === id; });
       if (!item) return;
-      const target = activeSmartTarget;
       fillCurrentTargetValue(item.primaryText);
-      rememberTargetFavorite(target, item.id);
-      setCurrentFavorite(item.id);
     }
 
     function fillTarget(target, fieldKey) {
@@ -461,39 +407,14 @@
 
       smartButton.addEventListener("focusout", hideRecommendationNotePopover);
 
-      if (typeof doc.addEventListener === "function") doc.addEventListener("input", function (event) {
-        if (fillInProgress) return;
-        const target = editableTargetApi.findEditableTarget(event.target);
-        if (!target || target !== activeSmartTarget) return;
-        const favoriteId = getTargetFavoriteId(target);
-        if (currentFavoriteId === favoriteId) return;
-        setCurrentFavorite(favoriteId);
-      });
-
       smartButton.addEventListener("click", function (event) {
         const trigger = event.target.closest("[data-role]");
         if (!trigger) return;
         const role = trigger.getAttribute("data-role");
         if (role === "smart-fill-add-favorite") {
-          if (currentFavoriteId) {
-            const favoriteId = currentFavoriteId;
-            const favoriteTarget = activeSmartTarget;
-            if (typeof win.confirm === "function" && !win.confirm("确认从常用中移除这组数据？")) return;
-            Promise.resolve(onRemoveFavorite(favoriteId)).then(function (removed) {
-              if (removed !== true) return;
-              forgetTargetFavorite(favoriteTarget, favoriteId);
-              if (!smartButton || smartButton.hidden || activeSmartTarget !== favoriteTarget || currentFavoriteId !== favoriteId) return;
-              setCurrentFavorite("");
-              refreshRecommendationItems(activeSmartTarget, activeSmartFieldKey);
-            });
-            return;
-          }
           const favoriteTarget = activeSmartTarget;
           Promise.resolve(onAddCurrentPageToFavorites()).then(function (favorite) {
-            if (!favorite || !favorite.id) return;
-            rememberTargetFavorite(favoriteTarget, favorite.id);
-            if (!smartButton || smartButton.hidden || activeSmartTarget !== favoriteTarget) return;
-            setCurrentFavorite(favorite.id);
+            if (!favorite || !favorite.id || !smartButton || smartButton.hidden || activeSmartTarget !== favoriteTarget) return;
             refreshRecommendationItems(activeSmartTarget, activeSmartFieldKey);
           });
           return;

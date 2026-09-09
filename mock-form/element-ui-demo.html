@@ -374,6 +374,27 @@
           </div>
           <pre id="elementUiState" class="compatibility-state">{{ JSON.stringify(compatibility, null, 2) }}</pre>
         </article>
+
+        <article class="case compatibility-case">
+          <span class="case-tag">Fallback</span>
+          <h2>Element UI 未识别字段数字兜底</h2>
+          <p class="case-note">这些文本框只通过 <code>el-form-item</code> 的外层标签表达含义。面积、总价和比例应填整数，“额外说明”应填测试文本。</p>
+          <el-form :model="numericFallback" label-width="180px">
+            <el-form-item label="房屋建筑面积">
+              <el-input v-model="numericFallback.area" placeholder="请输入"></el-input>
+            </el-form-item>
+            <el-form-item label="房屋总价">
+              <el-input v-model="numericFallback.totalPrice" placeholder="请输入"></el-input>
+            </el-form-item>
+            <el-form-item label="提取比例">
+              <el-input v-model="numericFallback.ratio" maxlength="3" placeholder="请输入"></el-input>
+            </el-form-item>
+            <el-form-item label="额外说明">
+              <el-input v-model="numericFallback.extraNote" placeholder="请输入"></el-input>
+            </el-form-item>
+          </el-form>
+          <pre id="elementUiNumericFallbackState" class="compatibility-state">{{ JSON.stringify(numericFallback, null, 2) }}</pre>
+        </article>
       </section>
 
       <section class="footer">
@@ -411,6 +432,12 @@
               date: "",
               datetime: "",
               time: ""
+            },
+            numericFallback: {
+              area: "",
+              totalPrice: "",
+              ratio: "",
+              extraNote: ""
             }
           };
         },

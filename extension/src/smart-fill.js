@@ -663,8 +663,14 @@
     return AUTOCOMPLETE_MAP[autocomplete] || null;
   }
 
+  function isElementPickerInput(element) {
+    return !!(element && typeof element.closest === "function" && element.closest(
+      ".el-select, .el-date-editor, .el-cascader, .el-picker-panel, .el-time-panel, .el-time-range-picker"
+    ));
+  }
+
   function inferLocalFieldKeyForSmartFill(element, env) {
-    if (!element) return null;
+    if (!element || isElementPickerInput(element)) return null;
 
     const byAutocomplete = inferByAutocomplete(element, env);
     if (byAutocomplete) return byAutocomplete;
@@ -684,7 +690,7 @@
   }
 
   function inferFieldKeyForSmartFill(element, env) {
-    if (!element) return null;
+    if (!element || isElementPickerInput(element)) return null;
 
     const override = getManualFieldOverride(element, env);
     if (override === MANUAL_FIELD_OVERRIDE_NONE) return null;

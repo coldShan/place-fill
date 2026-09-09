@@ -192,15 +192,22 @@
   }
 
   function showBackupReminder(message) {
-    panelController.showDockMessage(
-      message || "该备份数据啦！",
-      true,
-      true,
-      dismissBackupReminder,
-      function () {
-        return panelController.exportFullBackup().then(dismissBackupReminder);
+    return siteFeatureToggleApi.readSiteFeatureEnabled().then(function (enabled) {
+      if (!canRenderPanel || !siteFeatureToggleApi.isSiteFeatureEnabled(enabled)) {
+        panelController.hideDismissibleDockMessage();
+        return false;
       }
-    );
+      panelController.showDockMessage(
+        message || "该备份数据啦！",
+        true,
+        true,
+        dismissBackupReminder,
+        function () {
+          return panelController.exportFullBackup().then(dismissBackupReminder);
+        }
+      );
+      return true;
+    });
   }
 
   function syncBackupReminderState() {
@@ -236,7 +243,6 @@
     getVisibleFieldKeys: panelController.getVisibleFieldKeys,
     iconAssetsApi,
     isEnabled: panelController.isSiteFeatureEnabled,
-    getCurrentPageFavorite: panelController.getCurrentPageFavorite,
     listRecommendedProfiles: function (scope) {
       if (!dataRecordsApi || typeof dataRecordsApi.readFavoriteProfiles !== "function") return Promise.resolve([]);
       return dataRecordsApi.readFavoriteProfiles(scope).then(function (entries) {
@@ -245,7 +251,6 @@
     },
     onAddCurrentPageToFavorites: panelController.addCurrentPageToFavorites,
     onFieldFilled: panelController.consumeFieldValue,
-    onRemoveFavorite: panelController.removeFavoriteProfile,
     smartFillApi,
     refreshAiRecognition,
     window

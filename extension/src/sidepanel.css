@@ -270,22 +270,6 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.52);
 }
 
-.ctdp-smartfill-favorite-trigger[data-favorite="true"] {
-  color: #e5a900;
-  background: rgba(255, 214, 92, 0.22);
-}
-
-.ctdp-smartfill-favorite-trigger[data-favorite="true"] .ctdp-smartfill-favorite-icon {
-  color: #f2b705;
-  filter: drop-shadow(0 2px 4px rgba(180, 120, 0, 0.2));
-}
-
-.ctdp-smartfill-favorite-trigger[data-favorite="true"] .ctdp-smartfill-favorite-icon::before {
-  -webkit-mask-image: none;
-  mask-image: none;
-  clip-path: polygon(50% 2%, 61% 36%, 98% 36%, 68% 57%, 79% 94%, 50% 72%, 21% 94%, 32% 57%, 2% 36%, 39% 36%);
-}
-
 .ctdp-smartfill-recommend-panel {
   position: absolute;
   top: 50px;

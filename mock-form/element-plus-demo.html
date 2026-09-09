@@ -93,6 +93,10 @@
         font-size: 16px;
       }
 
+      .state .el-form-item__label {
+        color: #dce7f5;
+      }
+
       .state pre {
         min-height: 160px;
         margin: 0;
@@ -164,6 +168,25 @@
       </section>
 
       <section class="state">
+        <h2>Element Plus 未识别字段数字兜底</h2>
+        <el-form :model="numericFallback" label-position="top">
+          <el-form-item label="房屋建筑面积">
+            <el-input v-model="numericFallback.area" placeholder="请输入"></el-input>
+          </el-form-item>
+          <el-form-item label="房屋总价">
+            <el-input v-model="numericFallback.totalPrice" placeholder="请输入"></el-input>
+          </el-form-item>
+          <el-form-item label="提取比例">
+            <el-input v-model="numericFallback.ratio" maxlength="3" placeholder="请输入"></el-input>
+          </el-form-item>
+          <el-form-item label="额外说明">
+            <el-input v-model="numericFallback.extraNote" placeholder="请输入"></el-input>
+          </el-form-item>
+        </el-form>
+        <pre id="elementPlusNumericFallbackState">{{ JSON.stringify(numericFallback, null, 2) }}</pre>
+      </section>
+
+      <section class="state">
         <h2>Vue 3 绑定值</h2>
         <pre id="elementPlusState">{{ JSON.stringify(form, null, 2) }}</pre>
       </section>
@@ -183,10 +206,20 @@
         datetime: "",
         time: ""
       });
+      const elementPlusNumericFallbackState = Vue.reactive({
+        area: "",
+        totalPrice: "",
+        ratio: "",
+        extraNote: ""
+      });
       window.elementPlusState = elementPlusState;
+      window.elementPlusNumericFallbackState = elementPlusNumericFallbackState;
       Vue.createApp({
         setup: function () {
-          return { form: elementPlusState };
+          return {
+            form: elementPlusState,
+            numericFallback: elementPlusNumericFallbackState
+          };
         }
       }).use(ElementPlus).mount("#app");
     </script>

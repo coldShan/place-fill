@@ -149,7 +149,7 @@ test("switching inputs clears the previous recognition effect", () => {
   assert.equal(secondTarget.getAttribute("data-ctdp-smartfocus-visible"), "true");
 });
 
-test("yellow favorite star confirms removal and can add the page again", async () => {
+test("favorite star only captures on click and never queries or displays saved state", async () => {
   const listeners = {};
   const documentListeners = {};
   const smartButton = {
@@ -197,9 +197,7 @@ test("yellow favorite star confirms removal and can add the page again", async (
     setAttribute() {}
   };
   let addCalls = 0;
-  let confirmRemoval = false;
-  let delayFavoriteLookup = false;
-  let resolveFavoriteLookup = null;
+  let lookupCalls = 0;
   let filledValue = "";
   let favorites = [createFavorite("saved-mobile", { fullName: "张三", mobile: "13800138000" })];
   const removeCalls = [];
@@ -232,7 +230,7 @@ test("yellow favorite star confirms removal and can add the page again", async (
       return Promise.resolve(favorite);
     },
     getCurrentPageFavorite() {
-      if (delayFavoriteLookup) return new Promise(function (resolve) { resolveFavoriteLookup = resolve; });
+      lookupCalls += 1;
       return Promise.resolve(null);
     },
     onRemoveFavorite(id) {
@@ -260,7 +258,7 @@ test("yellow favorite star confirms removal and can add the page again", async (
     window: {
       clearTimeout() {},
       confirm() {
-        return confirmRemoval;
+        throw new Error("Favorite button must not remove favorites");
       },
       getComputedStyle() {
         return { backgroundColor: "rgb(255, 255, 255)", borderRadius: "8px" };
@@ -283,108 +281,30 @@ test("yellow favorite star confirms removal and can add the page again", async (
   await Promise.resolve();
   await Promise.resolve();
 
-  assert.match(smartButton.innerHTML, /data-favorite="false"/);
-  assert.match(smartButton.innerHTML, /data-role="smart-fill-recommend-panel"/);
-  assert.match(smartButton.innerHTML, /13800138000/);
-  assert.match(smartButton.innerHTML, /张三/);
-  listeners.click({
-    target: {
-      closest() {
-        return {
-          getAttribute(name) {
-            return name === "data-role" ? "smart-fill-recommend-item" : "saved-mobile";
-          }
-        };
-      }
-    }
-  });
-  await Promise.resolve();
-  assert.equal(filledValue, "13800138000");
-  assert.match(smartButton.innerHTML, /data-role="smart-fill-add-favorite"/);
-  assert.match(smartButton.innerHTML, /data-favorite="true"/);
-  assert.match(smartButton.innerHTML, /aria-label="从常用中移除"/);
-  controller.hide();
-  controller.syncTarget(target);
-  await Promise.resolve();
-  await Promise.resolve();
-  assert.match(smartButton.innerHTML, /data-favorite="true"/);
-  assert.match(smartButton.innerHTML, /aria-label="从常用中移除"/);
-  listeners.click({
-    target: {
-      closest() {
-        return {
-          getAttribute() {
-            return "smart-fill-add-favorite";
-          }
-        };
-      }
-    }
-  });
-  await Promise.resolve();
-
-  assert.deepEqual(removeCalls, []);
-  assert.match(smartButton.innerHTML, /data-favorite="true"/);
-
-  confirmRemoval = true;
-  listeners.click({
-    target: {
-      closest() {
-        return {
-          getAttribute() {
-            return "smart-fill-add-favorite";
-          }
-        };
-      }
-    }
-  });
-  await Promise.resolve();
-  await Promise.resolve();
-
-  assert.deepEqual(removeCalls, ["saved-mobile"]);
-  assert.match(smartButton.innerHTML, /data-favorite="false"/);
-  assert.match(smartButton.innerHTML, /aria-label="添加到常用"/);
+  assert.equal(lookupCalls, 0);
   assert.equal(addCalls, 0);
-
-  delayFavoriteLookup = true;
+  assert.equal(documentListeners.input, undefined);
+  assert.match(smartButton.innerHTML, /13800138000/);
+  assert.doesNotMatch(smartButton.innerHTML, /data-favorite|从常用中移除/);
+  const clickRole = (role, id = "") => listeners.click({ target: { closest() {
+    return { getAttribute(name) { return name === "data-role" ? role : id; } };
+  } } });
+  clickRole("smart-fill-recommend-item", "saved-mobile");
+  assert.equal(filledValue, "13800138000");
   controller.hide();
   controller.syncTarget(target);
   await Promise.resolve();
-  assert.equal(typeof resolveFavoriteLookup, "function");
-  listeners.click({
-    target: {
-      closest() {
-        return {
-          getAttribute() {
-            return "smart-fill-add-favorite";
-          }
-        };
-      }
-    }
-  });
+  assert.equal(lookupCalls, 0);
+  assert.equal(addCalls, 0);
+  clickRole("smart-fill-add-favorite");
   await Promise.resolve();
   await Promise.resolve();
-  delayFavoriteLookup = false;
-  resolveFavoriteLookup(null);
-  await Promise.resolve();
-
-  assert.match(smartButton.innerHTML, /data-role="smart-fill-add-favorite"/);
-  assert.match(smartButton.innerHTML, /data-favorite="true"/);
-  assert.match(smartButton.innerHTML, /aria-label="从常用中移除"/);
   assert.equal(addCalls, 1);
-
-  target.value = "13900139000";
-  documentListeners.input({ target });
-  assert.match(smartButton.innerHTML, /data-favorite="false"/);
-
-  target.value = "13800138000";
-  documentListeners.input({ target });
-  assert.match(smartButton.innerHTML, /data-favorite="true"/);
-  assert.match(smartButton.innerHTML, /aria-label="从常用中移除"/);
-
-  favorites = [];
-  controller.hide();
-  controller.syncTarget(target);
+  assert.deepEqual(removeCalls, []);
+  assert.match(smartButton.innerHTML, /aria-label="添加到常用"/);
+  assert.doesNotMatch(smartButton.innerHTML, /data-favorite|从常用中移除/);
+  clickRole("smart-fill-add-favorite");
   await Promise.resolve();
-  await Promise.resolve();
-  assert.match(smartButton.innerHTML, /data-favorite="false"/);
+  assert.equal(addCalls, 2);
+  assert.equal(lookupCalls, 0);
 });

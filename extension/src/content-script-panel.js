@@ -48,6 +48,32 @@
     });
   }
 
+  function getFormControlDescription(target) {
+    if (!target) return "";
+    const getAttribute = function (name) {
+      return typeof target.getAttribute === "function" ? target.getAttribute(name) || "" : target[name] || "";
+    };
+    const offlineSnapshotApi = rootScope.ChromeTestDataOfflineFormSnapshot;
+    const offlineField = offlineSnapshotApi && typeof offlineSnapshotApi.buildOfflineFormFieldSnapshot === "function"
+      ? offlineSnapshotApi.buildOfflineFormFieldSnapshot(target, { document: target.ownerDocument })
+      : null;
+    if (offlineField) {
+      return [offlineField.name, offlineField.id, offlineField.ariaLabel, offlineField.placeholder]
+        .concat(offlineField.labels || [], offlineField.labelledByTexts || [])
+        .join(" ");
+    }
+    const labels = Array.from(target.labels || []).map(function (label) {
+      return label && (label.textContent || label.innerText || "");
+    });
+    return ["name", "id", "aria-label", "placeholder"].map(getAttribute).concat(labels).join(" ");
+  }
+
+  function isNumericFallbackTarget(target) {
+    return /(?:金额|额度|面积|比例|百分比|数量|单价|总价|价格|费用|成本|预算|余额|总额|限额|税额|税率|利率|费率|工资|薪资|收入|支出|额(?!外)|amount|quota|area|ratio|percent(?:age)?|quantity|price)/i.test(
+      getFormControlDescription(target)
+    );
+  }
+
   function generateFallbackAutoFillValue(target, randomFn) {
     const random = Number((typeof randomFn === "function" ? randomFn : Math.random)());
     const sample = Number.isFinite(random) ? Math.max(0, Math.min(0.999999999999, random)) : 0;
@@ -65,9 +91,11 @@
     }
     if (type === "email") return "test" + seed + "@example.com";
     if (type === "url") return "https://example.com/" + seed;
-    if (type === "tel" || /^(?:decimal|numeric)$/.test(String(target && target.inputMode || "").toLowerCase())) return seed;
-    const value = "测试" + seed;
     const maxLength = Number(target && target.maxLength);
+    if (type === "tel" || /^(?:decimal|numeric)$/.test(String(target && target.inputMode || "").toLowerCase()) || isNumericFallbackTarget(target)) {
+      return Number.isInteger(maxLength) && maxLength > 0 ? seed.slice(0, maxLength) : seed;
+    }
+    const value = "测试" + seed;
     return Number.isInteger(maxLength) && maxLength > 0 ? value.slice(0, maxLength) : value;
   }
 
@@ -79,11 +107,9 @@
     const type = String(target.type || getAttribute("type") || "").toLowerCase();
     const autocomplete = String(getAttribute("autocomplete")).toLowerCase();
     if (type === "password" || /(?:^|\s)(?:current-password|new-password|one-time-code|cc-csc)(?:\s|$)/.test(autocomplete)) return true;
-    const labels = Array.from(target.labels || []).map(function (label) {
-      return label && (label.textContent || label.innerText || "");
-    });
-    const description = ["name", "id", "aria-label", "placeholder"].map(getAttribute).concat(labels).join(" ");
-    return /(?:密码|口令|验证码|动态码|安全码|密钥|令牌|password|passwd|passcode|\bpwd\b|\botp\b|verification[\s_-]*code|security[\s_-]*code|api[\s_-]*key|access[\s_-]*token|auth[\s_-]*token|secret|\bcvv\b|\bcvc\b|\bpin\b)/i.test(description);
+    return /(?:密码|口令|验证码|动态码|安全码|密钥|令牌|password|passwd|passcode|\bpwd\b|\botp\b|verification[\s_-]*code|security[\s_-]*code|api[\s_-]*key|access[\s_-]*token|auth[\s_-]*token|secret|\bcvv\b|\bcvc\b|\bpin\b)/i.test(
+      getFormControlDescription(target)
+    );
   }
 
   function resolveAutoFillScope(doc) {
@@ -175,10 +201,10 @@
       if (seen.has(target)) return;
       seen.add(target);
       if (String(target.tagName || "").toUpperCase() === "INPUT" && /^(?:button|checkbox|color|file|hidden|image|radio|range|reset|submit)$/i.test(String(target.type || "text"))) return;
-      if (isSensitiveFormControl(target)) return;
-      const fieldKey = smartFillApi.inferFieldKeyForSmartFill(target);
       const value = String(target.isContentEditable ? target.textContent || "" : target.value || "");
-      if (fieldKey && value.trim() && !profile[fieldKey]) profile[fieldKey] = value;
+      if (!value.trim() || isSensitiveFormControl(target)) return;
+      const fieldKey = smartFillApi.inferFieldKeyForSmartFill(target);
+      if (fieldKey && !profile[fieldKey]) profile[fieldKey] = value;
     });
     return profile;
   }
@@ -1075,54 +1101,32 @@
       return new Promise(function (resolve) { win.setTimeout(resolve, ms); });
     }
 
+    let addingPageFavorite = false;
+
     async function addCurrentPageToFavorites() {
-      if (typeof opts.refreshAiRecognition === "function") {
-        await Promise.race([opts.refreshAiRecognition(), delay(900)]);
-      }
-      const profile = collectPageFavoriteProfile(doc, editableTargetApi, smartFillApi);
-      if (!Object.keys(profile).length) {
-        showDockMessage("未识别到可加入常用的数据", true);
-        return false;
-      }
-      const scope = getCurrentScopeKey();
-      if (!scope || !dataRecordsApi || typeof dataRecordsApi.createFavoriteProfile !== "function") {
-        showDockMessage("加入常用失败", true);
-        return false;
-      }
+      if (addingPageFavorite) return false;
+      addingPageFavorite = true;
       try {
+        const profile = collectPageFavoriteProfile(doc, editableTargetApi, smartFillApi);
+        if (!Object.keys(profile).length) {
+          showDockMessage("未识别到可加入常用的数据", true);
+          return false;
+        }
+        const scope = getCurrentScopeKey();
+        if (!scope || !dataRecordsApi) throw new Error("Favorite storage unavailable");
+        if (await dataRecordsApi.findFavoriteProfile(scope, profile)) {
+          showDockMessage("数据重复，已收藏", true);
+          return false;
+        }
         const favorite = await dataRecordsApi.createFavoriteProfile(scope, { profile });
         await loadFavoriteProfiles();
-        showDockMessage("已加入常用", true);
+        showDockMessage("收藏成功", true);
         return favorite;
       } catch (_) {
-        showDockMessage("加入常用失败", true);
+        showDockMessage("收藏失败", true);
         return false;
-      }
-    }
-
-    function getCurrentPageFavorite() {
-      const profile = collectPageFavoriteProfile(doc, editableTargetApi, smartFillApi);
-      const scope = getCurrentScopeKey();
-      if (!scope || !Object.keys(profile).length || !dataRecordsApi || typeof dataRecordsApi.findFavoriteProfile !== "function") {
-        return Promise.resolve(null);
-      }
-      return dataRecordsApi.findFavoriteProfile(scope, profile).catch(function () {
-        return null;
-      });
-    }
-
-    async function removeFavoriteProfile(id) {
-      const scope = getCurrentScopeKey();
-      if (!scope || !id || !dataRecordsApi || typeof dataRecordsApi.deleteFavoriteProfile !== "function") return false;
-      try {
-        const removed = await dataRecordsApi.deleteFavoriteProfile(scope, id);
-        if (!removed) return false;
-        await loadFavoriteProfiles();
-        showDockMessage("已移除常用", true);
-        return true;
-      } catch (_) {
-        showDockMessage("移除常用失败", true);
-        return false;
+      } finally {
+        addingPageFavorite = false;
       }
     }
 
@@ -2082,7 +2086,6 @@
       expand,
       exportFullBackup,
       getFieldValue,
-      getCurrentPageFavorite,
       isSiteFeatureEnabled,
       getVisibleFieldKeys,
       handleDocumentFocusIn,
@@ -2091,7 +2094,6 @@
       loadSiteFeatureEnabled,
       loadVisibleFieldKeys,
       mount,
-      removeFavoriteProfile,
       showDockMessage,
       syncImportedOverrideState,
       toggleVisible

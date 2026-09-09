@@ -255,6 +255,22 @@
                     <input id="reportWeek" type="week" min="2020-W01" max="2030-W52" />
                 </div>
                 <div class="field">
+                    <label for="fallbackArea">面积</label>
+                    <input id="fallbackArea" placeholder="请输入" />
+                </div>
+                <div class="field">
+                    <label for="fallbackTotalPrice">总价</label>
+                    <input id="fallbackTotalPrice" placeholder="请输入" />
+                </div>
+                <div class="field">
+                    <label for="fallbackRatio">比例</label>
+                    <input id="fallbackRatio" maxlength="3" placeholder="请输入" />
+                </div>
+                <div class="field">
+                    <label for="fallbackExtraNote">额外说明</label>
+                    <input id="fallbackExtraNote" placeholder="请输入" />
+                </div>
+                <div class="field">
                     <label for="remark">整组复制粘贴区</label>
                     <textarea
                         id="remark"
@@ -272,7 +288,7 @@
             </form>
 
             <div class="hint">
-                预期结果：文本字段写入匹配数据；下拉框选择有效选项；每组单选选中一个；多选至少选中一个；日期时间处于约束范围内；只读和禁用控件保持不变。
+                预期结果：文本字段写入匹配数据；面积、总价和比例写入整数，“额外说明”写入测试文本；下拉框选择有效选项；每组单选选中一个；多选至少选中一个；日期时间处于约束范围内；只读和禁用控件保持不变。
             </div>
         </main>
     </body>

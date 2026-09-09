@@ -23,6 +23,63 @@ const {
 } = panelControllerPkg.default || panelControllerPkg;
 const editableTargetApi = editableTargetPkg.default || editableTargetPkg;
 
+test("page capture checks duplicates only on request and prevents concurrent writes", async (t) => {
+  const previous = globalThis.ChromeTestDataDataRecords;
+  t.after(() => { globalThis.ChromeTestDataDataRecords = previous; });
+  let existing = null;
+  let writes = 0;
+  let scans = 0;
+  let failLookup = false;
+  const fields = [
+    { tagName: "INPUT", type: "text", value: "张三", name: "fullName" },
+    { tagName: "INPUT", type: "text", value: "13800138000", name: "mobile" },
+    { tagName: "INPUT", type: "text", value: "", name: "email" },
+    { tagName: "INPUT", type: "password", value: "secret", name: "password" }
+  ];
+  globalThis.ChromeTestDataDataRecords = {
+    async findFavoriteProfile(scope, profile) {
+      assert.equal(scope, "example.com");
+      assert.deepEqual(profile, { fullName: "张三", mobile: "13800138000" });
+      if (failLookup) throw new Error("Storage unavailable");
+      return existing;
+    },
+    async createFavoriteProfile(_scope, { profile }) {
+      writes += 1;
+      existing = { id: "saved", profile };
+      return existing;
+    }
+  };
+  const controller = (panelControllerPkg.default || panelControllerPkg).createContentScriptPanelController({
+    document: { querySelectorAll() { scans += 1; return fields; } },
+    window: { location: { hostname: "EXAMPLE.COM" } },
+    generators: { generateProfile() { return {}; } },
+    panelStateApi: { createPanelState() { return {}; } },
+    fieldMetaApi: { getFieldKeys() { return []; } },
+    fieldVisibilityApi: { getDefaultVisibleFieldKeys() { return []; } },
+    siteFeatureToggleApi: { getDefaultSiteFeatureEnabled() { return true; } },
+    editableTargetApi,
+    smartFillApi: { inferFieldKeyForSmartFill(target) {
+      assert.ok(target.value && target.type !== "password");
+      return target.name;
+    } }
+  });
+  assert.equal(scans, 0);
+  const first = controller.addCurrentPageToFavorites();
+  assert.equal(await controller.addCurrentPageToFavorites(), false);
+  assert.equal((await first).id, "saved");
+  assert.equal(scans, 1);
+  assert.equal(writes, 1);
+  assert.equal(await controller.addCurrentPageToFavorites(), false);
+  assert.equal(writes, 1);
+  existing = null;
+  failLookup = true;
+  assert.equal(await controller.addCurrentPageToFavorites(), false);
+  assert.equal(writes, 1);
+  failLookup = false;
+  assert.equal((await controller.addCurrentPageToFavorites()).id, "saved");
+  assert.equal(writes, 2);
+});
+
 function createFavorite(id, fullName) {
   return {
     id,
@@ -285,7 +342,34 @@ test("one-click fill generates type-safe fallback values for unknown fields", ()
   assert.equal(generateFallbackAutoFillValue({ type: "email" }, function () { return 0.5; }), "test550000@example.com");
   assert.equal(generateFallbackAutoFillValue({ type: "url" }, function () { return 0.5; }), "https://example.com/550000");
   assert.equal(generateFallbackAutoFillValue({ type: "text", maxLength: 4 }, function () { return 0.5; }), "测试55");
+  assert.equal(generateFallbackAutoFillValue({ type: "text", name: "contractAmount" }, function () { return 0.5; }), "550000");
+  assert.equal(generateFallbackAutoFillValue({ type: "text", placeholder: "请输入建筑面积" }, function () { return 0.5; }), "550000");
+  assert.equal(generateFallbackAutoFillValue({ type: "text", labels: [{ textContent: "占用比例" }], maxLength: 3 }, function () { return 0.5; }), "550");
+  assert.equal(generateFallbackAutoFillValue({ type: "text", placeholder: "额外说明" }, function () { return 0.5; }), "测试550000");
   assert.match(panelScript, /entry\.kind === "fallback"[\s\S]*?fillEditableTarget\(entry\.target, value\)/);
+});
+
+test("one-click fill uses disconnected Element form labels for numeric fallback", () => {
+  const previousApi = globalThis.ChromeTestDataOfflineFormSnapshot;
+  globalThis.ChromeTestDataOfflineFormSnapshot = {
+    buildOfflineFormFieldSnapshot(target) {
+      return {
+        ariaLabel: "",
+        id: "",
+        labelledByTexts: [target.formLabel],
+        labels: [],
+        name: "",
+        placeholder: "请输入"
+      };
+    }
+  };
+  try {
+    assert.equal(generateFallbackAutoFillValue({ type: "text", formLabel: "房屋建筑面积" }, function () { return 0.5; }), "550000");
+    assert.equal(generateFallbackAutoFillValue({ type: "text", formLabel: "房屋总价" }, function () { return 0.5; }), "550000");
+  } finally {
+    if (previousApi) globalThis.ChromeTestDataOfflineFormSnapshot = previousApi;
+    else delete globalThis.ChromeTestDataOfflineFormSnapshot;
+  }
 });
 
 test("one-click fill limits targets to the active modal form", () => {
@@ -584,10 +668,10 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(smartfillScript, /data-note="' \+ escapeHtml\(item\.noteText\) \+ '"/);
   assert.match(smartfillScript, /data-recommend-note-popover/);
   assert.doesNotMatch(smartfillScript, /title="' \+ escapeHtml\(item\.noteText\) \+ '"/);
-  assert.match(smartfillScript, /if \(role === "smart-fill-add-favorite"\) \{\s*if \(currentFavoriteId\)/);
-  assert.match(smartfillScript, /win\.confirm\("确认从常用中移除这组数据？"\)/);
-  assert.match(smartfillScript, /Promise\.resolve\(onRemoveFavorite\(favoriteId\)\)/);
   assert.match(smartfillScript, /Promise\.resolve\(onAddCurrentPageToFavorites\(\)\)/);
+  assert.doesNotMatch(smartfillScript, /currentFavoriteId|favoriteByTarget|getCurrentPageFavorite|onRemoveFavorite/);
+  assert.match(panelScript, /showDockMessage\("数据重复，已收藏", true\)/);
+  assert.match(panelScript, /showDockMessage\("收藏成功", true\)/);
   assert.match(smartfillScript, /function buildRecommendationItems\(fieldKey,\s*favoriteProfiles\)/);
   assert.match(smartfillScript, /function refreshRecommendationItems\(target,\s*fieldKey\)/);
   assert.match(smartfillScript, /if \(showRecommendations !== false\) refreshRecommendationItems\(target,\s*fieldKey\);/);
@@ -602,8 +686,6 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(orchestratorScript, /document\.addEventListener\(\s*"contextmenu"/);
   assert.match(orchestratorScript, /sync-site-feature-context-menu/);
   assert.match(orchestratorScript, /onAddCurrentPageToFavorites:\s*panelController\.addCurrentPageToFavorites/);
-  assert.match(orchestratorScript, /getCurrentPageFavorite:\s*panelController\.getCurrentPageFavorite/);
-  assert.match(orchestratorScript, /onRemoveFavorite:\s*panelController\.removeFavoriteProfile/);
   assert.match(orchestratorScript, /listRecommendedProfiles:/);
   assert.match(orchestratorScript, /getCurrentScope,/);
   assert.match(orchestratorScript, /message\.type === "apply-smart-fill-override"/);

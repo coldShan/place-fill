@@ -12,6 +12,7 @@ const {
   getSmartFillMenuFieldKeys,
   getSupportedFieldKeys,
   inferFieldKeyForSmartFill,
+  inferLocalFieldKeyForSmartFill,
   loadAiFieldMappings,
   loadManualFieldOverrides,
   replaceManualFieldOverrides,
@@ -113,6 +114,31 @@ test("smart fill infers phone, id card, name, bank card and credit code from com
 test("smart fill uses autocomplete hints before generic text matches", () => {
   assert.equal(inferFieldKeyForSmartFill(createElement({ autocomplete: "tel", name: "contact" })), "mobile");
   assert.equal(inferFieldKeyForSmartFill(createElement({ autocomplete: "name", id: "user-profile" })), "fullName");
+});
+
+test("smart fill ignores editable Element picker inputs even with saved field mappings", async () => {
+  const env = createEnv();
+  await loadManualFieldOverrides(env);
+  await loadAiFieldMappings(env);
+  for (const className of [
+    "el-select", "el-date-editor", "el-cascader", "el-picker-panel", "el-time-panel", "el-time-range-picker"
+  ]) {
+    const element = createElement({
+      id: className,
+      autocomplete: "name",
+      placeholder: "联系人姓名",
+      readOnly: false,
+      closest(selector) {
+        return selector.split(", ").includes("." + className) ? this : null;
+      }
+    });
+    await setManualFieldOverride(element, "fullName", env);
+    assert.equal(inferLocalFieldKeyForSmartFill(element, env), null, className);
+    assert.equal(inferFieldKeyForSmartFill(element, env), null, className);
+  }
+  const input = createElement({ autocomplete: "name", closest() { return null; } });
+  assert.equal(inferLocalFieldKeyForSmartFill(input, env), "fullName");
+  assert.equal(inferFieldKeyForSmartFill(input, env), "fullName");
 });
 
 test("smart fill infers pinyin aliases and initials for supported fields", () => {
