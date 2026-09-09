@@ -136,6 +136,7 @@
     const elementRoots = new Set();
 
     candidates.forEach(function (node) {
+      if (typeof node.closest === "function" && node.closest(".ctdp-root")) return;
       if (isSensitiveFormControl(node)) return;
       const elementEntry = elementFormControlApi && elementFormControlApi.describeElementControl(node);
       if (elementEntry) {

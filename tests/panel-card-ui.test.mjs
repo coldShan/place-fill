@@ -336,6 +336,44 @@ test("one-click fill collects only empty native controls without requiring seman
   assert.equal(targets.some((entry) => entry.targets.includes(filledRadio) || entry.targets.includes(filledCheckbox)), false);
 });
 
+test("one-click fill excludes extension settings controls", () => {
+  const pageInput = {
+    nodeType: 1,
+    tagName: "INPUT",
+    type: "text",
+    disabled: false,
+    readOnly: false,
+    value: "",
+    closest() {
+      return null;
+    }
+  };
+  const extensionToggle = {
+    nodeType: 1,
+    tagName: "INPUT",
+    type: "checkbox",
+    checked: false,
+    closest(selector) {
+      return selector === ".ctdp-root" ? {} : null;
+    }
+  };
+  const document = {
+    querySelectorAll() {
+      return [pageInput, extensionToggle];
+    }
+  };
+
+  const targets = collectPageAutoFillTargets(
+    document,
+    editableTargetApi,
+    { inferFieldKeyForSmartFill() { return "fullName"; } },
+    { isFieldVisible() { return true; } },
+    ["fullName"]
+  );
+
+  assert.deepEqual(targets.map((entry) => entry.target), [pageInput]);
+});
+
 test("one-click fill generates type-safe fallback values for unknown fields", () => {
   assert.equal(generateFallbackAutoFillValue({ type: "number", min: "10", max: "20", step: "2" }, function () { return 0.5; }), "16");
   assert.equal(generateFallbackAutoFillValue({ type: "tel" }, function () { return 0.5; }), "550000");
