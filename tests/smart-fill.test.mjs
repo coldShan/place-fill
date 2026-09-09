@@ -490,3 +490,34 @@ test("ai field mappings can be loaded and cleared from storage", async () => {
   await clearAiFieldMappings(env);
   assert.equal(inferFieldKeyForSmartFill(element, env), null);
 });
+
+test("clearing all annotations preserves other data and an empty marker for backup recovery", async () => {
+  const element = createElement({ name: "mobilePhone" });
+  const env = createEnv({ elements: [element] });
+  await env.storageArea.set({ "ctdp.favoriteProfiles.v1": [{ id: "keep" }] });
+  await setManualFieldOverride(element, "companyName", env);
+  await replaceManualFieldOverrides({}, env);
+  assert.equal(inferFieldKeyForSmartFill(element, env), "mobile");
+  const stored = await new Promise(resolve => env.storageArea.get(null, resolve));
+  assert.deepEqual(stored["ctdp.smartFillOverrides.v1"], {});
+  assert.deepEqual(stored["ctdp.favoriteProfiles.v1"], [{ id: "keep" }]);
+});
+
+test("annotation cache follows changes from another page", async () => {
+  const { runInNewContext } = await import("node:vm");
+  const { readFileSync } = await import("node:fs");
+  const storageArea = createStorageArea();
+  let onChanged;
+  const context = {
+    ChromeTestDataFieldMeta: fieldMetaPkg,
+    chrome: { storage: { local: storageArea, onChanged: { addListener(fn) { onChanged = fn; } } } }
+  };
+  runInNewContext(readFileSync(new URL("../extension/src/smart-fill.js", import.meta.url), "utf8"), context);
+  const api = context.ChromeTestDataSmartFill;
+  const element = createElement({ name: "mobilePhone" });
+  const env = createEnv({ elements: [element], storageArea });
+  await api.setManualFieldOverride(element, "companyName", env);
+  assert.equal(api.inferFieldKeyForSmartFill(element, env), "companyName");
+  onChanged({ "ctdp.smartFillOverrides.v1": { newValue: {} } }, "local");
+  assert.equal(api.inferFieldKeyForSmartFill(element, env), "mobile");
+});

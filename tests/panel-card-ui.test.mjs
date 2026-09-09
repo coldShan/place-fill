@@ -720,3 +720,44 @@ test("content script is reduced to orchestration across dedicated controllers", 
   assert.match(smartfillScript, /function handleDocumentPointerDown\(target\)[\s\S]*?if \(!smartButton \|\| smartButton\.hidden \|\| isInteractionTarget\(target\)\) return;[\s\S]*?if \(editableTarget === activeSmartTarget\) return;[\s\S]*?hideSmartButton\(\);[\s\S]*?focusedTarget\.blur\(\)/);
   assert.match(orchestratorScript, /smartFillController\.resolveManualOverrideTarget\(\)/);
 });
+
+test("clear user data requires confirmation, clears only annotations and handles failure", async () => {
+  let confirmed = false;
+  let writes = 0;
+  let refreshes = 0;
+  let fail = false;
+  let release;
+  const controller = (panelControllerPkg.default || panelControllerPkg).createContentScriptPanelController({
+    document: {},
+    window: { confirm(message) {
+      assert.match(message, /所有站点的自定义标注/);
+      assert.match(message, /不会清空/);
+      return confirmed;
+    } },
+    generators: { generateProfile() { return {}; } },
+    panelStateApi: { createPanelState() { return {}; } },
+    fieldMetaApi: { getFieldKeys() { return []; } },
+    fieldVisibilityApi: { getDefaultVisibleFieldKeys() { return []; } },
+    siteFeatureToggleApi: { getDefaultSiteFeatureEnabled() { return false; } },
+    onOverridesImported() { refreshes += 1; },
+    smartFillApi: { async replaceManualFieldOverrides(value) {
+      assert.deepEqual(value, {});
+      writes += 1;
+      if (fail) return false;
+      await new Promise(resolve => { release = resolve; });
+      return true;
+    } }
+  });
+  assert.equal(await controller.clearUserData(), false);
+  assert.equal(writes, 0);
+  confirmed = true;
+  const pending = controller.clearUserData();
+  assert.equal(await controller.clearUserData(), false);
+  release();
+  assert.equal(await pending, true);
+  assert.equal(writes, 1);
+  assert.equal(refreshes, 1);
+  fail = true;
+  assert.equal(await controller.clearUserData(), false);
+  assert.equal(refreshes, 1);
+});

@@ -217,7 +217,7 @@
       }
       try {
         const maybePromise = storageArea.set({ [key]: value }, function () {
-          done(true);
+          done(!(typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.lastError));
         });
         if (maybePromise && typeof maybePromise.then === "function") {
           maybePromise.then(function () {
@@ -521,14 +521,14 @@
     const storageArea = getStorageArea(env);
     const cacheEntry = getCacheEntry(env);
     const normalizedMap = normalizeOverrideMap(nextMap);
-    cacheEntry.loaded = true;
-    cacheEntry.map = normalizedMap;
-    const keys = Object.keys(nextMap || {});
-    const writePromise = !keys.length
-      ? removeStorageValue(storageArea, STORAGE_KEY)
-      : writeStorageValue(storageArea, STORAGE_KEY, normalizedMap);
+    // 保留空对象，避免最后一项数据被删除后从旧镜像恢复标注。
+    const writePromise = writeStorageValue(storageArea, STORAGE_KEY, normalizedMap);
     return Promise.resolve(writePromise).then(function (ok) {
-      if (ok !== false) notifyLocalAnnotationChanged(env);
+      if (ok !== false) {
+        cacheEntry.loaded = true;
+        cacheEntry.map = normalizedMap;
+        notifyLocalAnnotationChanged(env);
+      }
       return ok;
     });
   }
@@ -716,6 +716,15 @@
     void primaryFieldKey;
     void visibleFieldKeys;
     return [];
+  }
+
+  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener(function (changes, areaName) {
+      if (areaName !== "local" || !changes || !Object.prototype.hasOwnProperty.call(changes, STORAGE_KEY)) return;
+      const cacheEntry = getCacheEntry();
+      cacheEntry.map = normalizeOverrideMap(changes[STORAGE_KEY].newValue);
+      cacheEntry.loaded = true;
+    });
   }
 
   const api = {

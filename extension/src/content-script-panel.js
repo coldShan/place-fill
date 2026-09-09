@@ -298,6 +298,7 @@
       profile: generators.generateProfile(),
       siteFeatureEnabled: siteFeatureToggleApi.getDefaultSiteFeatureEnabled(),
       floatingIconEnabled: true,
+      clearingUserData: false,
       localAnnotationFileEnabled: false,
       localAnnotationFileSupported: true,
       localAnnotationFilePermissionRequired: false,
@@ -690,7 +691,8 @@
       return [
         renderLocalAnnotationFileToggleMarkup(),
         renderSettingsActionMarkup("export-full-backup", "download", "备份全部数据", "备份常用数据、标注和站点设置"),
-        renderSettingsActionMarkup("import-full-backup", "upload", "恢复全部数据", "从完整备份恢复并覆盖本地数据", "ctdp-settings-row-restore")
+        renderSettingsActionMarkup("import-full-backup", "upload", "恢复全部数据", "从完整备份恢复并覆盖本地数据", "ctdp-settings-row-restore"),
+        renderSettingsActionMarkup("clear-user-data", "trash-2", "清空用户数据", "仅清空所有站点的自定义标注，保留其他数据")
       ].join("");
     }
 
@@ -1330,6 +1332,30 @@
       setSettingsStatus(response && response.ok ? "AI 识别测试通过" : (response && response.error ? response.error : "AI 识别测试失败"), response && response.ok ? "success" : "error");
     }
 
+    async function clearUserData() {
+      if (state.clearingUserData) return false;
+      if (!win.confirm("确认清空所有站点的自定义标注？\n\n包含手动指定的字段类型和“不填充”标注。常用数据、生成记录、站点设置及 AI 配置不会清空。此操作无法撤销。")) return false;
+      state.clearingUserData = true;
+      try {
+        const cleared = await smartFillApi.replaceManualFieldOverrides({});
+        if (cleared === false) throw new Error("清空失败，请重试");
+        onOverridesImported();
+        const mirror = await sendRuntimeMessage({ type: "mirror-storage-local" });
+        const backup = await sendRuntimeMessage({ type: "sync-local-annotation-file" });
+        if (!mirror.ok || !backup.ok || (backup.enabled && backup.skipped)) {
+          setSettingsStatus("自定义标注已清空，但备份未完成同步，请检查本地目录权限后重新备份", "warning");
+        } else {
+          setSettingsStatus("已清空所有站点的自定义标注", "success");
+        }
+        return true;
+      } catch (error) {
+        setSettingsStatus(error && error.message ? error.message : "清空失败，请重试", "error");
+        return false;
+      } finally {
+        state.clearingUserData = false;
+      }
+    }
+
     async function clearAiRecognitionCache() {
       if (smartFillApi && typeof smartFillApi.clearAiFieldMappings === "function") await smartFillApi.clearAiFieldMappings();
       onOverridesImported();
@@ -1900,6 +1926,10 @@
           });
           return;
         }
+        if (role === "clear-user-data") {
+          clearUserData();
+          return;
+        }
         if (role === "import-full-backup") {
           importMode = "full-backup";
           if (importInput) importInput.click();
@@ -2081,6 +2111,7 @@
 
     return {
       addCurrentPageToFavorites,
+      clearUserData,
       collapse,
       consumeFieldValue,
       expand,

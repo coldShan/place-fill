@@ -11,79 +11,59 @@
   <img src="https://img.shields.io/badge/Chrome-MV3-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="chrome mv3">
 </p>
 
-## 功能
+## 核心功能
 
-- 生成常用中文测试数据：统一社会信用代码、公司名称、姓名、身份证号、银行卡号、账号、手机号、邮箱、固定电话、地址。
-- 右侧悬浮面板支持单项复制、整组复制、重新生成和页面自动填充；一键填充会跳过已有值及密码、验证码、令牌等敏感条目，存在活动弹窗时仅填充弹窗表单，并支持原生及 Element UI / Element Plus 的文本框、下拉框、单选、多选、开关与日期时间控件，无法识别含义的空控件会结合控件类型及金额、面积、比例等关键词生成随机兜底值，悬浮球划过后可直接触发。
-- 智能识别输入框类型，并在输入框旁显示快速填充按钮；Element UI / Element Plus 下拉、日期时间及级联选择器的内部输入框不触发该识别；当前字段存在常用值时自动展示选择列表，悬浮条目可即时查看备注气泡；五星按钮仅在点击时识别页面非空字段并跳过敏感信息，将结果收藏为一条常用数据；同站点数据重复时提示已收藏，否则提示收藏成功，不自动检查或显示收藏状态。
-- 可配置 OpenAI-compatible 接口进行脱敏表单识别，复核本地识别并补充未知字段。
-- 支持右键手动标注字段类型；标注按域名和一级路径复用。
-- 支持按站点开启/关闭智能识别，并可通过全局开关控制悬浮图标；开启后仅在已启用站点自动显示，刷新页面仍会保留。
-- 支持控制字段显示、管理常用数据和生成记录。
-- 支持全部数据备份/恢复；每周五上午 10 点通过悬浮球提醒备份，页面暂不可用时会自动补发，点击提醒即可备份全部数据。
-- Chrome 122 及以上可在设置中授权一个父目录，开启后自动创建 `place-fill-data/place-fill-user-data.json`，自动备份并优先恢复全部用户数据；该功能默认关闭，Chrome 109–121 可继续使用手动“备份全部数据/恢复全部数据”。
+- **一键填表**：生成姓名、手机号、身份证号、公司名称、统一社会信用代码等常用中文测试数据，支持单项复制、整组复制和自动填充。
+- **智能识别**：支持原生及 Element UI / Element Plus 常见表单控件；跳过已有值和密码、验证码等敏感字段，有活动弹窗时只填充弹窗表单。
+- **字段标注**：输入框旁快捷填充，支持右键手动标注，标注按域名和一级路径复用；可选配 OpenAI-compatible 接口辅助识别。
+- **常用数据**：收藏页面数据、维护常用值和备注、查看生成记录，自定义显示字段。
+- **备份恢复**：支持全部数据导出与恢复、每周备份提醒；Chrome 122+ 可授权本地目录自动备份。
 
-## 安装
+## 安装与使用
 
-1. 在 [GitHub Releases](https://github.com/coldShan/place-fill/releases) 下载最新的 `place-fill-v0.9.6.zip`。
-2. 解压后打开 `chrome://extensions`。
-3. 开启右上角“开发者模式”。
-4. 点击“加载已解压的扩展程序”，选择解压后的 `extension/` 目录。
+支持 **Chrome 109+**。
 
-解压目录里应直接包含 `manifest.json`。
+1. 从 [GitHub Releases](https://github.com/coldShan/place-fill/releases) 下载 `place-fill-v0.9.6.zip` 并解压。
+2. 打开 `chrome://extensions`，开启“开发者模式”。
+3. 点击“加载已解压的扩展程序”，选择**直接包含 `manifest.json` 的解压目录**。
+4. 在插件设置中为目标站点开启智能识别与右键标注，再使用悬浮面板或输入框旁的快捷入口填充。
 
-## 数据存储
+站点功能默认关闭；悬浮图标可通过全局开关控制，仅在已启用站点自动显示。
 
-- 人工标注存储在扩展的 `chrome.storage.local`。
-- Chrome 122 及以上开启本地目录自动备份后，授权父目录中的 `place-fill-data/place-fill-user-data.json` 与“备份全部数据/恢复全部数据”使用相同格式和数据范围，并作为优先恢复来源，同时保留 `chrome.storage.local` 作为运行时存储。
-- 所选父目录中已有同名备份文件时，会先询问是否使用当前浏览器全部数据覆盖；选择取消则保留并恢复已有本地备份。
-- 关闭本地目录自动备份只会暂停文件读写并保留目录句柄；再次开启时，权限仍有效则直接恢复，需要确认时仅恢复原目录权限，权限已拒绝或句柄丢失时才重新选择目录。
-- 首次开启时会直接以固定用途标识申请父目录读写权限；请选择“每次访问都允许”。浏览器之后要求重新确认时，仅在已启用插件的页面通过悬浮入口主动提醒，点击即可恢复目录权限且无需重新选择目录；该权限仍可由用户随时撤销。
-- 标注按 `domain + first-level subpath` 隔离，适合在同一业务模块内复用。
-- 字段显示配置、站点功能开关、悬浮图标开关和常用数据都保存在本地扩展存储中，可通过全部数据备份/恢复迁移。
-- AI 识别配置保存在本地扩展存储中；API Key 不会进入全部数据备份或 IndexedDB 镜像。
-- AI 识别只支持 HTTPS Base URL，并只上传脱敏后的表单控件摘要，不上传输入框当前值。
-- 后台会在扩展 IndexedDB 中维护本地数据镜像，`chrome.storage.local` 为空时会尝试从镜像恢复。
-- 智能识别与右键标注默认按站点关闭，需要在插件设置里启用。
+设置中可通过“清空用户数据”清除所有站点的自定义标注，执行前需二次确认；其他数据保留。
+
+## 数据与隐私
+
+- 配置、标注和常用数据保存在本地扩展存储中，可通过“备份全部数据 / 恢复全部数据”迁移。
+- 本地目录自动备份默认关闭，启用后写入授权父目录下的 `place-fill-data/place-fill-user-data.json`；Chrome 109–121 使用手动备份与恢复。
+- AI 识别需自行配置 HTTPS 接口，只发送脱敏后的表单控件摘要，不发送输入框当前值；API Key 不进入备份或本地数据镜像。
 
 ## 开发
 
 ```bash
-# 安装依赖
-pnpm install
+pnpm install       # 安装依赖
+pnpm build         # 构建运行时资源
+pnpm build:watch   # 监听构建
+pnpm check         # JS 语法检查
+pnpm typecheck     # TypeScript 类型检查
+pnpm test          # 全部测试
+```
 
-# 构建 extension/generated/
-pnpm build
+本地调试：在 `chrome://extensions` 加载 `extension/`。手动验证页面见 [mock-form/](mock-form/)，包含原生、Element UI 和 Element Plus 示例。
 
-# 检查 JS 语法
-pnpm check
+主要目录：`extension/src/` 为 JavaScript 模块，`extension/src-ts/` 为 TypeScript 源码，`extension/generated/` 为构建产物，`tests/` 为自动化测试。修改 TypeScript 后需重新构建，不要手动编辑构建产物。
 
-# 类型检查
-pnpm typecheck
+打包与发布：
 
-# 运行全部测试
-pnpm test
-
-# 打包发布 zip，并生成伪装图片 releases/place-fill.png
+```bash
+# 生成 ZIP 和图片载体到 releases/，仅保留在本地
 node extension/scripts/package-release.mjs
 
-# 分析上一版本标签后的相关 Git commits，人工编写更新日志后再发布；只上传 zip，place-fill.png 保留在本地
+# 根据上一版本标签后的提交编写更新日志，再发布（提交、打标签、推送并创建 GitHub Release）
 pnpm release <version> --notes-file /tmp/place-fill-release-notes.md
 
-# 验证当前版本的文档、zip、伪装图片、tag 和 GitHub Release
+# 验证当前版本的文档、产物及远程发布
 pnpm release:verify
 ```
 
-本地调试时，在 `chrome://extensions` 中加载 `extension/` 目录。原生、Element UI 和 Element Plus 手动验证页面分别位于 `mock-form/index.html`、`mock-form/element-ui-demo.html` 和 `mock-form/element-plus-demo.html`。
-
-## 目录
-
-```text
-extension/       Chrome 扩展源码
-extension/src/   原生 JS 内容脚本
-extension/src-ts/ TypeScript 源码
-extension/generated/ 构建产物
-mock-form/       本地验证页面
-tests/           自动化测试
-releases/        本地发布包，勿提交
-```
+GitHub Release 仅上传 ZIP，`releases/place-fill.png` 保留在本地。完整开发与发布约定见 [AGENTS.md](AGENTS.md)。
