@@ -7,7 +7,7 @@
 <p align="center">面向表单联调、回归测试和演示录制的 Chrome MV3 测试数据填充插件</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/版本-v0.9.6-4a6fa5?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/版本-v0.9.7-4a6fa5?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/Chrome-MV3-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="chrome mv3">
 </p>
 
@@ -23,7 +23,7 @@
 
 支持 **Chrome 109+**。
 
-1. 从 [GitHub Releases](https://github.com/coldShan/place-fill/releases) 下载 `place-fill-v0.9.6.zip` 并解压。
+1. 从 [GitHub Releases](https://github.com/coldShan/place-fill/releases) 下载 `place-fill-v0.9.7.zip` 并解压。
 2. 打开 `chrome://extensions`，开启“开发者模式”。
 3. 点击“加载已解压的扩展程序”，选择**直接包含 `manifest.json` 的解压目录**。
 4. 在插件设置中为目标站点开启智能识别与右键标注，再使用悬浮面板或输入框旁的快捷入口填充。
