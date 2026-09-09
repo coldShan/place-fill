@@ -62,7 +62,11 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
       windowListeners[type] = listener;
     },
     location: { hostname: "example.com" },
-    setTimeout(fn) {
+    setTimeout(fn, delay) {
+      if (env.focusTimers && delay === 0) {
+        env.focusTimers.push(fn);
+        return env.focusTimers.length;
+      }
       fn();
       return 1;
     },
@@ -288,6 +292,44 @@ test("directory permission reminder stays hidden on disabled sites", async () =>
   assert.equal(runtime.runtimeMessages.some(function (message) {
     return message.type === "open-local-annotation-permission";
   }), false);
+});
+
+test("focus events coalesce and recognize only the final active target", () => {
+  const focusTimers = [];
+  const runtime = runContentScriptWithSmartFillStub({}, { focusTimers });
+  runtime.documentListeners.focusout();
+  runtime.document.activeElement = { id: "next" };
+  runtime.documentListeners.focusin({ target: runtime.document.activeElement });
+  runtime.documentListeners.focusout();
+  runtime.document.activeElement = { id: "final" };
+  runtime.documentListeners.focusin({ target: runtime.document.activeElement });
+  assert.equal(focusTimers.length, 1);
+  assert.deepEqual(runtime.syncTargetCalls, []);
+  focusTimers.shift()();
+  assert.deepEqual(runtime.syncTargetCalls, [runtime.document.activeElement]);
+  runtime.document.activeElement = runtime.document.body;
+  runtime.documentListeners.focusout();
+  focusTimers.shift()();
+  assert.deepEqual(runtime.syncTargetCalls, [{ id: "final" }, runtime.document.body]);
+});
+
+test("pending focus sync skips internal controls but permits a new external focus", () => {
+  const focusTimers = [];
+  const internal = { id: "favorite" };
+  const runtime = runContentScriptWithSmartFillStub({
+    isInteractionTarget(target) { return target === internal; },
+    shouldPreserveOnFocusOut() { return true; }
+  }, { focusTimers });
+  runtime.documentListeners.focusout();
+  runtime.document.activeElement = internal;
+  runtime.documentListeners.focusin({ target: internal });
+  focusTimers.shift()();
+  assert.deepEqual(runtime.syncTargetCalls, []);
+  runtime.documentListeners.focusout();
+  runtime.document.activeElement = { id: "external" };
+  runtime.documentListeners.focusin({ target: runtime.document.activeElement });
+  focusTimers.shift()();
+  assert.deepEqual(runtime.syncTargetCalls, [runtime.document.activeElement]);
 });
 
 test("focusout keeps the smart-fill controller alive while it is preserving an internal interaction", () => {

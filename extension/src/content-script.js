@@ -85,6 +85,22 @@
     return !target || target === document || target === document.body || target === document.documentElement;
   }
 
+  let focusSyncPending = false;
+  let preserveFocusOut = false;
+
+  function scheduleFocusSync(isFocusOut) {
+    preserveFocusOut = isFocusOut;
+    if (focusSyncPending) return;
+    focusSyncPending = true;
+    window.setTimeout(function () {
+      focusSyncPending = false;
+      const target = document.activeElement;
+      if (smartFillController.isInteractionTarget(target)) return;
+      if (preserveFocusOut && smartFillController.shouldPreserveOnFocusOut()) return;
+      smartFillController.syncTarget(target);
+    }, 0);
+  }
+
   function buildAiRecognitionSignature(snapshot) {
     const currentPath = window && window.location
       ? String(window.location.origin || "") + String(window.location.pathname || "")
@@ -271,7 +287,7 @@
         if (smartFillController && typeof smartFillController.isInteractionTarget === "function" && smartFillController.isInteractionTarget(event.target)) {
           return;
         }
-        smartFillController.syncTarget(event.target);
+        scheduleFocusSync(false);
       },
       true
     );
@@ -279,12 +295,7 @@
     document.addEventListener(
       "focusout",
       function () {
-        window.setTimeout(function () {
-          if (smartFillController && typeof smartFillController.shouldPreserveOnFocusOut === "function" && smartFillController.shouldPreserveOnFocusOut()) {
-            return;
-          }
-          smartFillController.syncTarget(document.activeElement);
-        }, 0);
+        scheduleFocusSync(true);
       },
       true
     );
