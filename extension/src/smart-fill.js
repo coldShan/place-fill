@@ -343,7 +343,8 @@
   function getOfflineFormField(element, env) {
     if (!offlineFormSnapshotApi || typeof offlineFormSnapshotApi.buildOfflineFormFieldSnapshot !== "function") return null;
     return offlineFormSnapshotApi.buildOfflineFormFieldSnapshot(element, {
-      document: getEnvDocument(env)
+      document: getEnvDocument(env),
+      includeDisabledReadonly: !!(env && env.includeDisabledReadonly)
     });
   }
 

@@ -180,6 +180,30 @@ test("smart fill uses offline snapshot context from table headers and sections",
   assert.equal(inferFieldKeyForSmartFill(input, createEnv({ elements: [input] })), "mobile");
 });
 
+test("smart fill reads outer labels from disabled controls only when requested", () => {
+  const label = { textContent: "姓名" };
+  const formItem = {
+    parentElement: null,
+    querySelectorAll(selector) {
+      return selector === ":scope > label" ? [label] : [];
+    }
+  };
+  const wrapper = {
+    parentElement: formItem,
+    querySelectorAll() {
+      return [];
+    }
+  };
+  const input = createElement({
+    disabled: true,
+    parentElement: wrapper
+  });
+  const env = createEnv({ elements: [input] });
+
+  assert.equal(inferFieldKeyForSmartFill(input, env), null);
+  assert.equal(inferFieldKeyForSmartFill(input, { ...env, includeDisabledReadonly: true }), "fullName");
+});
+
 test("smart fill keeps field label stronger than unheaded grid section text", () => {
   const grid = {
     tagName: "SECTION",

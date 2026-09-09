@@ -195,16 +195,20 @@
     if (!doc || !editableTargetApi || !smartFillApi) return {};
     const profile = {};
     const seen = new Set();
-    Array.from(doc.querySelectorAll(
+    Array.from(resolveAutoFillScope(doc).querySelectorAll(
       'input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]'
     )).forEach(function (node) {
       const target = node;
+      if (typeof target.closest === "function" && target.closest(".ctdp-root")) return;
       if (seen.has(target)) return;
       seen.add(target);
       if (String(target.tagName || "").toUpperCase() === "INPUT" && /^(?:button|checkbox|color|file|hidden|image|radio|range|reset|submit)$/i.test(String(target.type || "text"))) return;
       const value = String(target.isContentEditable ? target.textContent || "" : target.value || "");
       if (!value.trim() || isSensitiveFormControl(target)) return;
-      const fieldKey = smartFillApi.inferFieldKeyForSmartFill(target);
+      const fieldKey = smartFillApi.inferFieldKeyForSmartFill(target, {
+        document: doc,
+        includeDisabledReadonly: true
+      });
       if (fieldKey && !profile[fieldKey]) profile[fieldKey] = value;
     });
     return profile;

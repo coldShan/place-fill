@@ -107,8 +107,8 @@ var ChromeTestDataOfflineFormSnapshotBundle = (function() {
     }
     return true;
   }
-  function isFillableCandidate(element) {
-    if (!element || element.disabled || element.readOnly || !isVisibleElement(element)) return false;
+  function isFillableCandidate(element, includeDisabledReadonly = false) {
+    if (!element || !includeDisabledReadonly && (element.disabled || element.readOnly) || !isVisibleElement(element)) return false;
     const tag = String(element.tagName || "").toLowerCase();
     if (tag === "textarea" || tag === "select") return true;
     if (tag === "input") {
@@ -205,7 +205,7 @@ var ChromeTestDataOfflineFormSnapshotBundle = (function() {
     const fingerprintCounts = /* @__PURE__ */ new Map();
     for (const candidate of candidates) {
       if (fields.length >= maxFields) break;
-      if (!isFillableCandidate(candidate)) continue;
+      if (!isFillableCandidate(candidate, options.includeDisabledReadonly === true)) continue;
       const field = createFieldSnapshot(candidate, doc);
       const fingerprintBase = buildFingerprintBase(field);
       const count = fingerprintCounts.get(fingerprintBase) || 0;
@@ -219,7 +219,8 @@ var ChromeTestDataOfflineFormSnapshotBundle = (function() {
   }
   function buildOfflineFormFieldSnapshot(element, options = {}) {
     const candidate = element;
-    if (!isFillableCandidate(candidate)) return null;
+    const includeDisabledReadonly = options.includeDisabledReadonly === true;
+    if (!isFillableCandidate(candidate, includeDisabledReadonly)) return null;
     const doc = options.document || candidate.ownerDocument || (typeof document !== "undefined" ? document : null);
     const field = createFieldSnapshot(candidate, doc);
     const fingerprintBase = buildFingerprintBase(field);
@@ -229,7 +230,7 @@ var ChromeTestDataOfflineFormSnapshotBundle = (function() {
     let matchingIndex = 0;
     const candidates = Array.from(doc.querySelectorAll(CANDIDATE_SELECTOR));
     for (const item of candidates) {
-      if (!isFillableCandidate(item)) continue;
+      if (!isFillableCandidate(item, includeDisabledReadonly)) continue;
       const itemField = createFieldSnapshot(item, doc);
       if (buildFingerprintBase(itemField) !== fingerprintBase) continue;
       matchingIndex += 1;

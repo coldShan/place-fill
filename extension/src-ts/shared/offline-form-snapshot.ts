@@ -20,6 +20,7 @@ const UNSUPPORTED_INPUT_TYPES = new Set([
 
 export type OfflineFormSnapshotOptions = {
   document?: Document | null;
+  includeDisabledReadonly?: boolean;
   maxFields?: number;
 };
 
@@ -165,8 +166,8 @@ function isVisibleElement(element: ElementWithLabels): boolean {
   return true;
 }
 
-function isFillableCandidate(element: ElementWithLabels): boolean {
-  if (!element || element.disabled || element.readOnly || !isVisibleElement(element)) return false;
+function isFillableCandidate(element: ElementWithLabels, includeDisabledReadonly = false): boolean {
+  if (!element || (!includeDisabledReadonly && (element.disabled || element.readOnly)) || !isVisibleElement(element)) return false;
   const tag = String(element.tagName || "").toLowerCase();
   if (tag === "textarea" || tag === "select") return true;
   if (tag === "input") {
@@ -274,7 +275,7 @@ export function buildOfflineFormSnapshot(options: OfflineFormSnapshotOptions = {
   const fingerprintCounts = new Map<string, number>();
   for (const candidate of candidates) {
     if (fields.length >= maxFields) break;
-    if (!isFillableCandidate(candidate)) continue;
+    if (!isFillableCandidate(candidate, options.includeDisabledReadonly === true)) continue;
 
     const field = createFieldSnapshot(candidate, doc);
     const fingerprintBase = buildFingerprintBase(field);
@@ -291,7 +292,8 @@ export function buildOfflineFormSnapshot(options: OfflineFormSnapshotOptions = {
 
 export function buildOfflineFormFieldSnapshot(element: Element, options: OfflineFormSnapshotOptions = {}): OfflineFormFieldSnapshot | null {
   const candidate = element as ElementWithLabels;
-  if (!isFillableCandidate(candidate)) return null;
+  const includeDisabledReadonly = options.includeDisabledReadonly === true;
+  if (!isFillableCandidate(candidate, includeDisabledReadonly)) return null;
 
   const doc = options.document || candidate.ownerDocument || (typeof document !== "undefined" ? document : null);
   const field = createFieldSnapshot(candidate, doc);
@@ -303,7 +305,7 @@ export function buildOfflineFormFieldSnapshot(element: Element, options: Offline
   let matchingIndex = 0;
   const candidates = Array.from(doc.querySelectorAll(CANDIDATE_SELECTOR)) as ElementWithLabels[];
   for (const item of candidates) {
-    if (!isFillableCandidate(item)) continue;
+    if (!isFillableCandidate(item, includeDisabledReadonly)) continue;
     const itemField = createFieldSnapshot(item, doc);
     if (buildFingerprintBase(itemField) !== fingerprintBase) continue;
     matchingIndex += 1;

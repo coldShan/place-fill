@@ -235,3 +235,15 @@ test("offline form snapshot filters non-fillable controls and caps fields", () =
   assert.equal(snapshot.fields.some(function (field) { return field.name === "hidden"; }), false);
   assert.equal(snapshot.fields.some(function (field) { return field.name === "disabled"; }), false);
 });
+
+test("offline form snapshot includes disabled and readonly controls only when requested", () => {
+  const disabled = createElement({ attributes: { name: "disabled" }, disabled: true });
+  const readonly = createElement({ attributes: { name: "readonly" }, readOnly: true });
+  const document = createDocument([disabled, readonly]);
+
+  assert.deepEqual(buildOfflineFormSnapshot({ document }).fields, []);
+  assert.deepEqual(
+    buildOfflineFormSnapshot({ document, includeDisabledReadonly: true }).fields.map(function (field) { return field.name; }),
+    ["disabled", "readonly"]
+  );
+});

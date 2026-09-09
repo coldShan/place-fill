@@ -50,7 +50,11 @@ test("page capture checks duplicates only on request and prevents concurrent wri
     }
   };
   const controller = (panelControllerPkg.default || panelControllerPkg).createContentScriptPanelController({
-    document: { querySelectorAll() { scans += 1; return fields; } },
+    document: { querySelectorAll(selector) {
+      if (selector.includes("dialog[open]")) return [];
+      scans += 1;
+      return fields;
+    } },
     window: { location: { hostname: "EXAMPLE.COM" } },
     generators: { generateProfile() { return {}; } },
     panelStateApi: { createPanelState() { return {}; } },
@@ -150,6 +154,44 @@ test("quick favorite capture keeps the first non-empty value for every recognize
 
   assert.deepEqual(profile, {
     address: "郑州市金水区",
+    fullName: "张三",
+    mobile: "13800138000"
+  });
+});
+
+test("quick favorite capture limits collection to the active modal and keeps disabled or readonly values", () => {
+  const pageInput = { nodeType: 1, tagName: "INPUT", type: "text", fieldKey: "companyName", value: "背景公司" };
+  const disabledInput = { nodeType: 1, tagName: "INPUT", type: "text", disabled: true, fieldKey: "mobile", value: "13800138000" };
+  const readonlyInput = { nodeType: 1, tagName: "INPUT", type: "text", readOnly: true, fieldKey: "fullName", value: "张三" };
+  const modal = {
+    hidden: false,
+    getAttribute() {
+      return null;
+    },
+    getClientRects() {
+      return [{}];
+    },
+    querySelectorAll() {
+      return [disabledInput, readonlyInput];
+    }
+  };
+  const document = {
+    querySelectorAll(selector) {
+      return selector.includes("dialog[open]") ? [modal] : [pageInput, disabledInput, readonlyInput];
+    }
+  };
+
+  const profile = collectPageFavoriteProfile(
+    document,
+    editableTargetApi,
+    { inferFieldKeyForSmartFill(node, options) {
+      assert.equal(options.document, document);
+      assert.equal(options.includeDisabledReadonly, true);
+      return node.fieldKey || null;
+    } }
+  );
+
+  assert.deepEqual(profile, {
     fullName: "张三",
     mobile: "13800138000"
   });
