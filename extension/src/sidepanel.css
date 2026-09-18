@@ -1444,6 +1444,23 @@
   outline-offset: 2px;
 }
 
+.ctdp-settings-select {
+  min-width: 76px;
+  margin-left: auto;
+  padding: 6px 28px 6px 10px;
+  border: 1px solid rgba(20, 35, 80, 0.14);
+  border-radius: 9px;
+  color: var(--ctdp-ink);
+  background: rgba(255, 255, 255, 0.72);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ctdp-settings-select:focus-visible {
+  outline: 2px solid rgb(var(--place-fill-accent-rgb) / 0.30);
+  outline-offset: 2px;
+}
+
 .ctdp-ai-settings {
   display: grid;
   gap: 10px;
@@ -1905,11 +1922,24 @@
 }
 
 .ctdp-dock-icon {
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   color: transparent;
   filter: drop-shadow(0 4px 8px rgba(15, 30, 80, 0.16));
-  transition: filter 180ms ease;
+  transition:
+    width 180ms ease,
+    height 180ms ease,
+    filter 180ms ease;
+}
+
+.ctdp-root[data-floating-icon-size="large"] .ctdp-dock-icon {
+  width: 42px;
+  height: 42px;
+}
+
+.ctdp-root[data-floating-icon-size="small"] .ctdp-dock-icon {
+  width: 26px;
+  height: 26px;
 }
 
 .ctdp-dock:hover .ctdp-dock-icon {

@@ -624,6 +624,8 @@ test("panel footer adds a settings entry and the panel includes a dedicated sett
   assert.match(panelScript, /data-role="floating-icon-toggle"/);
   assert.match(panelScript, /显示悬浮图标/);
   assert.match(panelScript, /开启后仅在已启用的站点自动显示/);
+  assert.match(panelScript, /data-role="floating-icon-size"/);
+  assert.match(panelScript, /<option value="large"[\s\S]*?>大号<\/option>[\s\S]*?<option value="medium"[\s\S]*?>中号<\/option>[\s\S]*?<option value="small"[\s\S]*?>小号<\/option>/);
   assert.match(panelScript, /data-site-feature-enabled/);
   assert.match(panelScript, /root\.setAttribute\("data-site-feature-enabled",\s*String\(state\.siteFeatureEnabled\)\)/);
   assert.match(panelScript, /当前站点已启用智能识别和右键标注/);
@@ -650,6 +652,16 @@ test("floating icon preference restores only on enabled sites and syncs across o
   assert.match(panelScript, /if \(shouldShowFloatingIcon\(\)\) panelState\.collapse\(\);[\s\S]*?else panelState\.hide\(\)/);
   assert.match(panelScript, /if \(ensureVisible && shouldShowFloatingIcon\(\)\)/);
   assert.match(panelScript, /if \(panelState\.snapshot\(\)\.collapsed\) panelState\.expand\(\);[\s\S]*?else panelState\.toggleVisible\(\)/);
+});
+
+test("floating logo size defaults to medium and supports large medium and small", () => {
+  assert.match(panelScript, /FLOATING_ICON_SIZE_STORAGE_KEY\s*=\s*"ctdp\.floatingIconSize\.v1"/);
+  assert.match(panelScript, /floatingIconSize:\s*"medium"/);
+  assert.match(panelScript, /size === "large" \|\| size === "small" \? size : "medium"/);
+  assert.match(panelScript, /changes\[FLOATING_ICON_SIZE_STORAGE_KEY\]\.newValue/);
+  assert.match(panelStyles, /\.ctdp-dock-icon\s*\{[\s\S]*?width:\s*34px;[\s\S]*?height:\s*34px;/);
+  assert.match(panelStyles, /data-floating-icon-size="large"[\s\S]*?width:\s*42px;[\s\S]*?height:\s*42px;/);
+  assert.match(panelStyles, /data-floating-icon-size="small"[\s\S]*?width:\s*26px;[\s\S]*?height:\s*26px;/);
 });
 
 test("settings groups use an exclusive accordion with current-site settings open by default", () => {

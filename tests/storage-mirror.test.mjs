@@ -70,6 +70,7 @@ test("local file and manual export share the full backup shape", () => {
       "ctdp.visibleFieldKeys.v1",
       "ctdp.siteFeatureEnabled.v1",
       "ctdp.floatingIconEnabled.v1",
+      "ctdp.floatingIconSize.v1",
       "ctdp.focusStyle.v1",
       "ctdp.dockTop.v1"
     ],

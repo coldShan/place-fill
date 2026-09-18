@@ -259,6 +259,7 @@
     let siteFeatureStatus = null;
     let siteFeatureToggle = null;
     let floatingIconToggle = null;
+    let floatingIconSizeSelect = null;
     let localAnnotationFileToggle = null;
     let localAnnotationFileNote = null;
     let localAnnotationFileAuthorizeButton = null;
@@ -284,6 +285,7 @@
     const FOCUS_STYLE_STORAGE_KEY = "ctdp.focusStyle.v1";
     const DOCK_TOP_STORAGE_KEY = "ctdp.dockTop.v1";
     const FLOATING_ICON_ENABLED_STORAGE_KEY = "ctdp.floatingIconEnabled.v1";
+    const FLOATING_ICON_SIZE_STORAGE_KEY = "ctdp.floatingIconSize.v1";
     const FAVORITE_PROFILES_STORAGE_KEY = "ctdp.favoriteProfiles.v1";
     const GENERATED_PROFILES_STORAGE_KEY = "ctdp.generatedProfiles.v1";
     const SMART_FILL_OVERRIDES_STORAGE_KEY = "ctdp.smartFillOverrides.v1";
@@ -303,6 +305,7 @@
       profile: generators.generateProfile(),
       siteFeatureEnabled: siteFeatureToggleApi.getDefaultSiteFeatureEnabled(),
       floatingIconEnabled: true,
+      floatingIconSize: "medium",
       clearingUserData: false,
       localAnnotationFileEnabled: false,
       localAnnotationFileSupported: true,
@@ -328,6 +331,7 @@
       root.setAttribute("data-view", state.panelView);
       root.setAttribute("data-site-feature-enabled", String(state.siteFeatureEnabled));
       root.setAttribute("data-floating-icon-enabled", String(state.floatingIconEnabled));
+      root.setAttribute("data-floating-icon-size", state.floatingIconSize);
     }
 
     function shouldShowFloatingIcon() {
@@ -527,6 +531,24 @@
       ].join("");
     }
 
+    function renderFloatingIconSizeMarkup() {
+      return [
+        '<label class="ctdp-settings-row ctdp-settings-row-static">',
+        '  <span class="ctdp-settings-row-head">',
+        '    <span class="ctdp-settings-row-copy">',
+        '      <span class="ctdp-settings-row-title">悬浮 Logo 尺寸</span>',
+        '      <span class="ctdp-settings-row-note">默认使用中号尺寸</span>',
+        "    </span>",
+        '    <select class="ctdp-settings-select" data-role="floating-icon-size" aria-label="选择悬浮 Logo 尺寸">',
+        '      <option value="large"' + (state.floatingIconSize === "large" ? " selected" : "") + '>大号</option>',
+        '      <option value="medium"' + (state.floatingIconSize === "medium" ? " selected" : "") + '>中号</option>',
+        '      <option value="small"' + (state.floatingIconSize === "small" ? " selected" : "") + '>小号</option>',
+        "    </select>",
+        "  </span>",
+        "</label>"
+      ].join("");
+    }
+
     function getLocalAnnotationFileNoteText() {
       if (!state.localAnnotationFileSupported) return "Chrome 122 以下请使用手动备份与恢复";
       if (state.localAnnotationFilePermissionRequired) return "目录权限需要重新确认，浏览器内数据不受影响";
@@ -620,6 +642,28 @@
       syncFloatingIconEnabled(enabled);
       try {
         await chrome.storage.local.set({ [FLOATING_ICON_ENABLED_STORAGE_KEY]: state.floatingIconEnabled });
+      } catch (_) {}
+    }
+
+    function syncFloatingIconSize(size) {
+      state.floatingIconSize = size === "large" || size === "small" ? size : "medium";
+      if (floatingIconSizeSelect) floatingIconSizeSelect.value = state.floatingIconSize;
+      if (root) root.setAttribute("data-floating-icon-size", state.floatingIconSize);
+    }
+
+    async function loadFloatingIconSize() {
+      try {
+        const stored = await chrome.storage.local.get(FLOATING_ICON_SIZE_STORAGE_KEY);
+        syncFloatingIconSize(stored && stored[FLOATING_ICON_SIZE_STORAGE_KEY]);
+      } catch (_) {
+        syncFloatingIconSize("medium");
+      }
+    }
+
+    async function setFloatingIconSize(size) {
+      syncFloatingIconSize(size);
+      try {
+        await chrome.storage.local.set({ [FLOATING_ICON_SIZE_STORAGE_KEY]: state.floatingIconSize });
       } catch (_) {}
     }
 
@@ -1646,6 +1690,7 @@
     async function refreshAfterFullBackupImport() {
       await Promise.all([
         loadFloatingIconEnabled(),
+        loadFloatingIconSize(),
         loadSiteFeatureEnabled(),
         loadFocusStyle(),
         loadVisibleFieldKeys(),
@@ -1693,6 +1738,7 @@
       root.setAttribute("data-autofill-running", "false");
       root.setAttribute("data-site-feature-enabled", String(state.siteFeatureEnabled));
       root.setAttribute("data-floating-icon-enabled", String(state.floatingIconEnabled));
+      root.setAttribute("data-floating-icon-size", state.floatingIconSize);
       root.innerHTML = [
         '<div class="ctdp-autofill-aura" data-role="autofill-aura" aria-hidden="true">',
         '  <div class="ctdp-autofill-status" data-role="autofill-status">',
@@ -1784,7 +1830,7 @@
           "填充体验",
           getFocusStyleNoteText(),
           "wand-sparkles",
-          renderFloatingIconToggleMarkup() + renderFocusStyleToggleMarkup(),
+          renderFloatingIconToggleMarkup() + renderFloatingIconSizeMarkup() + renderFocusStyleToggleMarkup(),
           false,
           "focus-style-note"
         ),
@@ -1837,6 +1883,7 @@
       siteFeatureStatus = root.querySelector('[data-role="site-feature-status"]');
       siteFeatureToggle = root.querySelector('[data-role="site-feature-toggle"]');
       floatingIconToggle = root.querySelector('[data-role="floating-icon-toggle"]');
+      floatingIconSizeSelect = root.querySelector('[data-role="floating-icon-size"]');
       localAnnotationFileToggle = root.querySelector('[data-role="local-annotation-file-toggle"]');
       localAnnotationFileNote = root.querySelector('[data-role="local-annotation-file-note"]');
       localAnnotationFileAuthorizeButton = root.querySelector('[data-role="reauthorize-local-annotation-file"]');
@@ -1975,6 +2022,11 @@
           setFloatingIconEnabled(floatingIconTrigger.checked);
           return;
         }
+        const floatingIconSizeTrigger = event.target.closest('[data-role="floating-icon-size"]');
+        if (floatingIconSizeTrigger) {
+          setFloatingIconSize(floatingIconSizeTrigger.value);
+          return;
+        }
         const focusStyleTrigger = event.target.closest('[data-role="focus-style-toggle"]');
         if (focusStyleTrigger) {
           setFocusStyle(focusStyleTrigger.checked);
@@ -2036,6 +2088,7 @@
       loadFavoriteProfiles();
       hideGithubControls();
       loadFloatingIconEnabled().then(loadSiteFeatureEnabled);
+      loadFloatingIconSize();
       loadLocalAnnotationFileEnabled();
       loadAiRecognitionConfig();
       loadFocusStyle();
@@ -2049,6 +2102,9 @@
           if (areaName !== "local" || !changes) return;
           if (changes[FLOATING_ICON_ENABLED_STORAGE_KEY]) {
             syncFloatingIconEnabled(changes[FLOATING_ICON_ENABLED_STORAGE_KEY].newValue);
+          }
+          if (changes[FLOATING_ICON_SIZE_STORAGE_KEY]) {
+            syncFloatingIconSize(changes[FLOATING_ICON_SIZE_STORAGE_KEY].newValue);
           }
           if (changes[SITE_FEATURE_ENABLED_STORAGE_KEY]) loadSiteFeatureEnabled();
           if (changes[LOCAL_ANNOTATION_FILE_ENABLED_STORAGE_KEY]) {
