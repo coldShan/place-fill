@@ -183,3 +183,64 @@ test("weekly backup reminder only displays on enabled sites until dismissed", as
   assert.equal(sentMessage.tabId, 9);
   assert.equal(sentMessage.message.type, "hide-backup-reminder");
 });
+
+test("weekly backup reminder stays disabled while local automatic backup is ready", async () => {
+  const onAlarm = createEvent();
+  const onMessage = createEvent();
+  const storageData = { "ctdp.backupReminderPendingAt.v1": Date.now() };
+  const sentMessages = [];
+  let clearedAlarm = null;
+  let createdAlarm = null;
+  const chrome = {
+    action: { onClicked: createEvent() },
+    alarms: {
+      clear(name, callback) { clearedAlarm = name; callback?.(); },
+      create(name) { createdAlarm = name; },
+      get(_name, callback) { callback(null); },
+      onAlarm
+    },
+    contextMenus: { create() {}, onClicked: createEvent(), removeAll(callback) { callback?.(); }, update(_id, _props, callback) { callback?.(); } },
+    runtime: { getManifest() { return { version: "0.8.0" }; }, lastError: null, onInstalled: createEvent(), onMessage, onStartup: createEvent() },
+    storage: {
+      local: {
+        get(keys, callback) { callback({ [keys]: storageData[keys] }); },
+        remove(key, callback) { delete storageData[key]; callback?.(); },
+        set(values, callback) { Object.assign(storageData, values); callback?.(); }
+      },
+      onChanged: createEvent()
+    },
+    tabs: {
+      create() {},
+      get(tabId, callback) { callback({ id: tabId, url: "https://enabled.example.com/form" }); },
+      onActivated: createEvent(),
+      onUpdated: createEvent(),
+      query(query, callback) { callback(Object.keys(query).length ? [{ id: 7, url: "https://enabled.example.com/form" }] : [{ id: 7 }]); },
+      sendMessage(tabId, message, _options, callback) { sentMessages.push({ message, tabId }); callback?.(); }
+    }
+  };
+
+  vm.runInNewContext(script, {
+    URL,
+    chrome,
+    console,
+    fetch() { throw new Error("not used"); },
+    navigator: { userAgent: "Chrome/122.0.0.0" },
+    globalThis: {
+      ChromeTestDataFieldVisibility: { STORAGE_KEY: "ctdp.visibleFieldKeys.v1", isFieldVisible() { return true; }, readVisibleFieldKeys() { return Promise.resolve([]); }, writeVisibleFieldKeys() { return Promise.resolve([]); } },
+      ChromeTestDataLocalAnnotationFile: { ENABLED_STORAGE_KEY: "ctdp.localAnnotationFileEnabled.v1", getState() { return Promise.resolve({ enabled: true, permissionState: "granted" }); } },
+      ChromeTestDataSiteFeatureToggle: { STORAGE_KEY: "ctdp.siteFeatureEnabled.v1", getDefaultSiteFeatureEnabled() { return false; }, isSiteFeatureEnabled(value) { return value === true; }, normalizeSiteFeatureEnabledMap(value) { return value || {}; }, readSiteFeatureEnabledMap() { return Promise.resolve({}); }, readSiteFeatureEnabled() { return Promise.resolve(true); } },
+      ChromeTestDataSmartFill: { formatSmartFillButtonLabel(fieldKey) { return fieldKey; }, getSupportedFieldKeys() { return ["mobile"]; } }
+    },
+    importScripts() {}
+  });
+
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  assert.equal(createdAlarm, null);
+  assert.equal(clearedAlarm, "weekly-backup-reminder");
+  assert.equal(storageData["ctdp.backupReminderPendingAt.v1"], undefined);
+  assert.deepEqual(sentMessages.map(function (entry) { return [entry.tabId, entry.message.type]; }), [[7, "hide-backup-reminder"]]);
+
+  onAlarm.dispatch({ name: "weekly-backup-reminder" });
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  assert.equal(storageData["ctdp.backupReminderPendingAt.v1"], undefined);
+});

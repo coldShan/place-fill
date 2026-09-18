@@ -117,13 +117,16 @@ function getNextBackupReminderAt(now) {
 }
 
 function ensureBackupReminderAlarm() {
-  if (!chrome.alarms || typeof chrome.alarms.get !== "function") return;
-  chrome.alarms.get(BACKUP_REMINDER_ALARM_NAME, function (alarm) {
-    void chrome.runtime.lastError;
-    if (alarm) return;
-    chrome.alarms.create(BACKUP_REMINDER_ALARM_NAME, {
-      periodInMinutes: WEEK_IN_MINUTES,
-      when: getNextBackupReminderAt()
+  return isLocalAutoBackupReady().then(function (ready) {
+    if (ready) return clearBackupReminder();
+    if (!chrome.alarms || typeof chrome.alarms.get !== "function") return;
+    chrome.alarms.get(BACKUP_REMINDER_ALARM_NAME, function (alarm) {
+      void chrome.runtime.lastError;
+      if (alarm) return;
+      chrome.alarms.create(BACKUP_REMINDER_ALARM_NAME, {
+        periodInMinutes: WEEK_IN_MINUTES,
+        when: getNextBackupReminderAt()
+      });
     });
   });
 }
@@ -148,6 +151,33 @@ function hideBackupReminderForAllTabs() {
   });
 }
 
+function isLocalAutoBackupReady() {
+  if (!localAnnotationFileApi || typeof localAnnotationFileApi.getState !== "function") return Promise.resolve(false);
+  return localAnnotationFileApi.getState()
+    .then(function (state) {
+      return !!(state && state.enabled && state.permissionState === "granted");
+    })
+    .catch(function () {
+      return false;
+    });
+}
+
+function clearBackupReminder() {
+  if (chrome.alarms && typeof chrome.alarms.clear === "function") {
+    chrome.alarms.clear(BACKUP_REMINDER_ALARM_NAME, function () {
+      void chrome.runtime.lastError;
+    });
+  }
+  if (!chrome.storage || !chrome.storage.local || typeof chrome.storage.local.remove !== "function") {
+    hideBackupReminderForAllTabs();
+    return;
+  }
+  chrome.storage.local.remove(BACKUP_REMINDER_PENDING_KEY, function () {
+    void chrome.runtime.lastError;
+    hideBackupReminderForAllTabs();
+  });
+}
+
 function isSiteFeatureEnabledForUrl(url) {
   const hostname = getUrlHostname(url);
   if (!siteFeatureToggleApi || !hostname) return Promise.resolve(true);
@@ -163,8 +193,8 @@ function syncBackupReminderForTab(tabId) {
   if (!tabId || !chrome.tabs || typeof chrome.tabs.get !== "function" || !chrome.storage || !chrome.storage.local) return;
   chrome.tabs.get(tabId, function (tab) {
     void chrome.runtime.lastError;
-    isSiteFeatureEnabledForUrl(tab && tab.url).then(function (enabled) {
-      if (!enabled) return sendBackupReminderState(tabId, false);
+    Promise.all([isSiteFeatureEnabledForUrl(tab && tab.url), isLocalAutoBackupReady()]).then(function (states) {
+      if (!states[0] || states[1]) return sendBackupReminderState(tabId, false);
       chrome.storage.local.get(BACKUP_REMINDER_PENDING_KEY, function (values) {
         void chrome.runtime.lastError;
         sendBackupReminderState(tabId, !!(values && values[BACKUP_REMINDER_PENDING_KEY]));
@@ -183,13 +213,16 @@ function syncBackupReminderForActiveTab() {
 }
 
 function showBackupReminder() {
-  if (!chrome.storage || !chrome.storage.local) return;
-  chrome.storage.local.set({ [BACKUP_REMINDER_PENDING_KEY]: Date.now() }, function () {
-    void chrome.runtime.lastError;
-    if (!chrome.tabs || typeof chrome.tabs.query !== "function") return;
-    chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
+  return isLocalAutoBackupReady().then(function (ready) {
+    if (ready) return clearBackupReminder();
+    if (!chrome.storage || !chrome.storage.local) return;
+    chrome.storage.local.set({ [BACKUP_REMINDER_PENDING_KEY]: Date.now() }, function () {
       void chrome.runtime.lastError;
-      syncBackupReminderForTab(tabs && tabs[0] && tabs[0].id);
+      if (!chrome.tabs || typeof chrome.tabs.query !== "function") return;
+      chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
+        void chrome.runtime.lastError;
+        syncBackupReminderForTab(tabs && tabs[0] && tabs[0].id);
+      });
     });
   });
 }
@@ -503,6 +536,9 @@ if (chrome.alarms && chrome.alarms.onAlarm) {
 if (chrome.storage && chrome.storage.onChanged) {
   chrome.storage.onChanged.addListener(function (changes, areaName) {
     if (areaName !== "local" || !changes) return;
+    if (localAnnotationFileApi && Object.prototype.hasOwnProperty.call(changes, localAnnotationFileApi.ENABLED_STORAGE_KEY)) {
+      ensureBackupReminderAlarm();
+    }
     if (siteFeatureToggleApi && Object.prototype.hasOwnProperty.call(changes, siteFeatureToggleApi.STORAGE_KEY)) {
       siteFeatureEnabledMap = siteFeatureToggleApi.normalizeSiteFeatureEnabledMap(changes[siteFeatureToggleApi.STORAGE_KEY].newValue);
       syncRootMenuVisibilityForActiveTab();
@@ -584,13 +620,13 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return;
   }
   if (message.type === "read-backup-reminder-state") {
-    isSiteFeatureEnabledForUrl(sender && sender.tab && sender.tab.url).then(function (enabled) {
+    Promise.all([isSiteFeatureEnabledForUrl(sender && sender.tab && sender.tab.url), isLocalAutoBackupReady()]).then(function (states) {
       chrome.storage.local.get(BACKUP_REMINDER_PENDING_KEY, function (values) {
         const error = chrome.runtime.lastError;
         sendResponse({
           message: BACKUP_REMINDER_MESSAGE,
           ok: !error,
-          pending: enabled && !!(values && values[BACKUP_REMINDER_PENDING_KEY])
+          pending: states[0] && !states[1] && !!(values && values[BACKUP_REMINDER_PENDING_KEY])
         });
       });
     });
