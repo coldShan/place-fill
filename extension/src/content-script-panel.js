@@ -79,6 +79,7 @@
     const sample = Number.isFinite(random) ? Math.max(0, Math.min(0.999999999999, random)) : 0;
     const type = String(target && target.type || "text").toLowerCase();
     const seed = String(100000 + Math.floor(sample * 900000));
+    if (/日/u.test(getFormControlDescription(target))) return String(1 + Math.floor(sample * 31));
     if (type === "number") {
       const rawMin = String(target && target.min || "").trim();
       const rawMax = String(target && target.max || "").trim();

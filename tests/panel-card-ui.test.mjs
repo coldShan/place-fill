@@ -407,6 +407,8 @@ test("one-click fill excludes extension settings controls", () => {
 });
 
 test("one-click fill generates type-safe fallback values for unknown fields", () => {
+  assert.equal(generateFallbackAutoFillValue({ type: "text", placeholder: "日" }, function () { return 0; }), "1");
+  assert.equal(generateFallbackAutoFillValue({ type: "number", labels: [{ textContent: "日期" }] }, function () { return 0.999999; }), "31");
   assert.equal(generateFallbackAutoFillValue({ type: "number", min: "10", max: "20", step: "2" }, function () { return 0.5; }), "16");
   assert.equal(generateFallbackAutoFillValue({ type: "tel" }, function () { return 0.5; }), "550000");
   assert.equal(generateFallbackAutoFillValue({ type: "email" }, function () { return 0.5; }), "test550000@example.com");
