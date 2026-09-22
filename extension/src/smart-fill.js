@@ -81,6 +81,11 @@
       patterns: [/地址/u, /开户地址/u, /\baddress\b/i]
     },
     {
+      fieldKey: "postalCode",
+      exact: ["postalcode", "postcode", "zipcode", "zip", "youzhengbianma", "youbian", "yzbm", "yb"],
+      patterns: [/邮政编码/u, /邮编/u, /postal[\s_-]*code/i, /post[\s_-]*code/i, /zip[\s_-]*code/i]
+    },
+    {
       fieldKey: "fullName",
       exact: ["name", "fullname", "realname", "contactname", "xingming", "xm"],
       patterns: [/姓名/u, /联系人/u, /真实姓名/u, /\bfull\s*name\b/i, /\breal\s*name\b/i, /\bname\b/i]
@@ -94,17 +99,18 @@
 
   const AUTOCOMPLETE_MAP = {
     email: "email",
-    "street-address": "address",
-    "address-line1": "address",
-    "address-line2": "address",
+    postalcode: "postalCode",
+    streetaddress: "address",
+    addressline1: "address",
+    addressline2: "address",
     tel: "mobile",
-    "tel-area-code": "landline",
-    "tel-local": "landline",
-    "tel-local-prefix": "landline",
-    "tel-local-suffix": "landline",
-    "tel-national": "mobile",
+    telareacode: "landline",
+    tellocal: "landline",
+    tellocalprefix: "landline",
+    tellocalsuffix: "landline",
+    telnational: "mobile",
     name: "fullName",
-    "cc-name": "fullName"
+    ccname: "fullName"
   };
   const STORAGE_KEY = "ctdp.smartFillOverrides.v1";
   const MANUAL_FIELD_OVERRIDE_NONE = "__none__";

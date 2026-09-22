@@ -219,6 +219,10 @@
     return road + roadNo + "号" + community + buildingNo + "栋" + unitNo + "单元" + roomNo + "室";
   }
 
+  function generatePostalCode(rng) {
+    return String(100000 + randomInt(900000, rng));
+  }
+
   function generateFieldValue(fieldKey, rng) {
     if (fieldKey === "creditCode") return generateUnifiedSocialCreditCode(rng);
     if (fieldKey === "companyName") return generateCompanyName(rng);
@@ -230,6 +234,7 @@
     if (fieldKey === "email") return generateEmailAddress(rng);
     if (fieldKey === "landline") return generateLandlineNumber(rng);
     if (fieldKey === "address") return generateAddress(rng);
+    if (fieldKey === "postalCode") return generatePostalCode(rng);
     return "";
   }
 
@@ -264,6 +269,7 @@
     generateFieldValue,
     generateLandlineNumber,
     generateMobileNumber,
+    generatePostalCode,
     generateProfile,
     generateUnifiedSocialCreditCode,
     validateBankCardNumber,

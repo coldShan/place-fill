@@ -109,11 +109,14 @@ test("smart fill infers phone, id card, name, bank card and credit code from com
   assert.equal(inferFieldKeyForSmartFill(createElement({ id: "bankCardNo" })), "bankCard");
   assert.equal(inferFieldKeyForSmartFill(createElement({ name: "loginAccount" })), "account");
   assert.equal(inferFieldKeyForSmartFill(createElement({ name: "unifiedSocialCreditCode" })), "creditCode");
+  assert.equal(inferFieldKeyForSmartFill(createElement({ placeholder: "请输入邮政编码" })), "postalCode");
 });
 
 test("smart fill uses autocomplete hints before generic text matches", () => {
   assert.equal(inferFieldKeyForSmartFill(createElement({ autocomplete: "tel", name: "contact" })), "mobile");
   assert.equal(inferFieldKeyForSmartFill(createElement({ autocomplete: "name", id: "user-profile" })), "fullName");
+  assert.equal(inferFieldKeyForSmartFill(createElement({ autocomplete: "postal-code", name: "location" })), "postalCode");
+  assert.equal(inferFieldKeyForSmartFill(createElement({ autocomplete: "street-address", name: "location" })), "address");
 });
 
 test("smart fill ignores editable Element picker inputs even with saved field mappings", async () => {
@@ -155,6 +158,7 @@ test("smart fill infers pinyin aliases and initials for supported fields", () =>
   assert.equal(inferFieldKeyForSmartFill(createElement({ name: "gddh" })), "landline");
   assert.equal(inferFieldKeyForSmartFill(createElement({ id: "dizhi" })), "address");
   assert.equal(inferFieldKeyForSmartFill(createElement({ name: "tyshxydm" })), "creditCode");
+  assert.equal(inferFieldKeyForSmartFill(createElement({ id: "yzbm" })), "postalCode");
 });
 
 test("smart fill uses offline snapshot context from table headers and sections", () => {
@@ -301,6 +305,7 @@ test("smart fill button label only uses the matched field name", () => {
   assert.equal(formatSmartFillButtonLabel("email"), "邮箱");
   assert.equal(formatSmartFillButtonLabel("landline"), "固定电话");
   assert.equal(formatSmartFillButtonLabel("address"), "地址");
+  assert.equal(formatSmartFillButtonLabel("postalCode"), "邮政编码");
   assert.equal(formatSmartFillButtonLabel("idNumber"), "身份证号");
   assert.equal(formatSmartFillButtonLabel("unknown"), "智能填充");
 });

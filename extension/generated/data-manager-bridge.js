@@ -10,7 +10,8 @@ var ChromeTestDataDataManagerBridgeBundle = (function() {
     { key: "mobile", label: "手机号" },
     { key: "email", label: "邮箱" },
     { key: "landline", label: "固定电话" },
-    { key: "address", label: "地址" }
+    { key: "address", label: "地址" },
+    { key: "postalCode", label: "邮政编码" }
   ];
   FIELD_DEFINITIONS.map(function(definition) {
     return definition.key;

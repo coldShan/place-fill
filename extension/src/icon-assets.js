@@ -14,6 +14,7 @@
     landmark: "assets/icons/lucide/landmark.svg",
     "list-filter": "assets/icons/lucide/list-filter.svg",
     mail: "assets/icons/lucide/mail.svg",
+    mailbox: "assets/icons/lucide/mailbox.svg",
     "map-pinned": "assets/icons/lucide/map-pinned.svg",
     pencil: "assets/icons/lucide/pencil.svg",
     phone: "assets/icons/lucide/phone.svg",

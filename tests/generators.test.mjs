@@ -17,6 +17,7 @@ const {
   generateEmailAddress,
   generateLandlineNumber,
   generateMobileNumber,
+  generatePostalCode,
   generateProfile,
   generateUnifiedSocialCreditCode,
   validateBankCardNumber,
@@ -122,6 +123,10 @@ test("generateAddress returns a constrained Chinese address format", () => {
   assert.equal(address.length >= 8 && address.length <= 30, true);
 });
 
+test("generatePostalCode returns a six digit postal code", () => {
+  assert.match(generatePostalCode(createRng([0.42])), /^[1-9]\d{5}$/);
+});
+
 test("generateProfile returns all fixed fields and formatProfileForCopy keeps stable order", () => {
   const profile = generateProfile(createRng([0.04, 0.12, 0.27, 0.36, 0.48, 0.58, 0.67, 0.81, 0.93]));
 
@@ -137,6 +142,7 @@ test("generateProfile returns all fixed fields and formatProfileForCopy keeps st
   assert.match(profile.landline, /^0\d{2,3}-\d{7,8}$/);
   assert.match(profile.address, /^[\u4e00-\u9fa5]{2,6}路\d{1,3}号[\u4e00-\u9fa5]{2,6}小区\d{1,2}栋\d{1,2}单元\d{2,4}室$/);
   assert.equal(profile.address.length >= 8 && profile.address.length <= 30, true);
+  assert.match(profile.postalCode, /^[1-9]\d{5}$/);
 
   const formatted = formatProfileForCopy(profile);
   const lines = formatted.split("\n");
@@ -163,6 +169,7 @@ test("generateFieldValue regenerates only the requested field shape", () => {
   const idNumber = generateFieldValue("idNumber", createRng([0.05, 0.17, 0.39, 0.44, 0.62, 0.86, 0.21]));
   const creditCode = generateFieldValue("creditCode", createRng([0.02, 0.14, 0.31, 0.48, 0.52, 0.67, 0.73, 0.89]));
   const companyName = generateFieldValue("companyName", createRng([0.05, 0.21, 0.34, 0.48, 0.62]));
+  const postalCode = generateFieldValue("postalCode", createRng([0.42]));
 
   assert.match(mobile, /^1[3-9]\d{9}$/);
   assert.match(email, /^[a-z][a-z0-9]{4,10}@(qq\.com|163\.com|gmail\.com|outlook\.com)$/);
@@ -172,5 +179,6 @@ test("generateFieldValue regenerates only the requested field shape", () => {
   assert.equal(validateChineseIdNumber(idNumber), true);
   assert.equal(validateUnifiedSocialCreditCode(creditCode), true);
   assert.match(companyName, /^[\u4e00-\u9fa5]{4,}(有限责任公司|有限公司|集团有限公司|科技有限公司)$/);
+  assert.match(postalCode, /^[1-9]\d{5}$/);
   assert.equal(generateFieldValue("unknown"), "");
 });

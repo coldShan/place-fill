@@ -17,7 +17,7 @@ test("field metadata exposes stable ordered definitions for all supported fields
     definitions.map(function (item) {
       return item.key;
     }),
-    ["creditCode", "companyName", "fullName", "idNumber", "bankCard", "account", "mobile", "email", "landline", "address"]
+    ["creditCode", "companyName", "fullName", "idNumber", "bankCard", "account", "mobile", "email", "landline", "address", "postalCode"]
   );
   assert.deepEqual(definitions[0], {
     key: "creditCode",
@@ -25,9 +25,9 @@ test("field metadata exposes stable ordered definitions for all supported fields
     iconName: "landmark"
   });
   assert.deepEqual(definitions[definitions.length - 1], {
-    key: "address",
-    label: "地址",
-    iconName: "map-pinned"
+    key: "postalCode",
+    label: "邮政编码",
+    iconName: "mailbox"
   });
 });
 
@@ -36,7 +36,7 @@ test("field metadata returns cloned field definitions and derived helper lookups
   definitions[0].label = "changed";
 
   assert.equal(getFieldDefinitions()[0].label, "统一社会信用代码");
-  assert.deepEqual(getFieldKeys(), ["creditCode", "companyName", "fullName", "idNumber", "bankCard", "account", "mobile", "email", "landline", "address"]);
+  assert.deepEqual(getFieldKeys(), ["creditCode", "companyName", "fullName", "idNumber", "bankCard", "account", "mobile", "email", "landline", "address", "postalCode"]);
   assert.equal(getFieldLabel("account"), "账号");
   assert.equal(getFieldIconName("account"), "badge-check");
   assert.equal(getFieldLabel("email"), "邮箱");
@@ -44,5 +44,6 @@ test("field metadata returns cloned field definitions and derived helper lookups
   assert.equal(getFieldLabel("unknown"), "");
   assert.equal(getFieldIconName("unknown"), "");
   assert.equal(isSupportedFieldKey("address"), true);
+  assert.equal(isSupportedFieldKey("postalCode"), true);
   assert.equal(isSupportedFieldKey("unknown"), false);
 });

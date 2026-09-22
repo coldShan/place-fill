@@ -21,6 +21,7 @@ test("smart fill field icons keep required lucide assets in sync", () => {
   assert.equal(existsSync(join(lucideDir, "landmark.svg")), true);
   assert.equal(existsSync(join(lucideDir, "star.svg")), true);
   assert.equal(existsSync(join(lucideDir, "mail.svg")), true);
+  assert.equal(existsSync(join(lucideDir, "mailbox.svg")), true);
   assert.equal(existsSync(join(lucideDir, "phone.svg")), true);
   assert.equal(existsSync(join(lucideDir, "map-pinned.svg")), true);
   assert.equal(existsSync(join(lucideDir, "settings.svg")), true);
@@ -40,6 +41,7 @@ test("icon asset map uses standalone lucide files instead of inline svg markup",
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/download\.svg/);
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/github\.svg/);
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/mail\.svg/);
+  assert.match(iconAssetsSource, /assets\/icons\/lucide\/mailbox\.svg/);
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/star\.svg/);
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/phone\.svg/);
   assert.match(iconAssetsSource, /assets\/icons\/lucide\/map-pinned\.svg/);

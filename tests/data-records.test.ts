@@ -46,7 +46,8 @@ function buildProfile(index: number) {
     fullName: "测试用户" + index,
     idNumber: "31010119900101" + String(index).padStart(4, "0"),
     landline: "021-6000" + String(index).padStart(4, "0"),
-    mobile: "1380000" + String(index).padStart(4, "0")
+    mobile: "1380000" + String(index).padStart(4, "0"),
+    postalCode: String(200000 + index)
   };
 }
 
@@ -124,6 +125,7 @@ test("favorite profiles support create update and delete within a scope", async 
   assert.equal(updated?.name, "常用数据 B");
   assert.equal(updated?.note, "更新后的备注");
   assert.equal(updated?.profile.fullName, "测试用户2");
+  assert.equal(updated?.profile.postalCode, "200002");
   assert.equal(updated?.profile.account, "100002");
 
   const listAfterUpdate = await readFavoriteProfiles("alpha.example.com", { storageArea });

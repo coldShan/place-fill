@@ -11,7 +11,8 @@
     { key: "mobile", label: "手机号", iconName: "smartphone" },
     { key: "email", label: "邮箱", iconName: "mail" },
     { key: "landline", label: "固定电话", iconName: "phone" },
-    { key: "address", label: "地址", iconName: "map-pinned" }
+    { key: "address", label: "地址", iconName: "map-pinned" },
+    { key: "postalCode", label: "邮政编码", iconName: "mailbox" }
   ]);
 
   const FIELD_LABELS = Object.freeze(
