@@ -11,7 +11,6 @@ function getChromeMajorVersion() {
 
 const backgroundImports = [
   "src/field-meta.js",
-  "src/field-visibility.js",
   "src/site-feature-toggle.js",
   "src/ai-recognition.js",
   "src/smart-fill.js",
@@ -24,7 +23,6 @@ importScripts.apply(globalThis, backgroundImports);
 
 const aiRecognitionApi = globalThis.ChromeTestDataAiRecognition;
 const dataManagerBridgeApi = globalThis.ChromeTestDataDataManagerBridge;
-const fieldVisibilityApi = globalThis.ChromeTestDataFieldVisibility;
 const siteFeatureToggleApi = globalThis.ChromeTestDataSiteFeatureToggle;
 const smartFillApi = globalThis.ChromeTestDataSmartFill;
 const storageMirrorApi = globalThis.ChromeTestDataStorageMirror;
@@ -61,7 +59,7 @@ function resolveContextHostname(info, tab) {
 }
 
 async function buildContextMenus() {
-  if (!chrome.contextMenus || !smartFillApi || !fieldVisibilityApi) return;
+  if (!chrome.contextMenus || !smartFillApi) return;
   chrome.contextMenus.removeAll(function () {
     chrome.contextMenus.create({
       id: MENU_FAVORITE_ID,
@@ -333,15 +331,6 @@ async function checkExtensionUpdate() {
   };
 }
 
-async function syncVisibleFieldKeyForContext(fieldKey, info, tab) {
-  if (!fieldVisibilityApi || !fieldKey) return;
-  const hostname = resolveContextHostname(info, tab);
-  if (!hostname) return;
-  const visibleFieldKeys = await fieldVisibilityApi.readVisibleFieldKeys({ hostname });
-  if (fieldVisibilityApi.isFieldVisible(fieldKey, visibleFieldKeys)) return;
-  await fieldVisibilityApi.writeVisibleFieldKeys(visibleFieldKeys.concat(fieldKey), { hostname });
-}
-
 function isSiteFeatureEnabledForHostname(hostname) {
   if (!siteFeatureToggleApi || !hostname) return true;
   if (!Object.prototype.hasOwnProperty.call(siteFeatureEnabledMap, hostname)) {
@@ -592,14 +581,10 @@ chrome.contextMenus.onClicked.addListener(function (info, tab) {
   }
   if (typeof info.menuItemId !== "string" || !info.menuItemId.startsWith(MENU_FIELD_PREFIX)) return;
   const fieldKey = info.menuItemId.slice(MENU_FIELD_PREFIX.length);
-  syncVisibleFieldKeyForContext(fieldKey, info, tab)
-    .catch(function () {})
-    .finally(function () {
-      sendTabMessage(tab.id, info, {
-        type: "apply-smart-fill-override",
-        fieldKey
-      });
-    });
+  sendTabMessage(tab.id, info, {
+    type: "apply-smart-fill-override",
+    fieldKey
+  });
 });
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {

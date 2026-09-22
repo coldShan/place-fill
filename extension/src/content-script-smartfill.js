@@ -41,7 +41,6 @@
     const win = opts.window;
     const getFieldValue = typeof opts.getFieldValue === "function" ? opts.getFieldValue : function () { return ""; };
     const getCurrentScope = typeof opts.getCurrentScope === "function" ? opts.getCurrentScope : function () { return ""; };
-    const getVisibleFieldKeys = typeof opts.getVisibleFieldKeys === "function" ? opts.getVisibleFieldKeys : function () { return smartFillApi.getSupportedFieldKeys(); };
     const isEnabled = typeof opts.isEnabled === "function" ? opts.isEnabled : function () { return true; };
     const listRecommendedProfiles = typeof opts.listRecommendedProfiles === "function" ? opts.listRecommendedProfiles : function () { return Promise.resolve([]); };
     const onAddCurrentPageToFavorites = typeof opts.onAddCurrentPageToFavorites === "function" ? opts.onAddCurrentPageToFavorites : function () {};
@@ -265,7 +264,7 @@
 
     function showSmartButton(target, fieldKey, showRecommendations) {
       if (!smartButton || !target) return;
-      if (!fieldKey || !smartFillApi.getSupportedFieldKeys(getVisibleFieldKeys()).includes(fieldKey)) {
+      if (!fieldKey || !smartFillApi.getSupportedFieldKeys().includes(fieldKey)) {
         hideSmartButton();
         return;
       }

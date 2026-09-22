@@ -13,7 +13,6 @@
     "ctdp.favoriteProfiles.v1",
     "ctdp.generatedProfiles.v1",
     "ctdp.smartFillOverrides.v1",
-    "ctdp.visibleFieldKeys.v1",
     "ctdp.siteFeatureEnabled.v1",
     "ctdp.floatingIconEnabled.v1",
     "ctdp.floatingIconSize.v1",

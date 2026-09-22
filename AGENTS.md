@@ -96,34 +96,32 @@ pnpm release:verify
 ### Content Script Load Order
 
 1. `field-meta.js`: field definitions
-2. `field-visibility.js`: per-site field visibility
-3. `site-feature-toggle.js`: per-site smart-fill toggle
-4. `ai-recognition.js`: AI recognition configuration and request helpers
-5. `generators.js`: test data generators
-6. `panel-state.js`: panel expand/collapse state
-7. `editable-target.js`: editable target detection
-8. `element-form-control.js`: Element UI and Element Plus form adapters
-9. `icon-assets.js`: icon path mapping
-10. `generated/offline-form-snapshot-api.js`: shared offline snapshot helpers
-11. `smart-fill.js`: field recognition and manual annotation storage
-12. `ai-form-snapshot.js`: sanitized form snapshot orchestration
-13. `storage-mirror.js`: shared full-backup data shape and IndexedDB mirror helpers
-14. `generated/data-records-api.js`: shared data-record helpers
-15. `content-script-panel.js`: side panel controller
-16. `content-script-smartfill.js`: floating fill UI near inputs
-17. `content-script.js`: top-level orchestrator
+2. `site-feature-toggle.js`: per-site smart-fill toggle
+3. `ai-recognition.js`: AI recognition configuration and request helpers
+4. `generators.js`: test data generators
+5. `panel-state.js`: panel expand/collapse state
+6. `editable-target.js`: editable target detection
+7. `element-form-control.js`: Element UI and Element Plus form adapters
+8. `icon-assets.js`: icon path mapping
+9. `generated/offline-form-snapshot-api.js`: shared offline snapshot helpers
+10. `smart-fill.js`: field recognition and manual annotation storage
+11. `ai-form-snapshot.js`: sanitized form snapshot orchestration
+12. `storage-mirror.js`: shared full-backup data shape and IndexedDB mirror helpers
+13. `generated/data-records-api.js`: shared data-record helpers
+14. `content-script-panel.js`: side panel controller
+15. `content-script-smartfill.js`: floating fill UI near inputs
+16. `content-script.js`: top-level orchestrator
 
 ### Background Worker Load Order
 
 `extension/background.js` imports these scripts in order:
 
 1. `field-meta.js`
-2. `field-visibility.js`
-3. `site-feature-toggle.js`
-4. `ai-recognition.js`
-5. `smart-fill.js`
-6. `storage-mirror.js`
-7. `generated/data-manager-bridge.js`
+2. `site-feature-toggle.js`
+3. `ai-recognition.js`
+4. `smart-fill.js`
+5. `storage-mirror.js`
+6. `generated/data-manager-bridge.js`
 
 ### Storage Isolation
 

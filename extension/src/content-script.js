@@ -7,7 +7,6 @@
   const elementFormControlApi = globalThis.ChromeTestDataElementFormControl;
   const iconAssetsApi = globalThis.ChromeTestDataIconAssets;
   const fieldMetaApi = globalThis.ChromeTestDataFieldMeta;
-  const fieldVisibilityApi = globalThis.ChromeTestDataFieldVisibility;
   const siteFeatureToggleApi = globalThis.ChromeTestDataSiteFeatureToggle;
   const smartFillApi = globalThis.ChromeTestDataSmartFill;
   const aiFormSnapshotApi = globalThis.ChromeTestDataAiFormSnapshot;
@@ -22,7 +21,6 @@
     !elementFormControlApi ||
     !iconAssetsApi ||
     !fieldMetaApi ||
-    !fieldVisibilityApi ||
     !siteFeatureToggleApi ||
     !smartFillApi ||
     !aiFormSnapshotApi ||
@@ -131,8 +129,7 @@
   function refreshAiRecognition() {
     if (!panelController || !panelController.isSiteFeatureEnabled()) return Promise.resolve(false);
     if (aiRecognitionPromise) return aiRecognitionPromise;
-    const visibleFieldKeys = panelController.getVisibleFieldKeys();
-    const supportedFieldKeys = smartFillApi.getSupportedFieldKeys(visibleFieldKeys);
+    const supportedFieldKeys = smartFillApi.getSupportedFieldKeys();
     const snapshot = aiFormSnapshotApi.buildAiFormSnapshot({
       allowedFieldKeys: supportedFieldKeys,
       document,
@@ -176,7 +173,6 @@
     editableTargetApi,
     elementFormControlApi,
     fieldMetaApi,
-    fieldVisibilityApi,
     generators,
     iconAssetsApi,
     onOverridesImported: function () {
@@ -189,10 +185,6 @@
         smartFillController.hide();
         return;
       }
-      refreshAiRecognition();
-      syncActiveSmartTarget();
-    },
-    onVisibleFieldKeysChanged: function () {
       refreshAiRecognition();
       syncActiveSmartTarget();
     },
@@ -256,7 +248,6 @@
     editableTargetApi,
     getFieldValue: panelController.getFieldValue,
     getCurrentScope,
-    getVisibleFieldKeys: panelController.getVisibleFieldKeys,
     iconAssetsApi,
     isEnabled: panelController.isSiteFeatureEnabled,
     listRecommendedProfiles: function (scope) {
@@ -349,9 +340,7 @@
         if (!target) return;
         Promise.resolve(smartFillApi.setManualFieldOverride(target, message.fieldKey)).then(function (ok) {
           if (ok === false) return;
-          panelController.loadVisibleFieldKeys().then(function () {
-            smartFillController.fillTarget(target, message.fieldKey);
-          });
+          smartFillController.fillTarget(target, message.fieldKey);
         });
         return;
       }

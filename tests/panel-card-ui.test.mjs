@@ -59,7 +59,6 @@ test("page capture checks duplicates only on request and prevents concurrent wri
     generators: { generateProfile() { return {}; } },
     panelStateApi: { createPanelState() { return {}; } },
     fieldMetaApi: { getFieldKeys() { return []; } },
-    fieldVisibilityApi: { getDefaultVisibleFieldKeys() { return []; } },
     siteFeatureToggleApi: { getDefaultSiteFeatureEnabled() { return true; } },
     editableTargetApi,
     smartFillApi: { inferFieldKeyForSmartFill(target) {
@@ -269,14 +268,13 @@ test("blue action buttons and text use the shared brand blue", () => {
   assert.match(themeStyles, /--place-fill-accent-rgb:\s*43 127 216;/);
   assert.match(panelStyles, /\.ctdp-btn-action\s*\{[\s\S]*?background:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
   assert.match(panelStyles, /\.ctdp-switch-input:checked \+ \.ctdp-switch-track\s*\{[\s\S]*?background:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
-  assert.match(panelStyles, /\.ctdp-field-visibility-checkbox\s*\{[\s\S]*?accent-color:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
   assert.match(panelStyles, /\.ctdp-dock-action\s*\{[\s\S]*?color:\s*#314566;/);
   assert.doesNotMatch(panelStyles, /rgba\(74,\s*111,\s*165,/);
 });
 
 test("single-card copy does not trigger panel-wide flash feedback", () => {
   assert.match(panelScript, /copyText\(profile\[key\],\s*\{\s*flashTone:\s*null,\s*manualFlashTone:\s*null\s*\}\)/);
-  assert.match(panelScript, /copyText\(generators\.formatProfileForCopy\(state\.profile,\s*state\.visibleFieldKeys\)\)/);
+  assert.match(panelScript, /copyText\(generators\.formatProfileForCopy\(state\.profile\)\)/);
 });
 
 test("single-card copy only syncs copied state instead of rerendering the full grid", () => {
@@ -357,13 +355,7 @@ test("one-click fill collects only empty native controls without requiring seman
       inferFieldKeyForSmartFill(node) {
         return node === textInput || node === filledTextInput ? "fullName" : null;
       }
-    },
-    {
-      isFieldVisible() {
-        return true;
-      }
-    },
-    ["fullName"]
+    }
   );
 
   assert.equal(targets.length, 6);
@@ -408,9 +400,7 @@ test("one-click fill excludes extension settings controls", () => {
   const targets = collectPageAutoFillTargets(
     document,
     editableTargetApi,
-    { inferFieldKeyForSmartFill() { return "fullName"; } },
-    { isFieldVisible() { return true; } },
-    ["fullName"]
+    { inferFieldKeyForSmartFill() { return "fullName"; } }
   );
 
   assert.deepEqual(targets.map((entry) => entry.target), [pageInput]);
@@ -494,13 +484,7 @@ test("one-click fill limits targets to the active modal form", () => {
       inferFieldKeyForSmartFill(node) {
         return node === modalInput ? "fullName" : "mobile";
       }
-    },
-    {
-      isFieldVisible() {
-        return true;
-      }
-    },
-    ["fullName", "mobile"]
+    }
   );
 
   assert.equal(targets.length, 1);
@@ -550,8 +534,6 @@ test("one-click fill deduplicates Element component internals into one adapter t
         return null;
       }
     },
-    null,
-    [],
     {
       describeElementControl(node) {
         return node === selectInput || node === selectSearchInput ? elementEntry : null;
@@ -631,8 +613,7 @@ test("panel footer adds a settings entry and the panel includes a dedicated sett
   assert.match(panelScript, /当前站点已启用智能识别和右键标注/);
   assert.match(panelScript, /当前站点已停用智能识别和右键标注/);
   assert.doesNotMatch(panelScript, /关闭后，当前站点不启用智能识别和右键标注，其余功能不受影响/);
-  assert.match(panelScript, /data-role="field-visibility-list"/);
-  assert.match(panelScript, /data-role="field-visibility-toggle"/);
+  assert.doesNotMatch(panelScript, /填充项选择|field-visibility|visibleFieldKeys/);
   assert.doesNotMatch(panelScript, /导出标注数据|导入标注数据|脱敏导出/);
   assert.match(panelScript, /renderSettingsActionMarkup\("export-full-backup"/);
   assert.match(panelScript, /renderSettingsActionMarkup\("import-full-backup"/);
@@ -722,13 +703,11 @@ test("settings view supports full data backup and restore", () => {
   assert.match(panelScript, /place-fill-full-backup\.json/);
 });
 
-test("panel renders and copies only the currently visible field keys", () => {
-  assert.match(panelScript, /visibleFieldKeys:\s*fieldVisibilityApi\.getDefaultVisibleFieldKeys\(\)/);
-  assert.match(panelScript, /state\.visibleFieldKeys\.filter/);
+test("panel renders and copies every supported field category", () => {
+  assert.match(panelScript, /const visBodyKeys = fieldKeys\.filter/);
   assert.match(panelScript, /HIDDEN_BIZCARD_FIELD_KEYS\s*=\s*\["account"\]/);
-  assert.match(panelScript, /fieldVisibilityApi\.writeVisibleFieldKeys/);
-  assert.match(panelScript, /loadVisibleFieldKeys/);
-  assert.match(panelScript, /onVisibleFieldKeysChanged\(state\.visibleFieldKeys\)/);
+  assert.match(panelScript, /formatProfileForCopy\(state\.profile\)/);
+  assert.doesNotMatch(panelScript, /visibleFieldKeys|fieldVisibilityApi/);
 });
 
 test("manual copy fallback uses accurate failure wording instead of browser support wording", () => {
@@ -768,7 +747,7 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(smartfillScript, /function refreshRecommendationItems\(target,\s*fieldKey\)/);
   assert.match(smartfillScript, /if \(showRecommendations !== false\) refreshRecommendationItems\(target,\s*fieldKey\);/);
   assert.doesNotMatch(smartfillScript, /smart-fill-recommend-trigger/);
-  assert.match(smartfillScript, /if \(!fieldKey\) \{\s*hideSmartButton\(\);\s*return;\s*\}/);
+  assert.match(smartfillScript, /if \(!fieldKey \|\| !smartFillApi\.getSupportedFieldKeys\(\)\.includes\(fieldKey\)\)/);
   assert.match(smartfillScript, /if \(role === "smart-fill-trigger"\) \{[\s\S]*?fillCurrentTarget\(activeSmartFieldKey\)/);
   assert.doesNotMatch(smartfillScript, /if \(role === "smart-fill-item"\)/);
   assert.doesNotMatch(smartfillScript, /已填充推荐数据/);
@@ -789,7 +768,6 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(orchestratorScript, /isEnabled:\s*panelController\.isSiteFeatureEnabled/);
   assert.match(orchestratorScript, /setManualFieldOverride/);
   assert.match(orchestratorScript, /smartFillApi\.MANUAL_FIELD_OVERRIDE_NONE/);
-  assert.match(orchestratorScript, /panelController\.loadVisibleFieldKeys\(\)\.then/);
   assert.match(orchestratorScript, /smartFillController\.fillTarget\(target,\s*message\.fieldKey\)/);
   assert.match(orchestratorScript, /clearManualFieldOverride/);
   assert.match(orchestratorScript, /syncTarget/);
@@ -829,7 +807,6 @@ test("clear user data requires confirmation, clears only annotations and handles
     generators: { generateProfile() { return {}; } },
     panelStateApi: { createPanelState() { return {}; } },
     fieldMetaApi: { getFieldKeys() { return []; } },
-    fieldVisibilityApi: { getDefaultVisibleFieldKeys() { return []; } },
     siteFeatureToggleApi: { getDefaultSiteFeatureEnabled() { return false; } },
     onOverridesImported() { refreshes += 1; },
     smartFillApi: { async replaceManualFieldOverrides(value) {

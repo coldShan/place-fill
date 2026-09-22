@@ -101,7 +101,6 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
       ChromeTestDataElementFormControl: {},
       ChromeTestDataIconAssets: {},
       ChromeTestDataFieldMeta: {},
-      ChromeTestDataFieldVisibility: {},
       ChromeTestDataSiteFeatureToggle: {
         isSiteFeatureEnabled(value) {
           return value === true;
@@ -154,9 +153,6 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
             getFieldValue() {
               return "";
             },
-            getVisibleFieldKeys() {
-              return env.visibleFieldKeys || [];
-            },
             getCurrentPageFavorite() {
               return Promise.resolve(null);
             },
@@ -173,9 +169,6 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
             },
             isSiteFeatureEnabled() {
               return env.siteFeatureEnabled !== false;
-            },
-            loadVisibleFieldKeys() {
-              return Promise.resolve();
             },
             mount() {},
             showDockMessage(...args) {
@@ -410,8 +403,7 @@ test("content script skips duplicate ai recognition snapshots", async () => {
       allowedFieldKeys: ["mobile"],
       fields: [{ fingerprint: "field-1", localFieldKey: "mobile", placeholder: "联系电话" }]
     },
-    supportedFieldKeys: ["mobile"],
-    visibleFieldKeys: ["mobile"]
+    supportedFieldKeys: ["mobile"]
   });
 
   await Promise.resolve();
@@ -419,10 +411,6 @@ test("content script skips duplicate ai recognition snapshots", async () => {
   runtime.panelOptions.onSiteFeatureEnabledChanged(true);
   await Promise.resolve();
   await Promise.resolve();
-  runtime.panelOptions.onVisibleFieldKeysChanged();
-  await Promise.resolve();
-  await Promise.resolve();
-
   assert.equal(
     runtime.runtimeMessages.filter(function (message) {
       return message.type === "classify-form-fields";

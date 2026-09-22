@@ -67,7 +67,6 @@ test("local file and manual export share the full backup shape", () => {
   assert.deepEqual(storageMirror.getFullBackupStorageChanges(payload), {
     removeKeys: [
       "ctdp.generatedProfiles.v1",
-      "ctdp.visibleFieldKeys.v1",
       "ctdp.siteFeatureEnabled.v1",
       "ctdp.floatingIconEnabled.v1",
       "ctdp.floatingIconSize.v1",

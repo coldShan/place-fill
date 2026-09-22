@@ -104,12 +104,6 @@ test("weekly backup reminder only displays on enabled sites until dismissed", as
     console,
     fetch() { throw new Error("not used"); },
     globalThis: {
-      ChromeTestDataFieldVisibility: {
-        STORAGE_KEY: "ctdp.visibleFieldKeys.v1",
-        isFieldVisible() { return true; },
-        readVisibleFieldKeys() { return Promise.resolve([]); },
-        writeVisibleFieldKeys() { return Promise.resolve([]); }
-      },
       ChromeTestDataSiteFeatureToggle: {
         STORAGE_KEY: "ctdp.siteFeatureEnabled.v1",
         getDefaultSiteFeatureEnabled() { return false; },
@@ -226,7 +220,6 @@ test("weekly backup reminder stays disabled while local automatic backup is read
     fetch() { throw new Error("not used"); },
     navigator: { userAgent: "Chrome/122.0.0.0" },
     globalThis: {
-      ChromeTestDataFieldVisibility: { STORAGE_KEY: "ctdp.visibleFieldKeys.v1", isFieldVisible() { return true; }, readVisibleFieldKeys() { return Promise.resolve([]); }, writeVisibleFieldKeys() { return Promise.resolve([]); } },
       ChromeTestDataLocalAnnotationFile: { ENABLED_STORAGE_KEY: "ctdp.localAnnotationFileEnabled.v1", getState() { return Promise.resolve({ enabled: true, permissionState: "granted" }); } },
       ChromeTestDataSiteFeatureToggle: { STORAGE_KEY: "ctdp.siteFeatureEnabled.v1", getDefaultSiteFeatureEnabled() { return false; }, isSiteFeatureEnabled(value) { return value === true; }, normalizeSiteFeatureEnabledMap(value) { return value || {}; }, readSiteFeatureEnabledMap() { return Promise.resolve({}); }, readSiteFeatureEnabled() { return Promise.resolve(true); } },
       ChromeTestDataSmartFill: { formatSmartFillButtonLabel(fieldKey) { return fieldKey; }, getSupportedFieldKeys() { return ["mobile"]; } }

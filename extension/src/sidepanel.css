@@ -1523,45 +1523,6 @@
   background: rgba(255, 255, 255, 0.72);
 }
 
-.ctdp-visible-fields {
-  gap: 6px;
-}
-
-.ctdp-field-visibility-list {
-  display: grid;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.ctdp-field-visibility-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  cursor: pointer;
-}
-
-.ctdp-field-visibility-checkbox {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: rgb(var(--place-fill-accent-rgb));
-}
-
-.ctdp-field-visibility-copy {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.ctdp-field-visibility-label {
-  min-width: 0;
-  color: var(--ctdp-ink);
-  font-size: 13px;
-  letter-spacing: 0.01em;
-}
-
 .ctdp-settings-status {
   padding: 12px 14px;
   border: 1px solid rgba(255, 255, 255, 0.36);

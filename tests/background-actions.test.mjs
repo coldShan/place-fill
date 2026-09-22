@@ -20,8 +20,6 @@ test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /chrome\.contextMenus\.onClicked\.addListener/);
   assert.match(script, /new URL\(tab\.url\)\.hostname/);
   assert.match(script, /frameId:\s*info\.frameId/);
-  assert.match(script, /readVisibleFieldKeys/);
-  assert.match(script, /writeVisibleFieldKeys/);
   assert.match(script, /readSiteFeatureEnabledMap/);
   assert.match(script, /siteFeatureToggleApi\.isSiteFeatureEnabled/);
   assert.match(script, /sync-site-feature-context-menu/);

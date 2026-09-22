@@ -69,18 +69,6 @@ test("background boots when contextMenus.onShown is unavailable", () => {
         throw new Error("not used");
       },
       globalThis: {
-        ChromeTestDataFieldVisibility: {
-          STORAGE_KEY: "ctdp.visibleFieldKeys.v1",
-          isFieldVisible() {
-            return true;
-          },
-          readVisibleFieldKeys() {
-            return Promise.resolve([]);
-          },
-          writeVisibleFieldKeys() {
-            return Promise.resolve([]);
-          }
-        },
         ChromeTestDataSiteFeatureToggle: {
           STORAGE_KEY: "ctdp.siteFeatureEnabled.v1",
           getDefaultSiteFeatureEnabled() {
@@ -174,18 +162,6 @@ test("background accepts explicit site feature menu sync messages", () => {
       throw new Error("not used");
     },
     globalThis: {
-      ChromeTestDataFieldVisibility: {
-        STORAGE_KEY: "ctdp.visibleFieldKeys.v1",
-        isFieldVisible() {
-          return true;
-        },
-        readVisibleFieldKeys() {
-          return Promise.resolve([]);
-        },
-        writeVisibleFieldKeys() {
-          return Promise.resolve([]);
-        }
-      },
       ChromeTestDataSiteFeatureToggle: {
         STORAGE_KEY: "ctdp.siteFeatureEnabled.v1",
         getDefaultSiteFeatureEnabled() {
@@ -292,18 +268,6 @@ test("background opens the data manager page with a normalized scope", () => {
           return baseUrl + "data-manager.html?scope=" + String(scope || "").trim().toLowerCase() + "&view=favorites";
         }
       },
-      ChromeTestDataFieldVisibility: {
-        STORAGE_KEY: "ctdp.visibleFieldKeys.v1",
-        isFieldVisible() {
-          return true;
-        },
-        readVisibleFieldKeys() {
-          return Promise.resolve([]);
-        },
-        writeVisibleFieldKeys() {
-          return Promise.resolve([]);
-        }
-      },
       ChromeTestDataSiteFeatureToggle: {
         STORAGE_KEY: "ctdp.siteFeatureEnabled.v1",
         getDefaultSiteFeatureEnabled() {
@@ -395,18 +359,6 @@ test("background exposes storage mirror runtime messages", async () => {
       throw new Error("not used");
     },
     globalThis: {
-      ChromeTestDataFieldVisibility: {
-        STORAGE_KEY: "ctdp.visibleFieldKeys.v1",
-        isFieldVisible() {
-          return true;
-        },
-        readVisibleFieldKeys() {
-          return Promise.resolve([]);
-        },
-        writeVisibleFieldKeys() {
-          return Promise.resolve([]);
-        }
-      },
       ChromeTestDataSiteFeatureToggle: {
         STORAGE_KEY: "ctdp.siteFeatureEnabled.v1",
         getDefaultSiteFeatureEnabled() {
@@ -579,18 +531,6 @@ test("background exposes ai recognition config permission and classification mes
         },
         classifyFormFields(options) {
           return aiRecognitionPkg.classifyFormFields(options);
-        }
-      },
-      ChromeTestDataFieldVisibility: {
-        STORAGE_KEY: "ctdp.visibleFieldKeys.v1",
-        isFieldVisible() {
-          return true;
-        },
-        readVisibleFieldKeys() {
-          return Promise.resolve([]);
-        },
-        writeVisibleFieldKeys() {
-          return Promise.resolve([]);
         }
       },
       ChromeTestDataSiteFeatureToggle: {

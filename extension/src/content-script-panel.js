@@ -126,7 +126,7 @@
     return scopes[scopes.length - 1] || doc;
   }
 
-  function collectPageAutoFillTargets(doc, editableTargetApi, smartFillApi, fieldVisibilityApi, visibleFieldKeys, elementFormControlApi) {
+  function collectPageAutoFillTargets(doc, editableTargetApi, smartFillApi, elementFormControlApi) {
     if (!doc || !editableTargetApi || !smartFillApi) return [];
     const candidates = Array.from(resolveAutoFillScope(doc).querySelectorAll(
       'input, textarea, select, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]'
@@ -184,7 +184,6 @@
         targets.push({ kind: "fallback", target: editable, targets: [editable] });
         return;
       }
-      if (!fieldVisibilityApi.isFieldVisible(fieldKey, visibleFieldKeys)) return;
       targets.push({ fieldKey, target: editable, targets: [editable] });
     });
 
@@ -220,7 +219,6 @@
     const panelStateApi = opts.panelStateApi;
     const iconAssetsApi = opts.iconAssetsApi;
     const fieldMetaApi = opts.fieldMetaApi;
-    const fieldVisibilityApi = opts.fieldVisibilityApi;
     const siteFeatureToggleApi = opts.siteFeatureToggleApi;
     const smartFillApi = opts.smartFillApi;
     const editableTargetApi = opts.editableTargetApi;
@@ -230,7 +228,6 @@
     const canRenderPanel = opts.canRenderPanel !== false;
     const onOverridesImported = typeof opts.onOverridesImported === "function" ? opts.onOverridesImported : function () {};
     const onSiteFeatureEnabledChanged = typeof opts.onSiteFeatureEnabledChanged === "function" ? opts.onSiteFeatureEnabledChanged : function () {};
-    const onVisibleFieldKeysChanged = typeof opts.onVisibleFieldKeysChanged === "function" ? opts.onVisibleFieldKeysChanged : function () {};
 
     const fieldKeys = fieldMetaApi.getFieldKeys();
     const IDENTITY_FIELD_KEYS = ["fullName", "companyName"];
@@ -255,7 +252,6 @@
     let versionStatus = null;
     let githubBtn = null;
     let checkUpdateBtn = null;
-    let visibilityList = null;
     let siteFeatureStatus = null;
     let siteFeatureToggle = null;
     let floatingIconToggle = null;
@@ -290,7 +286,6 @@
     const GENERATED_PROFILES_STORAGE_KEY = "ctdp.generatedProfiles.v1";
     const SMART_FILL_OVERRIDES_STORAGE_KEY = "ctdp.smartFillOverrides.v1";
     const LOCAL_ANNOTATION_FILE_ENABLED_STORAGE_KEY = "ctdp.localAnnotationFileEnabled.v1";
-    const VISIBLE_FIELD_KEYS_STORAGE_KEY = "ctdp.visibleFieldKeys.v1";
     const SITE_FEATURE_ENABLED_STORAGE_KEY = "ctdp.siteFeatureEnabled.v1";
     const DOCK_DEFAULT_TOP = 112;
     const DOCK_HEIGHT = 72;
@@ -318,7 +313,6 @@
         origin: "",
         permissionGranted: false
       },
-      visibleFieldKeys: fieldVisibilityApi.getDefaultVisibleFieldKeys(),
       focusStyle: "subtle",
       dockTop: DOCK_DEFAULT_TOP
     };
@@ -459,21 +453,6 @@
         iconAssetsApi.renderIconMarkup(iconAssetsApi.ACTION_ICONS.copied, "ctdp-copy-state-icon") +
         "<span>已复制</span></span>"
       );
-    }
-
-    function renderVisibilityToggleMarkup(fieldKey) {
-      const label = fieldMetaApi.getFieldLabel(fieldKey);
-      const iconName = fieldMetaApi.getFieldIconName(fieldKey);
-      const checked = fieldVisibilityApi.isFieldVisible(fieldKey, state.visibleFieldKeys);
-      return [
-        '<label class="ctdp-field-visibility-item">',
-        '  <input class="ctdp-field-visibility-checkbox" type="checkbox" data-role="field-visibility-toggle" data-key="' + fieldKey + '"' + (checked ? " checked" : "") + ">",
-        '  <span class="ctdp-field-visibility-copy">',
-        "    " + iconAssetsApi.renderIconMarkup(iconName, "ctdp-settings-row-icon"),
-        '    <span class="ctdp-field-visibility-label">' + label + "</span>",
-        "  </span>",
-        "</label>"
-      ].join("");
     }
 
     function renderSiteFeatureToggleMarkup() {
@@ -726,16 +705,6 @@
       ].join("");
     }
 
-    function renderVisibleFieldsMarkup() {
-      return [
-        '<section class="ctdp-settings-row ctdp-settings-row-static ctdp-visible-fields">',
-        '  <span class="ctdp-settings-row-title">填充项选择</span>',
-        '  <span class="ctdp-settings-row-note">仅勾选项会显示在面板和智能填充中</span>',
-        '  <div class="ctdp-field-visibility-list" data-role="field-visibility-list"></div>',
-        "</section>"
-      ].join("");
-    }
-
     function renderDataSettingsMarkup() {
       return [
         renderLocalAnnotationFileToggleMarkup(),
@@ -909,11 +878,7 @@
     }
 
     function renderProfileCard(profile, profileIndex, cardKind, emptyText) {
-      const visIdentityKeys = IDENTITY_FIELD_KEYS.filter(function (k) {
-        return state.visibleFieldKeys.indexOf(k) !== -1;
-      });
-      const mobileVisible = state.visibleFieldKeys.indexOf(MOBILE_KEY) !== -1;
-      const visBodyKeys = state.visibleFieldKeys.filter(function (k) {
+      const visBodyKeys = fieldKeys.filter(function (k) {
         return IDENTITY_FIELD_KEYS.indexOf(k) === -1 && k !== MOBILE_KEY && HIDDEN_BIZCARD_FIELD_KEYS.indexOf(k) === -1;
       });
 
@@ -928,23 +893,15 @@
         return parts.join("");
       }
 
-      const hasHeader = visIdentityKeys.length > 0 || mobileVisible;
-      if (hasHeader) {
-        parts.push('<div class="ctdp-bizcard-header">');
-        const fullNameVisible = state.visibleFieldKeys.indexOf("fullName") !== -1;
-        if (fullNameVisible || mobileVisible) {
-          parts.push('<div class="ctdp-bizcard-name-row">');
-          if (fullNameVisible) { parts.push(identityTemplate("fullName", profile["fullName"], profileIndex)); }
-          if (mobileVisible) { parts.push(mobileHeaderTemplate(MOBILE_KEY, profile[MOBILE_KEY], profileIndex)); }
-          parts.push("</div>");
-        }
-        if (state.visibleFieldKeys.indexOf("companyName") !== -1) {
-          parts.push(identityTemplate("companyName", profile["companyName"], profileIndex));
-        }
-        parts.push("</div>");
-      }
+      parts.push('<div class="ctdp-bizcard-header">');
+      parts.push('<div class="ctdp-bizcard-name-row">');
+      parts.push(identityTemplate("fullName", profile["fullName"], profileIndex));
+      parts.push(mobileHeaderTemplate(MOBILE_KEY, profile[MOBILE_KEY], profileIndex));
+      parts.push("</div>");
+      parts.push(identityTemplate("companyName", profile["companyName"], profileIndex));
+      parts.push("</div>");
 
-      if (hasHeader && visBodyKeys.length > 0) {
+      if (visBodyKeys.length > 0) {
         parts.push('<hr class="ctdp-bizcard-divider" aria-hidden="true">');
       }
 
@@ -970,14 +927,6 @@
 
     function renderCards() {
       if (!fieldGrid) return;
-      const hasVisibleFields = state.visibleFieldKeys.some(function (k) {
-        return HIDDEN_BIZCARD_FIELD_KEYS.indexOf(k) === -1;
-      });
-      if (!hasVisibleFields) {
-        fieldGrid.innerHTML = "";
-        return;
-      }
-
       const parts = ['<div class="ctdp-bizcard-stack">'];
       parts.push(renderProfileCard(state.profile, 0, "generated", "暂无随机数据"));
       state.favoriteCardProfiles.forEach(function (profile, index) {
@@ -1033,15 +982,6 @@
       });
     }
 
-    function renderVisibilityList() {
-      if (!visibilityList) return;
-      visibilityList.innerHTML = fieldKeys
-        .map(function (fieldKey) {
-          return renderVisibilityToggleMarkup(fieldKey);
-        })
-        .join("");
-    }
-
     function syncCopiedCardState() {
       if (!fieldGrid) return;
       fieldGrid.querySelectorAll('[data-role="copy-card"]').forEach(function (card) {
@@ -1085,7 +1025,6 @@
     function render() {
       if (!fieldGrid) return;
       renderCards();
-      renderVisibilityList();
       syncSiteFeatureToggle();
       updatePanelState();
       updatePanelView();
@@ -1119,7 +1058,7 @@
     }
 
     async function copyAll() {
-      await copyText(generators.formatProfileForCopy(state.profile, state.visibleFieldKeys));
+      await copyText(generators.formatProfileForCopy(state.profile));
       state.copiedFieldKey = null;
       state.copiedProfileIndex = null;
       syncCopiedCardState();
@@ -1142,8 +1081,6 @@
         doc,
         editableTargetApi,
         smartFillApi,
-        fieldVisibilityApi,
-        state.visibleFieldKeys,
         elementFormControlApi
       );
     }
@@ -1240,15 +1177,6 @@
         setAutoFillButtonState(false);
         setAutoFillPageAuraState(false);
       }
-    }
-
-    function syncVisibleFieldKeys(nextVisibleFieldKeys) {
-      state.visibleFieldKeys = fieldVisibilityApi.filterVisibleFieldKeys(fieldKeys, nextVisibleFieldKeys);
-      if (!fieldVisibilityApi.isFieldVisible(state.copiedFieldKey, state.visibleFieldKeys)) {
-        state.copiedFieldKey = null;
-      }
-      render();
-      onVisibleFieldKeysChanged(state.visibleFieldKeys);
     }
 
     function syncSiteFeatureToggle() {
@@ -1426,21 +1354,6 @@
     async function toggleSiteFeatureEnabled(enabled) {
       const nextEnabled = await siteFeatureToggleApi.writeSiteFeatureEnabled(enabled);
       syncSiteFeatureEnabled(nextEnabled);
-    }
-
-    async function toggleFieldVisibility(fieldKey, checked) {
-      const requestedFieldKeys = checked
-        ? state.visibleFieldKeys.concat(fieldKey)
-        : state.visibleFieldKeys.filter(function (visibleFieldKey) {
-            return visibleFieldKey !== fieldKey;
-          });
-      const nextVisibleFieldKeys = await fieldVisibilityApi.writeVisibleFieldKeys(requestedFieldKeys);
-      syncVisibleFieldKeys(nextVisibleFieldKeys);
-      setSettingsStatus(nextVisibleFieldKeys.length ? "已更新填充项显示范围" : "当前未勾选任何填充项", nextVisibleFieldKeys.length ? "success" : "warning");
-    }
-
-    async function loadVisibleFieldKeys() {
-      syncVisibleFieldKeys(await fieldVisibilityApi.readVisibleFieldKeys());
     }
 
     function setSettingsStatus(text, tone) {
@@ -1693,7 +1606,6 @@
         loadFloatingIconSize(),
         loadSiteFeatureEnabled(),
         loadFocusStyle(),
-        loadVisibleFieldKeys(),
         loadDockTop(),
         loadFavoriteProfiles()
       ]);
@@ -1813,7 +1725,7 @@
           "当前站点",
           getSiteFeatureStatusText(),
           iconAssetsApi.ACTION_ICONS.settings,
-          renderSiteFeatureToggleMarkup() + renderVisibleFieldsMarkup(),
+          renderSiteFeatureToggleMarkup(),
           true,
           "site-feature-status"
         ),
@@ -1879,7 +1791,6 @@
       versionStatus = root.querySelector('[data-role="version-status"]');
       githubBtn = root.querySelector('[data-role="open-repository"]');
       checkUpdateBtn = root.querySelector('[data-role="check-update"]');
-      visibilityList = root.querySelector('[data-role="field-visibility-list"]');
       siteFeatureStatus = root.querySelector('[data-role="site-feature-status"]');
       siteFeatureToggle = root.querySelector('[data-role="site-feature-toggle"]');
       floatingIconToggle = root.querySelector('[data-role="floating-icon-toggle"]');
@@ -2045,9 +1956,6 @@
           toggleAiRecognitionEnabled(aiRecognitionTrigger.checked);
           return;
         }
-        const trigger = event.target.closest('[data-role="field-visibility-toggle"]');
-        if (!trigger) return;
-        toggleFieldVisibility(trigger.getAttribute("data-key"), trigger.checked);
       });
 
       fieldGrid.addEventListener("animationend", function (event) {
@@ -2092,7 +2000,6 @@
       loadLocalAnnotationFileEnabled();
       loadAiRecognitionConfig();
       loadFocusStyle();
-      loadVisibleFieldKeys();
       loadDockTop();
       win.addEventListener("focus", function () {
         if (state.panelView === "settings") loadLocalAnnotationFileEnabled();
@@ -2156,10 +2063,6 @@
       return typeof state.profile[fieldKey] === "string" ? state.profile[fieldKey] : "";
     }
 
-    function getVisibleFieldKeys() {
-      return state.visibleFieldKeys.slice();
-    }
-
     function isSiteFeatureEnabled() {
       return state.siteFeatureEnabled;
     }
@@ -2179,12 +2082,10 @@
       exportFullBackup,
       getFieldValue,
       isSiteFeatureEnabled,
-      getVisibleFieldKeys,
       handleDocumentFocusIn,
       handleDocumentPointerDown,
       hideDismissibleDockMessage,
       loadSiteFeatureEnabled,
-      loadVisibleFieldKeys,
       mount,
       showDockMessage,
       syncImportedOverrideState,

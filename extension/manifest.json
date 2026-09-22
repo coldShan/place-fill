@@ -59,7 +59,6 @@
       "all_frames": true,
       "js": [
         "src/field-meta.js",
-        "src/field-visibility.js",
         "src/site-feature-toggle.js",
         "src/ai-recognition.js",
         "src/generators.js",
