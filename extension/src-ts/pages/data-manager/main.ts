@@ -6,6 +6,7 @@ import {
   normalizeScopeKey,
   readFavoriteProfiles,
   readGeneratedProfiles,
+  reorderFavoriteProfiles,
   updateFavoriteProfile,
   type FavoriteEntry,
   type HistoryEntry,
@@ -53,6 +54,7 @@ let favoriteModalNote: HTMLElement | null = null;
 let favoriteForm: HTMLFormElement | null = null;
 let viewTitle: HTMLElement | null = null;
 let viewActions: HTMLElement | null = null;
+let draggedFavoriteId: string | null = null;
 
 function setToast(message: string, tone = "info"): void {
   if (!toastNode) return;
@@ -228,6 +230,76 @@ async function handleRootClick(event: MouseEvent): Promise<void> {
   }
 }
 
+function clearFavoriteDragState(): void {
+  workspace?.querySelectorAll(".is-dragging").forEach(function (row) {
+    row.classList.remove("is-dragging");
+  });
+}
+
+function handleFavoriteDragStart(event: DragEvent): void {
+  const handle = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-role='favorite-drag-handle']");
+  if (!handle || state.activeView !== "favorites") return;
+  draggedFavoriteId = handle.getAttribute("data-id");
+  const row = handle.closest("tr");
+  row?.classList.add("is-dragging");
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", draggedFavoriteId || "");
+  }
+}
+
+function handleFavoriteDragOver(event: DragEvent): void {
+  if (!draggedFavoriteId) return;
+  event.preventDefault();
+  const targetRow = (event.target as HTMLElement | null)?.closest<HTMLTableRowElement>("tr[data-favorite-id]");
+  const rows = Array.from(workspace?.querySelectorAll<HTMLTableRowElement>("tr[data-favorite-id]") || []);
+  const draggedRow = rows.find(function (row) {
+    return row.getAttribute("data-favorite-id") === draggedFavoriteId;
+  });
+  if (!targetRow || !draggedRow || targetRow === draggedRow) return;
+  const insertBefore = event.clientY < targetRow.getBoundingClientRect().top + targetRow.offsetHeight / 2;
+  targetRow.parentElement?.insertBefore(draggedRow, insertBefore ? targetRow : targetRow.nextElementSibling);
+}
+
+async function handleFavoriteDrop(event: DragEvent): Promise<void> {
+  if (!draggedFavoriteId) return;
+  event.preventDefault();
+  const orderedIds = Array.from(workspace?.querySelectorAll<HTMLTableRowElement>("tr[data-favorite-id]") || []).map(function (row) {
+    return row.getAttribute("data-favorite-id") || "";
+  });
+  draggedFavoriteId = null;
+  clearFavoriteDragState();
+  state.favoriteProfiles = await reorderFavoriteProfiles(state.activeScope, orderedIds);
+  renderWorkspace();
+  setToast("常用数据顺序已保存", "success");
+}
+
+function handleFavoriteDragEnd(): void {
+  if (!draggedFavoriteId) return;
+  draggedFavoriteId = null;
+  clearFavoriteDragState();
+  renderWorkspace();
+}
+
+async function handleFavoriteOrderKeydown(event: KeyboardEvent): Promise<void> {
+  if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+  const handle = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-role='favorite-drag-handle']");
+  if (!handle) return;
+  const id = handle.getAttribute("data-id") || "";
+  const currentIndex = state.favoriteProfiles.findIndex(function (entry) { return entry.id === id; });
+  const nextIndex = currentIndex + (event.key === "ArrowUp" ? -1 : 1);
+  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= state.favoriteProfiles.length) return;
+  event.preventDefault();
+  const orderedIds = state.favoriteProfiles.map(function (entry) { return entry.id; });
+  const [movedId] = orderedIds.splice(currentIndex, 1);
+  if (!movedId) return;
+  orderedIds.splice(nextIndex, 0, movedId);
+  state.favoriteProfiles = await reorderFavoriteProfiles(state.activeScope, orderedIds);
+  renderWorkspace();
+  workspace?.querySelector<HTMLElement>("[data-role='favorite-drag-handle'][data-id='" + CSS.escape(id) + "']")?.focus();
+  setToast("常用数据顺序已保存", "success");
+}
+
 function renderShell(): void {
   doc.body.innerHTML = [
     '<div class="dm-app">',
@@ -263,8 +335,15 @@ function renderShell(): void {
   doc.body.addEventListener("click", function (event) {
     void handleRootClick(event);
   });
+  doc.body.addEventListener("dragstart", handleFavoriteDragStart);
+  doc.body.addEventListener("dragover", handleFavoriteDragOver);
+  doc.body.addEventListener("drop", function (event) {
+    void handleFavoriteDrop(event);
+  });
+  doc.body.addEventListener("dragend", handleFavoriteDragEnd);
   doc.addEventListener("keydown", function (event) {
     if (event.key === "Escape" && state.modalOpen) closeFavoriteModal();
+    void handleFavoriteOrderKeydown(event);
   });
 }
 

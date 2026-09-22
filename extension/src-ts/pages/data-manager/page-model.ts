@@ -9,6 +9,7 @@ export {
   normalizeScopeKey,
   readFavoriteProfiles,
   readGeneratedProfiles,
+  reorderFavoriteProfiles,
   updateFavoriteProfile,
   type FavoriteEntry,
   type HistoryEntry,

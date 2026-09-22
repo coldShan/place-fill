@@ -123,8 +123,6 @@ var ChromeTestDataDataRecordsBundle = (function() {
           profile: normalizeProfile(current.profile),
           updatedAt
         };
-      }).sort(function(left, right) {
-        return Number(right.updatedAt) - Number(left.updatedAt);
       });
     });
     return nextMap;
@@ -178,6 +176,25 @@ var ChromeTestDataDataRecordsBundle = (function() {
     if (!normalizedScope) return [];
     const favoritesMap = await readFavoriteProfilesMap(env);
     return favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
+  }
+  async function reorderFavoriteProfiles(scope, orderedIds, env) {
+    const normalizedScope = normalizeScopeKey(scope);
+    if (!normalizedScope) return [];
+    const favoritesMap = await readFavoriteProfilesMap(env);
+    const currentEntries = favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
+    const entriesById = new Map(currentEntries.map(function(entry) {
+      return [entry.id, entry];
+    }));
+    const nextEntries = [];
+    orderedIds.forEach(function(id) {
+      const entry = entriesById.get(id);
+      if (!entry) return;
+      nextEntries.push(entry);
+      entriesById.delete(id);
+    });
+    favoritesMap[normalizedScope] = nextEntries.concat(Array.from(entriesById.values()));
+    await writeFavoriteProfilesMap(favoritesMap, env);
+    return favoritesMap[normalizedScope].slice();
   }
   async function findFavoriteProfile(scope, profile, env) {
     const normalizedScope = normalizeScopeKey(scope);
@@ -237,8 +254,8 @@ var ChromeTestDataDataRecordsBundle = (function() {
       profile: normalizeProfile(input.profile),
       updatedAt: String(now)
     };
-    currentEntries.splice(entryIndex, 1);
-    favoritesMap[normalizedScope] = [nextEntry].concat(currentEntries);
+    currentEntries[entryIndex] = nextEntry;
+    favoritesMap[normalizedScope] = currentEntries;
     await writeFavoriteProfilesMap(favoritesMap, env);
     return nextEntry;
   }
@@ -289,6 +306,7 @@ var ChromeTestDataDataRecordsBundle = (function() {
     readFavoriteProfiles,
     readGeneratedProfiles,
     recordGeneratedProfile,
+    reorderFavoriteProfiles,
     updateFavoriteProfile
   }, Symbol.toStringTag, { value: "Module" }));
   const rootScope = globalThis;

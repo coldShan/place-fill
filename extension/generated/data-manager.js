@@ -126,8 +126,6 @@ function normalizeFavoriteProfilesMap(rawValue) {
         profile: normalizeProfile(current.profile),
         updatedAt
       };
-    }).sort(function(left, right) {
-      return Number(right.updatedAt) - Number(left.updatedAt);
     });
   });
   return nextMap;
@@ -160,6 +158,25 @@ async function readFavoriteProfiles(scope, env) {
   if (!normalizedScope) return [];
   const favoritesMap = await readFavoriteProfilesMap();
   return favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
+}
+async function reorderFavoriteProfiles(scope, orderedIds, env) {
+  const normalizedScope = normalizeScopeKey(scope);
+  if (!normalizedScope) return [];
+  const favoritesMap = await readFavoriteProfilesMap();
+  const currentEntries = favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
+  const entriesById = new Map(currentEntries.map(function(entry) {
+    return [entry.id, entry];
+  }));
+  const nextEntries = [];
+  orderedIds.forEach(function(id) {
+    const entry = entriesById.get(id);
+    if (!entry) return;
+    nextEntries.push(entry);
+    entriesById.delete(id);
+  });
+  favoritesMap[normalizedScope] = nextEntries.concat(Array.from(entriesById.values()));
+  await writeFavoriteProfilesMap(favoritesMap);
+  return favoritesMap[normalizedScope].slice();
 }
 async function createFavoriteProfile(scope, input, env) {
   const normalizedScope = normalizeScopeKey(scope);
@@ -207,8 +224,8 @@ async function updateFavoriteProfile(scope, id, input, env) {
     profile: normalizeProfile(input.profile),
     updatedAt: String(now)
   };
-  currentEntries.splice(entryIndex, 1);
-  favoritesMap[normalizedScope] = [nextEntry].concat(currentEntries);
+  currentEntries[entryIndex] = nextEntry;
+  favoritesMap[normalizedScope] = currentEntries;
   await writeFavoriteProfilesMap(favoritesMap);
   return nextEntry;
 }
@@ -342,11 +359,12 @@ function renderFavoritesView(_scope, entries) {
     entries.length ? [
       '<div class="dm-table-shell dm-favorites-shell">',
       '  <table class="dm-table dm-favorites-table">',
-      "    <thead><tr><th>姓名</th><th>身份证号</th><th>公司名称</th><th>统一社会信用代码</th><th>手机号</th><th>备注</th><th>操作</th></tr></thead>",
+      '    <thead><tr><th class="dm-sort-column">排序</th><th>姓名</th><th>身份证号</th><th>公司名称</th><th>统一社会信用代码</th><th>手机号</th><th>备注</th><th>操作</th></tr></thead>',
       "    <tbody>",
       entries.map(function(entry) {
         return [
-          "<tr>",
+          '<tr data-favorite-id="' + escapeHtml(entry.id) + '">',
+          '  <td class="dm-sort-cell"><button type="button" class="dm-drag-handle" draggable="true" data-role="favorite-drag-handle" data-id="' + escapeHtml(entry.id) + '" aria-label="拖动排序" title="拖动排序（也可使用上下方向键）"><span aria-hidden="true">⠿</span></button></td>',
           "  <td>" + escapeHtml(entry.profile.fullName || "—") + "</td>",
           "  <td>" + escapeHtml(entry.profile.idNumber || "—") + "</td>",
           "  <td>" + escapeHtml(entry.profile.companyName || "—") + "</td>",
@@ -451,6 +469,7 @@ let favoriteModalNote = null;
 let favoriteForm = null;
 let viewTitle = null;
 let viewActions = null;
+let draggedFavoriteId = null;
 function setToast(message, tone = "info") {
   if (!toastNode) return;
   toastNode.textContent = message;
@@ -601,6 +620,74 @@ async function handleRootClick(event) {
     setToast("已从生成记录加入常用数据", "success");
   }
 }
+function clearFavoriteDragState() {
+  workspace?.querySelectorAll(".is-dragging").forEach(function(row) {
+    row.classList.remove("is-dragging");
+  });
+}
+function handleFavoriteDragStart(event) {
+  const handle = event.target?.closest("[data-role='favorite-drag-handle']");
+  if (!handle || state.activeView !== "favorites") return;
+  draggedFavoriteId = handle.getAttribute("data-id");
+  const row = handle.closest("tr");
+  row?.classList.add("is-dragging");
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", draggedFavoriteId || "");
+  }
+}
+function handleFavoriteDragOver(event) {
+  if (!draggedFavoriteId) return;
+  event.preventDefault();
+  const targetRow = event.target?.closest("tr[data-favorite-id]");
+  const rows = Array.from(workspace?.querySelectorAll("tr[data-favorite-id]") || []);
+  const draggedRow = rows.find(function(row) {
+    return row.getAttribute("data-favorite-id") === draggedFavoriteId;
+  });
+  if (!targetRow || !draggedRow || targetRow === draggedRow) return;
+  const insertBefore = event.clientY < targetRow.getBoundingClientRect().top + targetRow.offsetHeight / 2;
+  targetRow.parentElement?.insertBefore(draggedRow, insertBefore ? targetRow : targetRow.nextElementSibling);
+}
+async function handleFavoriteDrop(event) {
+  if (!draggedFavoriteId) return;
+  event.preventDefault();
+  const orderedIds = Array.from(workspace?.querySelectorAll("tr[data-favorite-id]") || []).map(function(row) {
+    return row.getAttribute("data-favorite-id") || "";
+  });
+  draggedFavoriteId = null;
+  clearFavoriteDragState();
+  state.favoriteProfiles = await reorderFavoriteProfiles(state.activeScope, orderedIds);
+  renderWorkspace();
+  setToast("常用数据顺序已保存", "success");
+}
+function handleFavoriteDragEnd() {
+  if (!draggedFavoriteId) return;
+  draggedFavoriteId = null;
+  clearFavoriteDragState();
+  renderWorkspace();
+}
+async function handleFavoriteOrderKeydown(event) {
+  if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+  const handle = event.target?.closest("[data-role='favorite-drag-handle']");
+  if (!handle) return;
+  const id = handle.getAttribute("data-id") || "";
+  const currentIndex = state.favoriteProfiles.findIndex(function(entry) {
+    return entry.id === id;
+  });
+  const nextIndex = currentIndex + (event.key === "ArrowUp" ? -1 : 1);
+  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= state.favoriteProfiles.length) return;
+  event.preventDefault();
+  const orderedIds = state.favoriteProfiles.map(function(entry) {
+    return entry.id;
+  });
+  const [movedId] = orderedIds.splice(currentIndex, 1);
+  if (!movedId) return;
+  orderedIds.splice(nextIndex, 0, movedId);
+  state.favoriteProfiles = await reorderFavoriteProfiles(state.activeScope, orderedIds);
+  renderWorkspace();
+  workspace?.querySelector("[data-role='favorite-drag-handle'][data-id='" + CSS.escape(id) + "']")?.focus();
+  setToast("常用数据顺序已保存", "success");
+}
 function renderShell() {
   doc.body.innerHTML = [
     '<div class="dm-app">',
@@ -635,8 +722,15 @@ function renderShell() {
   doc.body.addEventListener("click", function(event) {
     void handleRootClick(event);
   });
+  doc.body.addEventListener("dragstart", handleFavoriteDragStart);
+  doc.body.addEventListener("dragover", handleFavoriteDragOver);
+  doc.body.addEventListener("drop", function(event) {
+    void handleFavoriteDrop(event);
+  });
+  doc.body.addEventListener("dragend", handleFavoriteDragEnd);
   doc.addEventListener("keydown", function(event) {
     if (event.key === "Escape" && state.modalOpen) closeFavoriteModal();
+    void handleFavoriteOrderKeydown(event);
   });
 }
 async function bootstrap() {

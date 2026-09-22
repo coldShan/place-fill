@@ -136,9 +136,6 @@ function normalizeFavoriteProfilesMap(rawValue: unknown): Record<ScopeKey, Favor
           profile: normalizeProfile(current.profile as Partial<Record<string, unknown>>),
           updatedAt
         };
-      })
-      .sort(function (left, right) {
-        return Number(right.updatedAt) - Number(left.updatedAt);
       });
   });
 
@@ -204,6 +201,32 @@ export async function readFavoriteProfiles(scope: string, env?: DataRecordsEnv):
   if (!normalizedScope) return [];
   const favoritesMap = await readFavoriteProfilesMap(env);
   return favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
+}
+
+export async function reorderFavoriteProfiles(
+  scope: string,
+  orderedIds: string[],
+  env?: DataRecordsEnv
+): Promise<FavoriteEntry[]> {
+  const normalizedScope = normalizeScopeKey(scope);
+  if (!normalizedScope) return [];
+
+  const favoritesMap = await readFavoriteProfilesMap(env);
+  const currentEntries = favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
+  const entriesById = new Map(currentEntries.map(function (entry) {
+    return [entry.id, entry];
+  }));
+  const nextEntries: FavoriteEntry[] = [];
+
+  orderedIds.forEach(function (id) {
+    const entry = entriesById.get(id);
+    if (!entry) return;
+    nextEntries.push(entry);
+    entriesById.delete(id);
+  });
+  favoritesMap[normalizedScope] = nextEntries.concat(Array.from(entriesById.values()));
+  await writeFavoriteProfilesMap(favoritesMap, env);
+  return favoritesMap[normalizedScope].slice();
 }
 
 export async function findFavoriteProfile(
@@ -290,8 +313,8 @@ export async function updateFavoriteProfile(
     updatedAt: String(now)
   };
 
-  currentEntries.splice(entryIndex, 1);
-  favoritesMap[normalizedScope] = [nextEntry].concat(currentEntries);
+  currentEntries[entryIndex] = nextEntry;
+  favoritesMap[normalizedScope] = currentEntries;
   await writeFavoriteProfilesMap(favoritesMap, env);
   return nextEntry;
 }

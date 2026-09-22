@@ -11,6 +11,7 @@ import {
   readFavoriteProfiles,
   readGeneratedProfiles,
   recordGeneratedProfile,
+  reorderFavoriteProfiles,
   updateFavoriteProfile
 } from "../extension/src-ts/shared/data-records";
 
@@ -151,6 +152,26 @@ test("createFavoriteProfile reuses an existing favorite with the same profile", 
   assert.equal(duplicate.id, first.id);
   assert.equal(favorites.length, 1);
   assert.equal(favorites[0]?.name, "常用数据 A");
+});
+
+test("favorite profiles keep a persisted custom order", async () => {
+  const storageArea = createStorageArea();
+  const scope = "alpha.example.com";
+  const first = await createFavoriteProfile(scope, { profile: buildProfile(1) }, { storageArea, now: () => 1200 });
+  const second = await createFavoriteProfile(scope, { profile: buildProfile(2) }, { storageArea, now: () => 1300 });
+  const third = await createFavoriteProfile(scope, { profile: buildProfile(3) }, { storageArea, now: () => 1400 });
+
+  await reorderFavoriteProfiles(scope, [first.id, third.id, second.id], { storageArea });
+  await updateFavoriteProfile(scope, third.id, { note: "编辑后仍在原位", profile: third.profile }, {
+    storageArea,
+    now: () => 1500
+  });
+
+  assert.deepEqual((await readFavoriteProfiles(scope, { storageArea })).map(function (entry) { return entry.id; }), [
+    first.id,
+    third.id,
+    second.id
+  ]);
 });
 
 test("findFavoriteProfile and hasFavoriteProfile use normalized profile deduplication", async () => {

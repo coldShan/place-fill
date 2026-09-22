@@ -58,7 +58,9 @@ test("favorite create and edit share a modal form instead of an inline persisten
 
 test("favorites view renders as a regular table instead of cards", () => {
   assert.match(pageSource, /dm-favorites-table/);
-  assert.match(pageSource, /<th>姓名<\/th><th>身份证号<\/th><th>公司名称<\/th><th>统一社会信用代码<\/th><th>手机号<\/th><th>备注<\/th><th>操作<\/th>/);
+  assert.match(pageSource, /dm-sort-column[^>]*>排序<\/th><th>姓名<\/th><th>身份证号<\/th><th>公司名称<\/th><th>统一社会信用代码<\/th><th>手机号<\/th><th>备注<\/th><th>操作<\/th>/);
+  assert.match(pageSource, /data-role=\"favorite-drag-handle\"/);
+  assert.match(pageSource, /reorderFavoriteProfiles/);
   assert.doesNotMatch(pageSource, /data-action="favorite-copy"/);
   assert.match(pageSource, /renderActionButton\("favorite-edit",\s*entry\.id,\s*"edit",\s*"编辑"/);
   assert.match(pageSource, /renderActionButton\("favorite-delete",\s*entry\.id,\s*"delete",\s*"删除",\s*" is-danger"/);

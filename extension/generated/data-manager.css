@@ -350,7 +350,44 @@ select:focus-visible {
 
 .dm-favorites-table td:first-child,
 .dm-favorites-table th:first-child {
+  width: 64px;
+}
+
+.dm-favorites-table td:nth-child(2),
+.dm-favorites-table th:nth-child(2) {
   width: 150px;
+}
+
+.dm-sort-column,
+.dm-sort-cell {
+  text-align: center !important;
+}
+
+.dm-drag-handle {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--dm-ink-3);
+  background: transparent;
+  cursor: grab;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.dm-drag-handle:hover,
+.dm-drag-handle:focus-visible {
+  color: rgb(var(--place-fill-accent-rgb));
+  background: rgb(var(--place-fill-accent-rgb) / 0.08);
+}
+
+.dm-drag-handle:active {
+  cursor: grabbing;
+}
+
+.dm-favorites-table tr.is-dragging {
+  opacity: 0.45;
+  background: rgb(var(--place-fill-accent-rgb) / 0.08);
 }
 
 .dm-table th:last-child,
