@@ -263,7 +263,9 @@ function openDataManagerPage(scope) {
   const url = dataManagerBridgeApi && typeof dataManagerBridgeApi.buildDataManagerPageUrl === "function"
     ? dataManagerBridgeApi.buildDataManagerPageUrl(baseUrl, scope)
     : chrome.runtime.getURL("data-manager.html");
-  openExtensionPage(url);
+  const versionedUrl = new URL(url);
+  versionedUrl.searchParams.set("v", chrome.runtime.getManifest().version);
+  openExtensionPage(versionedUrl.href);
 }
 
 function openAiPermissionPage(origin) {

@@ -297,7 +297,7 @@ test("background opens the data manager page with a normalized scope", () => {
 
   assert.equal(typeof onMessageListener, "function");
   onMessageListener({ type: "open-data-manager-page", scope: " Example.COM " }, {}, function () {});
-  assert.equal(createdTab && createdTab.url, "chrome-extension://testing/data-manager.html?scope=example.com&view=favorites");
+  assert.equal(createdTab && createdTab.url, "chrome-extension://testing/data-manager.html?scope=example.com&view=favorites&v=0.3.5");
 });
 
 test("background exposes storage mirror runtime messages", async () => {

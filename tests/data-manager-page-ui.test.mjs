@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 const here = dirname(fileURLToPath(import.meta.url));
 const pageDir = join(here, "../extension/src-ts/pages/data-manager");
 const pageHtml = readFileSync(join(here, "../extension/data-manager.html"), "utf8");
+const pageBootstrap = readFileSync(join(here, "../extension/src/data-manager-page.js"), "utf8");
 const themeStyles = readFileSync(join(here, "../extension/src/theme.css"), "utf8");
 const sharedFieldMetaSource = readFileSync(join(here, "../extension/src-ts/shared/field-meta.ts"), "utf8");
 const pageSource = readdirSync(pageDir)
@@ -82,7 +83,10 @@ test("history table stays single-row only and does not render a detail row", () 
 });
 
 test("data manager action buttons use local icon assets and centered layout", () => {
-  assert.match(pageHtml, /<script src="\.\/src\/icon-assets\.js"><\/script>\s*<script type="module" src="\.\/generated\/data-manager\.js">/);
+  assert.match(pageHtml, /<script src="\.\/src\/icon-assets\.js"><\/script>\s*<script type="module" src="\.\/src\/data-manager-page\.js">/);
+  assert.match(pageBootstrap, /new URL\("\.\.\/generated\/data-manager\.js", import\.meta\.url\)/);
+  assert.match(pageBootstrap, /searchParams\.set\("v", chrome\.runtime\.getManifest\(\)\.version\)/);
+  assert.match(pageBootstrap, /await import\(dataManagerModuleUrl\.href\)/);
   assert.match(pageSource, /ChromeTestDataIconAssets/);
   assert.match(pageSource, /renderIconMarkup\(iconName,\s*"dm-action-icon",\s*""\)/);
   assert.match(pageStyles, /\.dm-table th:last-child,\s*\.dm-table td:last-child\s*\{[\s\S]*text-align:\s*center/);
