@@ -68,10 +68,75 @@
     return ["name", "id", "aria-label", "placeholder"].map(getAttribute).concat(labels).join(" ");
   }
 
-  function isNumericFallbackTarget(target) {
-    return /(?:金额|额度|面积|比例|百分比|数量|单价|总价|价格|费用|成本|预算|余额|总额|限额|税额|税率|利率|费率|工资|薪资|收入|支出|额(?!外)|amount|quota|area|ratio|percent(?:age)?|quantity|price)/i.test(
-      getFormControlDescription(target)
-    );
+  const PERCENT_FALLBACK_KEYWORDS = /(?:比例|百分比|占比|税率|利率|费率|折扣率|增长率)/u;
+  const PERCENT_FALLBACK_WORDS = /\b(?:ratio|rate|percent(?:age)?)\b/i;
+  const NUMERIC_FALLBACK_KEYWORDS = /(?:金额|额度|面积|数量|单价|总价|价格|费用|成本|预算|余额|总额|限额|税额|工资|薪资|收入|支出|额(?!外))/u;
+  // 英文关键词按单词匹配，避免 registration、textarea 等单词内部误命中；areaName/areaCode 是地区而非面积
+  const NUMERIC_FALLBACK_WORDS = /\b(?:amount|quota|area(?!\s*(?:name|code|id|no)\b)|quantity|qty|price)\b/i;
+  // 「日」只表示几号，排除生日、日期、日志、工作日、日均等
+  const DAY_FALLBACK_PATTERN = /(?<![生作假])日(?![期志记常均报])/u;
+  const NUMERIC_FALLBACK_RANGES = {
+    day: [1, 31],
+    percent: [1, 100],
+    number: [0, 999]
+  };
+
+  function splitDescriptionWords(description) {
+    return String(description || "")
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/[_\-.]+/g, " ");
+  }
+
+  function getNumericFallbackKind(target) {
+    const description = getFormControlDescription(target);
+    const words = splitDescriptionWords(description);
+    if (PERCENT_FALLBACK_KEYWORDS.test(description) || PERCENT_FALLBACK_WORDS.test(words)) return "percent";
+    if (NUMERIC_FALLBACK_KEYWORDS.test(description) || NUMERIC_FALLBACK_WORDS.test(words)) return "number";
+    if (DAY_FALLBACK_PATTERN.test(description)) return "day";
+    return "";
+  }
+
+  function readFallbackNumberAttribute(target, names) {
+    for (let i = 0; i < names.length; i++) {
+      const property = target ? target[names[i]] : null;
+      const raw = property != null && String(property).trim() !== ""
+        ? property
+        : target && typeof target.getAttribute === "function" ? target.getAttribute(names[i]) : null;
+      if (raw == null || String(raw).trim() === "") continue;
+      const value = Number(String(raw).trim());
+      if (Number.isFinite(value)) return value;
+    }
+    return NaN;
+  }
+
+  function isNumberInputTarget(target) {
+    if (String(target && target.type || "").toLowerCase() === "number") return true;
+    const role = target && typeof target.getAttribute === "function" ? target.getAttribute("role") : target && target.role;
+    if (String(role || "").toLowerCase() === "spinbutton") return true;
+    // Element UI 2.x 的 el-input-number 内部是 type="text" 的 input
+    return !!(target && typeof target.closest === "function" && target.closest(".el-input-number"));
+  }
+
+  function generateConstrainedNumber(target, kind, sample) {
+    const preferred = NUMERIC_FALLBACK_RANGES[kind] || NUMERIC_FALLBACK_RANGES.number;
+    const span = preferred[1] - preferred[0];
+    const min = readFallbackNumberAttribute(target, ["min", "aria-valuemin"]);
+    const rawMax = readFallbackNumberAttribute(target, ["max", "aria-valuemax"]);
+    const max = Number.isFinite(rawMax) && (!Number.isFinite(min) || rawMax >= min) ? rawMax : NaN;
+    const rawStep = readFallbackNumberAttribute(target, ["step"]);
+    const step = rawStep > 0 ? rawStep : 1;
+    let low = Number.isFinite(min) ? Math.max(min, preferred[0]) : preferred[0];
+    let high = Number.isFinite(max) ? Math.min(max, preferred[1]) : preferred[1];
+    if (low > high) {
+      // 语义范围与 min/max 不相交时以页面约束为准
+      low = Number.isFinite(min) ? min : Number.isFinite(max) ? max - span : preferred[0];
+      high = Number.isFinite(max) ? max : low + span;
+    }
+    const base = Number.isFinite(min) ? min : 0;
+    const first = Math.ceil((low - base) / step - 1e-9);
+    const last = Math.floor((high - base) / step + 1e-9);
+    const index = last < first ? first : first + Math.floor(sample * (last - first + 1));
+    return String(Math.round((base + index * step) * 1e8) / 1e8);
   }
 
   function generateFallbackAutoFillValue(target, randomFn) {
@@ -79,25 +144,22 @@
     const sample = Number.isFinite(random) ? Math.max(0, Math.min(0.999999999999, random)) : 0;
     const type = String(target && target.type || "text").toLowerCase();
     const seed = String(100000 + Math.floor(sample * 900000));
-    if (/日/u.test(getFormControlDescription(target))) return String(1 + Math.floor(sample * 31));
-    if (type === "number") {
-      const rawMin = String(target && target.min || "").trim();
-      const rawMax = String(target && target.max || "").trim();
-      const rawStep = String(target && target.step || "").trim();
-      const min = rawMin && Number.isFinite(Number(rawMin)) ? Number(rawMin) : 0;
-      const max = rawMax && Number.isFinite(Number(rawMax)) && Number(rawMax) >= min ? Number(rawMax) : min + 999;
-      const step = rawStep && rawStep !== "any" && Number(rawStep) > 0 ? Number(rawStep) : 1;
-      const count = Math.max(0, Math.floor((max - min) / step));
-      return String(Math.round((min + Math.floor(sample * (count + 1)) * step) * 1e8) / 1e8);
-    }
+    const numericKind = getNumericFallbackKind(target);
+    if (isNumberInputTarget(target)) return generateConstrainedNumber(target, numericKind, sample);
     if (type === "email") return "test" + seed + "@example.com";
     if (type === "url") return "https://example.com/" + seed;
     const maxLength = Number(target && target.maxLength);
-    if (type === "tel" || /^(?:decimal|numeric)$/.test(String(target && target.inputMode || "").toLowerCase()) || isNumericFallbackTarget(target)) {
-      return Number.isInteger(maxLength) && maxLength > 0 ? seed.slice(0, maxLength) : seed;
+    const limitLength = function (value) {
+      return Number.isInteger(maxLength) && maxLength > 0 ? value.slice(0, maxLength) : value;
+    };
+    if (numericKind === "day" || numericKind === "percent") {
+      const range = NUMERIC_FALLBACK_RANGES[numericKind];
+      return limitLength(String(range[0] + Math.floor(sample * (range[1] - range[0] + 1))));
     }
-    const value = "测试" + seed;
-    return Number.isInteger(maxLength) && maxLength > 0 ? value.slice(0, maxLength) : value;
+    if (numericKind || type === "tel" || /^(?:decimal|numeric)$/.test(String(target && target.inputMode || "").toLowerCase())) {
+      return limitLength(seed);
+    }
+    return limitLength("测试" + seed);
   }
 
   function isSensitiveFormControl(target) {

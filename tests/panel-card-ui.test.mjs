@@ -408,17 +408,68 @@ test("one-click fill excludes extension settings controls", () => {
 
 test("one-click fill generates type-safe fallback values for unknown fields", () => {
   assert.equal(generateFallbackAutoFillValue({ type: "text", placeholder: "日" }, function () { return 0; }), "1");
-  assert.equal(generateFallbackAutoFillValue({ type: "number", labels: [{ textContent: "日期" }] }, function () { return 0.999999; }), "31");
+  assert.equal(generateFallbackAutoFillValue({ type: "number", labels: [{ textContent: "还款日" }] }, function () { return 0.999999; }), "31");
   assert.equal(generateFallbackAutoFillValue({ type: "number", min: "10", max: "20", step: "2" }, function () { return 0.5; }), "16");
+  assert.equal(generateFallbackAutoFillValue({ type: "number" }, function () { return 0.999999; }), "999");
   assert.equal(generateFallbackAutoFillValue({ type: "tel" }, function () { return 0.5; }), "550000");
   assert.equal(generateFallbackAutoFillValue({ type: "email" }, function () { return 0.5; }), "test550000@example.com");
   assert.equal(generateFallbackAutoFillValue({ type: "url" }, function () { return 0.5; }), "https://example.com/550000");
   assert.equal(generateFallbackAutoFillValue({ type: "text", maxLength: 4 }, function () { return 0.5; }), "测试55");
   assert.equal(generateFallbackAutoFillValue({ type: "text", name: "contractAmount" }, function () { return 0.5; }), "550000");
   assert.equal(generateFallbackAutoFillValue({ type: "text", placeholder: "请输入建筑面积" }, function () { return 0.5; }), "550000");
-  assert.equal(generateFallbackAutoFillValue({ type: "text", labels: [{ textContent: "占用比例" }], maxLength: 3 }, function () { return 0.5; }), "550");
+  assert.equal(generateFallbackAutoFillValue({ type: "text", labels: [{ textContent: "占用比例" }], maxLength: 3 }, function () { return 0.5; }), "51");
   assert.equal(generateFallbackAutoFillValue({ type: "text", placeholder: "额外说明" }, function () { return 0.5; }), "测试550000");
   assert.match(panelScript, /entry\.kind === "fallback"[\s\S]*?fillEditableTarget\(entry\.target, value\)/);
+});
+
+test("one-click fill matches English numeric keywords as whole words", () => {
+  const fill = (name) => generateFallbackAutoFillValue({ type: "text", name }, function () { return 0.5; });
+  assert.equal(fill("registrationNo"), "测试550000");
+  assert.equal(fill("operationDesc"), "测试550000");
+  assert.equal(fill("remarkTextarea"), "测试550000");
+  assert.equal(fill("areaName"), "测试550000");
+  assert.equal(fill("area_code"), "测试550000");
+  assert.equal(fill("buildingArea"), "550000");
+  assert.equal(fill("unit_price"), "550000");
+  assert.equal(fill("totalQty"), "550000");
+  assert.equal(fill("interestRate"), "51");
+  assert.equal(fill("createTime"), "测试550000");
+});
+
+test("one-click fill keeps percent and day fallbacks within a sensible range", () => {
+  assert.equal(generateFallbackAutoFillValue({ type: "text", labels: [{ textContent: "税率" }] }, function () { return 0.999999; }), "100");
+  assert.equal(generateFallbackAutoFillValue({ type: "text", labels: [{ textContent: "日利率" }] }, function () { return 0.5; }), "51");
+  assert.equal(generateFallbackAutoFillValue({ type: "text", labels: [{ textContent: "日限额" }] }, function () { return 0.5; }), "550000");
+  assert.equal(generateFallbackAutoFillValue({ type: "text", labels: [{ textContent: "生日" }] }, function () { return 0.5; }), "测试550000");
+  assert.equal(generateFallbackAutoFillValue({ type: "text", labels: [{ textContent: "日期" }] }, function () { return 0.5; }), "测试550000");
+  assert.equal(generateFallbackAutoFillValue({ type: "number", labels: [{ textContent: "百分比" }] }, function () { return 0.999999; }), "100");
+});
+
+test("one-click fill respects number min/max even for day fields", () => {
+  assert.equal(generateFallbackAutoFillValue({ type: "number", min: "1", max: "7", labels: [{ textContent: "账单日" }] }, function () { return 0.999999; }), "7");
+  assert.equal(generateFallbackAutoFillValue({ type: "number", min: "1000" }, function () { return 0; }), "1000");
+  assert.equal(generateFallbackAutoFillValue({ type: "number", min: "1000" }, function () { return 0.999999; }), "1999");
+  assert.equal(generateFallbackAutoFillValue({ type: "number", max: "-5" }, function () { return 0.999999; }), "-5");
+  assert.equal(generateFallbackAutoFillValue({ type: "number", max: "-5" }, function () { return 0; }), "-1004");
+  assert.equal(generateFallbackAutoFillValue({ type: "number", min: "0", max: "1", step: "0.25" }, function () { return 0.5; }), "0.5");
+  assert.equal(generateFallbackAutoFillValue({ type: "number", min: "-Infinity", max: "Infinity" }, function () { return 0.999999; }), "999");
+});
+
+test("one-click fill treats Element UI input-number and spinbutton inputs as numbers", () => {
+  const elementUiInput = {
+    type: "text",
+    min: "1",
+    max: "10",
+    closest(selector) { return selector === ".el-input-number" ? {} : null; }
+  };
+  assert.equal(generateFallbackAutoFillValue(elementUiInput, function () { return 0.999999; }), "10");
+  const spinbutton = {
+    type: "text",
+    getAttribute(name) {
+      return { role: "spinbutton", "aria-valuemin": "5", "aria-valuemax": "8" }[name] || null;
+    }
+  };
+  assert.equal(generateFallbackAutoFillValue(spinbutton, function () { return 0; }), "5");
 });
 
 test("one-click fill uses disconnected Element form labels for numeric fallback", () => {

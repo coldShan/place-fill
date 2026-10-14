@@ -375,7 +375,14 @@
     if (typeof node.focus === "function") node.focus();
 
     if (isInputLike(node)) {
-      (env && env.setFormValue ? env.setFormValue : setFormValue)(node, text);
+      const writeValue = env && env.setFormValue ? env.setFormValue : setFormValue;
+      const previous = node.value;
+      writeValue(node, text);
+      // type="number" 会把非数字值（如带 X 的身份证号、带横线的座机号）清空，视为填充失败
+      if (String(node.type || "").toLowerCase() === "number" && text.trim() && String(node.value || "") === "") {
+        writeValue(node, previous == null ? "" : previous);
+        return false;
+      }
       dispatchEditableEvent(node, "input", createEventFn);
       dispatchEditableEvent(node, "change", createEventFn);
       return true;

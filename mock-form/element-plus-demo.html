@@ -183,6 +183,9 @@
           <el-form-item label="提取比例">
             <el-input v-model="numericFallback.ratio" maxlength="3" placeholder="请输入"></el-input>
           </el-form-item>
+          <el-form-item label="购买份数">
+            <el-input-number v-model="numericFallback.copies" :min="1" :max="10"></el-input-number>
+          </el-form-item>
           <el-form-item label="额外说明">
             <el-input v-model="numericFallback.extraNote" placeholder="请输入"></el-input>
           </el-form-item>
@@ -215,6 +218,7 @@
         area: "",
         totalPrice: "",
         ratio: "",
+        copies: null,
         extraNote: ""
       });
       window.elementPlusState = elementPlusState;

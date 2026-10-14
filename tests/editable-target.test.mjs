@@ -58,6 +58,26 @@ test("fillEditableTarget writes value and emits input/change for input-like elem
   assert.deepEqual(input.events, ["input", "change"]);
 });
 
+test("fillEditableTarget reports failure when a number input rejects the value", () => {
+  const input = createElement({ tagName: "INPUT", type: "number" });
+  input.value = "";
+  const env = {
+    createEvent(type) {
+      return { type };
+    },
+    setFormValue(element, value) {
+      element.value = /^-?\d+(?:\.\d+)?$/.test(value) || value === "" ? value : "";
+    }
+  };
+
+  assert.equal(fillEditableTarget(input, "11010519491231002X", env), false);
+  assert.equal(input.value, "");
+  assert.deepEqual(input.events, []);
+  assert.equal(fillEditableTarget(input, "13800138000", env), true);
+  assert.equal(input.value, "13800138000");
+  assert.deepEqual(input.events, ["input", "change"]);
+});
+
 test("fillEditableTarget writes plain text into contenteditable and emits input", () => {
   const editable = createElement({ isContentEditable: true });
 
