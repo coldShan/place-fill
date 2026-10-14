@@ -318,7 +318,7 @@
         <article class="case compatibility-case">
           <span class="case-tag">Form Controls</span>
           <h2>Element UI 一键填充兼容性</h2>
-          <p class="case-note">用于验证下拉框、单选、多选、开关和日期时间组件。执行一键填充后，下方 Vue 数据应同步变化。</p>
+          <p class="case-note">用于验证下拉框、单选、多选、开关和日期时间组件。执行一键填充后，下方 Vue 数据应同步变化；日期随机选择，周末禁用。</p>
           <div class="compatibility-grid">
             <div class="field-row">
               <label>姓名输入框</label>
@@ -361,11 +361,15 @@
             </div>
             <div class="field-row">
               <label>办理日期</label>
-              <el-date-picker v-model="compatibility.date" type="date" placeholder="请选择日期"></el-date-picker>
+              <el-date-picker v-model="compatibility.date" :picker-options="{ disabledDate: date => date.getDay() === 0 || date.getDay() === 6 }" type="date" placeholder="请选择日期"></el-date-picker>
             </div>
             <div class="field-row">
               <label>办理时间</label>
-              <el-date-picker v-model="compatibility.datetime" type="datetime" placeholder="请选择日期时间"></el-date-picker>
+              <el-date-picker v-model="compatibility.datetime" :picker-options="{ disabledDate: date => date.getDay() === 0 || date.getDay() === 6 }" type="datetime" placeholder="请选择日期时间"></el-date-picker>
+            </div>
+            <div class="field-row">
+              <label>办理日期范围（周末禁用）</label>
+              <el-date-picker v-model="compatibility.dateRange" :picker-options="{ disabledDate: date => date.getDay() === 0 || date.getDay() === 6 }" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期"></el-date-picker>
             </div>
             <div class="field-row">
               <label>提醒时间</label>
@@ -430,6 +434,7 @@
               tags: [],
               enabled: false,
               date: "",
+              dateRange: [],
               datetime: "",
               time: ""
             },

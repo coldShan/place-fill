@@ -184,7 +184,7 @@
   async function confirmElementPicker(type, doc, env) {
     if (!doc || typeof doc.querySelectorAll !== "function") return;
     const isTime = type.indexOf("time") === 0;
-    const panelSelector = isTime ? ".el-time-panel.el-popper" : ".el-date-picker.el-popper";
+    const panelSelector = isTime ? ".el-time-panel.el-popper" : ".el-date-picker, .el-date-range-picker";
     const buttonSelector = isTime
       ? ".el-time-panel__btn.confirm"
       : ".el-picker-panel__footer .el-button--default";
@@ -192,7 +192,7 @@
       const panels = Array.from(doc.querySelectorAll(panelSelector)).filter(isVisible);
       const panel = panels[panels.length - 1];
       const button = panel && panel.querySelector(buttonSelector);
-      if (button) {
+      if (button && !button.disabled && !hasClass(button, "is-disabled")) {
         button.click();
         return;
       }
@@ -261,33 +261,14 @@
     return String(value).padStart(2, "0");
   }
 
-  function formatIsoWeek(date) {
-    const day = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    day.setUTCDate(day.getUTCDate() + 4 - (day.getUTCDay() || 7));
-    const yearStart = new Date(Date.UTC(day.getUTCFullYear(), 0, 1));
-    const week = Math.ceil((((day - yearStart) / 86400000) + 1) / 7);
-    return day.getUTCFullYear() + "w" + padNumber(week);
-  }
-
   function getTemporalType(root) {
     return ELEMENT_TEMPORAL_TYPES.find(function (type) {
       return hasClass(root, "el-date-editor--" + type);
     }) || "";
   }
 
-  function formatTemporalValue(type, date) {
-    const day = [
-      date.getFullYear(),
-      padNumber(date.getMonth() + 1),
-      padNumber(date.getDate())
-    ].join("-");
-    const time = padNumber(date.getHours()) + ":" + padNumber(date.getMinutes()) + ":" + padNumber(date.getSeconds());
-    if (type.indexOf("datetime") === 0) return day + " " + time;
-    if (type.indexOf("time") === 0) return time;
-    if (type.indexOf("month") === 0) return day.slice(0, 7);
-    if (type === "week") return formatIsoWeek(date);
-    if (type === "year") return String(date.getFullYear());
-    return day;
+  function formatTime(date) {
+    return padNumber(date.getHours()) + ":" + padNumber(date.getMinutes()) + ":" + padNumber(date.getSeconds());
   }
 
   function createEvent(node, type) {
@@ -311,20 +292,71 @@
     node.value = value;
   }
 
+  function getCalendarPanel(doc) {
+    if (!doc || typeof doc.querySelectorAll !== "function") return null;
+    const panels = Array.from(doc.querySelectorAll(".el-date-picker, .el-date-range-picker")).filter(isVisible);
+    return panels[panels.length - 1] || null;
+  }
+
+  function getCalendarCells(panel, type) {
+    if (!panel || typeof panel.querySelectorAll !== "function") return [];
+    const table = type.indexOf("month") === 0 ? ".el-month-table" : type === "year" ? ".el-year-table" : ".el-date-table";
+    return Array.from(panel.querySelectorAll(table + " td")).filter(function (cell) {
+      return isVisible(cell) &&
+        !["disabled", "is-disabled", "prev-month", "next-month", "week"].some(function (name) { return hasClass(cell, name); }) &&
+        !(cell.getAttribute && cell.getAttribute("aria-disabled") === "true") &&
+        typeof cell.click === "function";
+    });
+  }
+
+  async function fillElementCalendar(entry, type, env) {
+    const input = entry.targets[0];
+    const doc = env && env.document || entry.root.ownerDocument || input.ownerDocument;
+    if (typeof input.focus === "function") input.focus();
+    if (typeof input.click === "function") input.click();
+    await wait(100, env);
+    const panel = getCalendarPanel(doc);
+    const cells = getCalendarCells(panel, type);
+    if (!cells.length) {
+      input.dispatchEvent(createEscapeEvent(input));
+      if (typeof input.blur === "function") input.blur();
+      return false;
+    }
+    // Pick through the component so disabled-date and custom display formats apply.
+    const isRange = type.indexOf("range") > -1;
+    const firstIndex = Math.floor(normalizeRandom(env && env.random) * (isRange && cells.length > 1 ? cells.length - 1 : cells.length));
+    cells[firstIndex].click();
+    await wait(60, env);
+    if (isRange) {
+      const remaining = getCalendarCells(panel, type).filter(function (cell) {
+        return cells.indexOf(cell) > firstIndex;
+      });
+      const last = pickRandom(remaining, env && env.random) || getCalendarCells(panel, type).find(function (cell) {
+        return cell === cells[firstIndex];
+      });
+      if (!last) return false;
+      last.click();
+      await wait(60, env);
+    }
+    await confirmElementPicker(type, doc, env);
+    await wait(100, env);
+    input.dispatchEvent(createEscapeEvent(input));
+    if (typeof input.blur === "function") input.blur();
+    return entry.targets.every(function (target) { return !!String(target.value || "").trim(); });
+  }
+
   async function fillElementTemporal(entry, env) {
     const type = getTemporalType(entry.root);
     if (!type) return false;
+    if (type.indexOf("time") !== 0) return fillElementCalendar(entry, type, env);
     const now = env && env.now instanceof Date ? new Date(env.now) : new Date();
     const end = new Date(now);
     if (type === "timerange") end.setHours(end.getHours() + 1);
-    else if (type === "monthrange") end.setMonth(end.getMonth() + 1);
-    else end.setDate(end.getDate() + 1);
 
     const isRange = type.indexOf("range") > -1;
-    const baseType = type.replace("range", "");
     const values = isRange
-      ? [formatTemporalValue(baseType, now), formatTemporalValue(baseType, end)]
-      : [formatTemporalValue(type, now)];
+      ? [formatTime(now), formatTime(end)]
+      : [formatTime(now)];
     const inputs = entry.targets.slice(0, values.length);
     if (inputs.length !== values.length) return false;
 

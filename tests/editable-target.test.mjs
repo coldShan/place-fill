@@ -145,23 +145,24 @@ test("generic form control chooses one radio and at least one checkbox", () => {
   assert.deepEqual(checkboxes.map((node) => node.checked), [true, true, false]);
 });
 
-test("generic form control fills native temporal inputs and clamps min/max", () => {
+test("generic form control randomizes native temporal inputs within valid ranges", () => {
   const now = new Date(2026, 6, 31, 9, 5);
   const cases = [
-    ["date", "2026-07-31"],
-    ["datetime-local", "2026-07-31T09:05"],
-    ["month", "2026-07"],
-    ["time", "09:05"],
-    ["week", "2026-W31"]
+    ["date", "2028-01-01", "2028-01-03", "2028-01-02"],
+    ["datetime-local", "2028-01-01T10:00", "2028-01-01T10:02", "2028-01-01T10:01"],
+    ["month", "2028-01", "2028-03", "2028-02"],
+    ["time", "10:00", "10:02", "10:01"],
+    ["week", "2028-W01", "2028-W03", "2028-W02"]
   ];
 
-  cases.forEach(function ([type, expected]) {
-    const input = createElement({ tagName: "INPUT", type });
+  cases.forEach(function ([type, min, max, expected]) {
+    const input = createElement({ tagName: "INPUT", type, min, max });
     assert.equal(fillGenericFormControl(input, {
       createEvent(eventType) {
         return { type: eventType };
       },
       now,
+      random: () => 0.5,
       setFormValue(element, value) {
         element.value = value;
       }
@@ -170,16 +171,44 @@ test("generic form control fills native temporal inputs and clamps min/max", () 
     assert.deepEqual(input.events, ["input", "change"]);
   });
 
-  const futureDate = createElement({
-    tagName: "INPUT",
-    type: "date",
-    min: "2027-01-01"
+  const steppedDate = createElement({ tagName: "INPUT", type: "date", min: "2028-01-01", max: "2028-01-10", step: "3" });
+  assert.equal(fillGenericFormControl(steppedDate, { now, random: () => 0.75 }), true);
+  assert.equal(steppedDate.value, "2028-01-10");
+
+  const fractionalStep = createElement({ tagName: "INPUT", type: "month", min: "2028-01", max: "2028-07", step: "1.5" });
+  assert.equal(fillGenericFormControl(fractionalStep, { now, random: () => 0.5 }), true);
+  assert.equal(fractionalStep.value, "2028-04");
+
+  const oneSided = createElement({ tagName: "INPUT", type: "date", min: "2030-01-01" });
+  assert.equal(fillGenericFormControl(oneSided, { now, random: () => 0 }), true);
+  assert.equal(oneSided.value, "2030-01-01");
+
+  const invalidStep = createElement({ tagName: "INPUT", type: "time", min: "10:00", max: "10:02", step: "0" });
+  assert.equal(fillGenericFormControl(invalidStep, { now, random: () => 0.5 }), true);
+  assert.equal(invalidStep.value, "10:01");
+
+  const narrow = createElement({ tagName: "INPUT", type: "time", min: "10:00:00.100", max: "10:00:00.105", step: "any" });
+  assert.equal(fillGenericFormControl(narrow, { now, random: () => 0.5 }), true);
+  assert.equal(narrow.value, "10:00:00.103");
+
+  const ancient = createElement({ tagName: "INPUT", type: "date" });
+  const ancientNow = new Date(0);
+  ancientNow.setFullYear(1, 0, 1);
+  assert.equal(fillGenericFormControl(ancient, { now: ancientNow, random: () => 0 }), true);
+  assert.equal(ancient.value, "0001-01-01");
+
+  const overnight = createElement({ tagName: "INPUT", type: "time", min: "22:00", max: "02:00" });
+  assert.equal(fillGenericFormControl(overnight, { now, random: () => 0.75 }), true);
+  assert.equal(overnight.value, "01:00");
+
+  const impossible = createElement({ tagName: "INPUT", type: "date", min: "2028-01-03", max: "2028-01-02" });
+  assert.equal(fillGenericFormControl(impossible, { now }), false);
+  assert.equal(impossible.value, "");
+
+  const browserRejected = createElement({
+    tagName: "INPUT", type: "date", min: "2028-01-01", max: "2028-01-03",
+    ownerDocument: { createElement: () => ({ validity: { valid: false } }) }
   });
-  fillGenericFormControl(futureDate, {
-    now,
-    setFormValue(element, value) {
-      element.value = value;
-    }
-  });
-  assert.equal(futureDate.value, "2027-01-01");
+  assert.equal(fillGenericFormControl(browserRejected, { now }), false);
+  assert.deepEqual(browserRejected.events, []);
 });

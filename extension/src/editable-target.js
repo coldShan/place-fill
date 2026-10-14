@@ -180,16 +180,16 @@
   }
 
   function formatIsoWeek(date) {
-    const day = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const day = utcDay(date.getFullYear(), date.getMonth() + 1, date.getDate());
     day.setUTCDate(day.getUTCDate() + 4 - (day.getUTCDay() || 7));
-    const yearStart = new Date(Date.UTC(day.getUTCFullYear(), 0, 1));
+    const yearStart = utcDay(day.getUTCFullYear(), 1, 1);
     const week = Math.ceil((((day - yearStart) / 86400000) + 1) / 7);
-    return day.getUTCFullYear() + "-W" + padNumber(week);
+    return String(day.getUTCFullYear()).padStart(4, "0") + "-W" + padNumber(week);
   }
 
   function formatTemporalValue(type, date) {
     const day = [
-      date.getFullYear(),
+      String(date.getFullYear()).padStart(4, "0"),
       padNumber(date.getMonth() + 1),
       padNumber(date.getDate())
     ].join("-");
@@ -202,19 +202,148 @@
     return "";
   }
 
-  function clampTemporalValue(value, node) {
-    const min = String(node && (node.min || node.getAttribute && node.getAttribute("min")) || "");
-    const max = String(node && (node.max || node.getAttribute && node.getAttribute("max")) || "");
-    if (min && value < min) return min;
-    if (max && value > max) return max;
-    return value;
+  function utcDay(year, month, day) {
+    const date = new Date(0);
+    date.setUTCFullYear(year, month - 1, day);
+    return date;
+  }
+
+  function parseTemporalNumber(type, value) {
+    const text = String(value || "");
+    if (type === "month") {
+      const match = /^(\d{4,})-(0[1-9]|1[0-2])$/.exec(text);
+      return match && Number(match[1]) > 0 ? (Number(match[1]) - 1970) * 12 + Number(match[2]) - 1 : NaN;
+    }
+    if (type === "week") {
+      const match = /^(\d{4,})-W(\d{2})$/.exec(text);
+      if (!match || Number(match[1]) <= 0) return NaN;
+      const januaryFourth = utcDay(Number(match[1]), 1, 4);
+      januaryFourth.setUTCDate(januaryFourth.getUTCDate() - (januaryFourth.getUTCDay() || 7) + 1 + (Number(match[2]) - 1) * 7);
+      const local = new Date(0);
+      local.setFullYear(januaryFourth.getUTCFullYear(), januaryFourth.getUTCMonth(), januaryFourth.getUTCDate());
+      return formatIsoWeek(local) === text ? januaryFourth.getTime() : NaN;
+    }
+    const match = /^(?:(\d{4,})-(\d{2})-(\d{2})(?:T)?)?(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/.exec(text);
+    if (type === "time" && match && !match[1]) {
+      const hours = Number(match[4]);
+      const minutes = Number(match[5]);
+      const seconds = Number(match[6] || 0);
+      return hours < 24 && minutes < 60 && seconds < 60
+        ? ((hours * 60 + minutes) * 60 + seconds) * 1000 + Number((match[7] || "").padEnd(3, "0"))
+        : NaN;
+    }
+    const dayMatch = /^(\d{4,})-(\d{2})-(\d{2})$/.exec(text);
+    const parts = type === "date" ? dayMatch : type === "datetime-local" && match && match[1] ? match : null;
+    if (!parts) return NaN;
+    const year = Number(parts[1]);
+    const month = Number(parts[2]);
+    const day = Number(parts[3]);
+    const date = utcDay(year, month, day);
+    if (year <= 0 || date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) return NaN;
+    if (type === "date") return date.getTime();
+    const time = parseTemporalNumber("time", text.slice(text.indexOf("T") + 1));
+    return Number.isFinite(time) ? date.getTime() + time : NaN;
+  }
+
+  function formatTemporalNumber(type, number) {
+    if (type === "month") {
+      const year = 1970 + Math.floor(number / 12);
+      return String(year).padStart(4, "0") + "-" + padNumber(((number % 12) + 12) % 12 + 1);
+    }
+    const date = new Date(number);
+    if (type === "week") {
+      const local = new Date(0);
+      local.setFullYear(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+      return formatIsoWeek(local);
+    }
+    const day = String(date.getUTCFullYear()).padStart(4, "0") + "-" + padNumber(date.getUTCMonth() + 1) + "-" + padNumber(date.getUTCDate());
+    const time = padNumber(date.getUTCHours()) + ":" + padNumber(date.getUTCMinutes()) +
+      (date.getUTCSeconds() || date.getUTCMilliseconds()
+        ? ":" + padNumber(date.getUTCSeconds()) + (date.getUTCMilliseconds() ? "." + String(date.getUTCMilliseconds()).padStart(3, "0") : "")
+        : "");
+    if (type === "date") return day;
+    if (type === "time") return time;
+    return day + "T" + time;
+  }
+
+  function temporalStep(type, node) {
+    const raw = String(node.step || node.getAttribute && node.getAttribute("step") || "");
+    const scale = type === "month" ? 1 : type === "date" ? 86400000 : type === "week" ? 604800000 : 1000;
+    const defaultStep = type === "time" || type === "datetime-local" ? 60 : 1;
+    const parsed = Number(raw);
+    const seconds = raw === "any" ? (type === "time" || type === "datetime-local" ? 0.001 : 1)
+      : raw && Number.isFinite(parsed) && parsed > 0 ? parsed : defaultStep;
+    let step = seconds * scale;
+    const unit = type === "month" ? 1 : type === "date" ? 86400000 : type === "week" ? 604800000 : 1;
+    if (step < unit || step % unit) {
+      let multiplier = 1;
+      while (multiplier <= 1000 && Math.abs((step * multiplier) / unit - Math.round((step * multiplier) / unit)) > 1e-9) multiplier++;
+      if (multiplier > 1000) return NaN;
+      step = Math.round(step * multiplier / unit) * unit;
+    }
+    return step;
   }
 
   function fillTemporalTarget(node, env) {
     const type = String(node && node.type || "").toLowerCase();
     const now = env && env.now instanceof Date ? env.now : new Date();
-    const value = clampTemporalValue(formatTemporalValue(type, now), node);
-    if (!value) return false;
+    const current = parseTemporalNumber(type, formatTemporalValue(type, now));
+    const min = parseTemporalNumber(type, node.min || node.getAttribute && node.getAttribute("min"));
+    const max = parseTemporalNumber(type, node.max || node.getAttribute && node.getAttribute("max"));
+    const step = temporalStep(type, node);
+    if (!Number.isFinite(current) || !Number.isFinite(step)) return false;
+
+    const year = type === "month" ? 12 : type === "week" ? 52 * 604800000 : 365 * 86400000;
+    let lower = type === "time" ? 0 : current - year;
+    let upper = type === "time" ? 86400000 - 1 : current + year;
+    if (Number.isFinite(min) && Number.isFinite(max)) {
+      lower = min;
+      upper = max;
+    } else if (Number.isFinite(min)) {
+      lower = Math.max(lower, min);
+      upper = Math.max(upper, min + (type === "time" ? 0 : year));
+    } else if (Number.isFinite(max)) {
+      upper = Math.min(upper, max);
+      lower = Math.min(lower, max - (type === "time" ? 0 : year));
+    }
+    if (type !== "time") {
+      const first = parseTemporalNumber(type, type === "month" ? "0001-01" : type === "week" ? "0001-W01" : type === "date" ? "0001-01-01" : "0001-01-01T00:00");
+      lower = Math.max(lower, first);
+    }
+
+    const stepBase = Number.isFinite(min) ? min : parseTemporalNumber(type, node.getAttribute && node.getAttribute("value"));
+    const base = Number.isFinite(stepBase) ? stepBase : type === "week" ? -259200000 : 0;
+    const spans = type === "time" && Number.isFinite(min) && Number.isFinite(max) && min > max
+      ? [[min, 86400000 - 1], [0, max]] : [[lower, upper]];
+    const ranges = spans.map(function ([start, end]) {
+      const first = Math.ceil((start - base) / step);
+      const last = Math.floor((end - base) / step);
+      return { first, count: Math.max(0, last - first + 1) };
+    });
+    const total = ranges.reduce(function (sum, range) { return sum + range.count; }, 0);
+    if (!total) return false;
+    let pick = Math.floor(normalizeRandom(env && env.random) * total);
+    let number;
+    for (const range of ranges) {
+      if (pick < range.count) {
+        number = base + (range.first + pick) * step;
+        break;
+      }
+      pick -= range.count;
+    }
+    const value = formatTemporalNumber(type, number);
+    const doc = node.ownerDocument || (typeof document !== "undefined" ? document : null);
+    if (doc && typeof doc.createElement === "function") {
+      const probe = doc.createElement("input");
+      probe.type = type;
+      probe.min = node.min || node.getAttribute && node.getAttribute("min") || "";
+      probe.max = node.max || node.getAttribute && node.getAttribute("max") || "";
+      probe.step = node.step || node.getAttribute && node.getAttribute("step") || "";
+      const initialValue = node.getAttribute && node.getAttribute("value");
+      if (initialValue) probe.setAttribute("value", initialValue);
+      probe.value = value;
+      if (probe.value !== value || !probe.validity.valid) return false;
+    }
     return fillEditableTarget(node, value, env);
   }
 

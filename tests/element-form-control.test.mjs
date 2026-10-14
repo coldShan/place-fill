@@ -160,40 +160,45 @@ test("fills up to two values in an Element multiple select", async () => {
   assert.equal(keyboardEvents.at(-1).key, "Escape");
 });
 
-test("fills Element temporal inputs and confirms the picker", async () => {
+test("randomly selects enabled Element calendar cells and preserves component formatting", async () => {
+  for (const type of ["date", "datetime", "month", "year", "week", "dates", "daterange", "datetimerange", "monthrange"]) {
+    const inputs = [createInput("text")];
+    if (type.includes("range")) inputs.push(createInput("text"));
+    let selected = 0;
+    let confirms = 0;
+    const cells = ["disabled", "prev-month", "next-month", "week", "", "", ""].map((name, index) => ({
+      classList: classList(name),
+      click() {
+        assert.ok(index >= 4, "must not click disabled or overflow cells");
+        inputs[Math.min(selected++, inputs.length - 1)].value = "custom-date-" + index;
+      }
+    }));
+    const panel = {
+      querySelectorAll() { return cells; },
+      querySelector() { return { click() { confirms++; } }; }
+    };
+    const filled = await elementFormControlApi.fillElementControl(
+      { kind: "temporal", root: { classList: classList("el-date-editor--" + type) }, targets: inputs },
+      { document: { querySelectorAll() { return [panel]; } }, random: () => 0.75, wait() {} }
+    );
+    assert.equal(filled, true);
+    assert.equal(selected, inputs.length);
+    assert.equal(inputs[0].value, inputs.length === 1 ? "custom-date-6" : "custom-date-5");
+    if (inputs.length === 2) assert.equal(inputs[1].value, "custom-date-6");
+    assert.equal(confirms, 1);
+    assert.ok(!inputs[0].events.includes("input"), "must use picker instead of direct value writes");
+  }
+});
+
+test("skips Element calendars with no enabled dates without writing today", async () => {
   const input = createInput("text");
-  let confirmClicks = 0;
-  const pickerPanel = {
-    getClientRects() {
-      return [{}];
-    },
-    querySelector(selector) {
-      if (selector !== ".el-picker-panel__footer .el-button--default") return null;
-      return {
-        click() {
-          confirmClicks += 1;
-        }
-      };
-    }
-  };
-  const document = {
-    querySelectorAll(selector) {
-      return selector === ".el-date-picker.el-popper" ? [pickerPanel] : [];
-    }
-  };
-  const root = {
-    classList: classList("el-date-editor", "el-date-editor--datetime")
-  };
-
+  const panel = { querySelectorAll() { return [{ classList: classList("disabled"), click() { assert.fail(); } }]; } };
   const filled = await elementFormControlApi.fillElementControl(
-    { kind: "temporal", root, targets: [input] },
-    { document, now: new Date(2026, 6, 31, 9, 8, 7), wait: function () {} }
+    { kind: "temporal", root: { classList: classList("el-date-editor--date") }, targets: [input] },
+    { document: { querySelectorAll() { return [panel]; } }, wait() {} }
   );
-
-  assert.equal(filled, true);
-  assert.equal(input.value, "2026-07-31 09:08:07");
-  assert.deepEqual(input.events, ["focus", "input", "change"]);
-  assert.equal(confirmClicks, 1);
+  assert.equal(filled, false);
+  assert.equal(input.value, "");
 });
 
 test("delegates Element radio, checkbox and switch filling to native choice logic", async () => {

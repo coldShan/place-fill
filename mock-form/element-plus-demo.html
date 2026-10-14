@@ -110,7 +110,7 @@
     <main id="app" class="page">
       <section class="hero">
         <h1>Element Plus 一键填充验证</h1>
-        <p>执行扩展的一键填充后，组件外观与下方 Vue 3 数据应同步更新；禁用选项不应被选择。</p>
+        <p>执行扩展的一键填充后，组件外观与下方 Vue 3 数据应同步更新；禁用选项不应被选择；日期随机选择，周末禁用。</p>
       </section>
 
       <section class="form-grid">
@@ -155,11 +155,15 @@
         </div>
         <div class="field-row">
           <label>办理日期</label>
-          <el-date-picker v-model="form.date" type="date" placeholder="请选择日期"></el-date-picker>
+          <el-date-picker v-model="form.date" :disabled-date="disabledDate" type="date" placeholder="请选择日期"></el-date-picker>
         </div>
         <div class="field-row">
           <label>办理时间</label>
-          <el-date-picker v-model="form.datetime" type="datetime" placeholder="请选择日期时间"></el-date-picker>
+          <el-date-picker v-model="form.datetime" :disabled-date="disabledDate" type="datetime" placeholder="请选择日期时间"></el-date-picker>
+        </div>
+        <div class="field-row">
+          <label>办理日期范围（周末禁用）</label>
+          <el-date-picker v-model="form.dateRange" :disabled-date="disabledDate" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期"></el-date-picker>
         </div>
         <div class="field-row">
           <label>提醒时间</label>
@@ -203,6 +207,7 @@
         tags: [],
         enabled: false,
         date: "",
+        dateRange: [],
         datetime: "",
         time: ""
       });
@@ -217,6 +222,7 @@
       Vue.createApp({
         setup: function () {
           return {
+            disabledDate: function (date) { return date.getDay() === 0 || date.getDay() === 6; },
             form: elementPlusState,
             numericFallback: elementPlusNumericFallbackState
           };
