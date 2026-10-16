@@ -2,12 +2,19 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { getFieldLabel, type FavoriteEntry, type ProfileFieldKey } from "../page-model";
 import { getCustomFavoriteName, getFavoriteTitle, moveId, shiftId } from "../lib/display";
 import { FieldCell } from "./field-cell";
+import { Highlight } from "./highlight";
 import { Icon } from "./icon";
 import { IconButton } from "./icon-button";
 
 export function FavoritesTable(props: {
   entries: FavoriteEntry[];
   columns: ProfileFieldKey[];
+  query: string;
+  selectedId: string | null;
+  sortable: boolean;
+  onSelect: (id: string) => void;
+  onCopyField: (fieldKey: ProfileFieldKey, value: string) => void;
+  onCopyAll: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onReorder: (orderedIds: string[]) => void;
@@ -76,16 +83,27 @@ export function FavoritesTable(props: {
               <tr
                 key={entry.id}
                 data-favorite-id={entry.id}
-                class={dragOrder && draggedIdRef.current === entry.id ? "is-dragging" : undefined}
+                tabIndex={0}
+                class={[
+                  "dm-row",
+                  props.selectedId === entry.id ? "is-selected" : "",
+                  dragOrder && draggedIdRef.current === entry.id ? "is-dragging" : ""
+                ].join(" ").trim()}
+                onClick={function () { props.onSelect(entry.id); }}
+                onKeyDown={function (event) {
+                  if (event.key === "Enter" && event.target === event.currentTarget) props.onSelect(entry.id);
+                }}
               >
                 <td class="dm-col-handle">
                   <button
                     type="button"
                     class="dm-drag-handle"
-                    draggable
+                    draggable={props.sortable}
+                    disabled={!props.sortable}
                     data-id={entry.id}
                     aria-label="拖动排序"
-                    title="拖动排序（也可使用上下方向键）"
+                    title={props.sortable ? "拖动排序（也可使用上下方向键）" : "搜索时不可排序"}
+                    onClick={function (event) { event.stopPropagation(); }}
                     onDragStart={function (event) {
                       draggedIdRef.current = entry.id;
                       setDragOrder(props.entries.map(function (item) { return item.id; }));
@@ -112,19 +130,26 @@ export function FavoritesTable(props: {
                 </td>
                 <td>
                   <div class="dm-title-cell">
-                    <span class={"dm-title-text" + (customName ? "" : " dm-cell-empty")}>{getFavoriteTitle(entry)}</span>
-                    {entry.note ? <span class="dm-title-note" title={entry.note}>{entry.note}</span> : null}
+                    <span class={"dm-title-text" + (customName ? "" : " is-fallback")}>
+                      <Highlight text={getFavoriteTitle(entry)} query={props.query} />
+                    </span>
+                    {entry.note ? (
+                      <span class="dm-title-note" title={entry.note}>
+                        <Highlight text={entry.note} query={props.query} />
+                      </span>
+                    ) : null}
                   </div>
                 </td>
                 {props.columns.map(function (fieldKey) {
                   return (
                     <td key={fieldKey}>
-                      <FieldCell fieldKey={fieldKey} value={entry.profile[fieldKey]} />
+                      <FieldCell fieldKey={fieldKey} value={entry.profile[fieldKey]} query={props.query} onCopy={props.onCopyField} />
                     </td>
                   );
                 })}
                 <td class="dm-col-actions">
                   <div class="dm-row-actions">
+                    <IconButton icon="copy" label="复制整组" onClick={function () { props.onCopyAll(entry.id); }} />
                     <IconButton icon="pencil" label="编辑" onClick={function () { props.onEdit(entry.id); }} />
                     <IconButton icon="trash-2" label="删除" tone="danger" onClick={function () { props.onDelete(entry.id); }} />
                   </div>

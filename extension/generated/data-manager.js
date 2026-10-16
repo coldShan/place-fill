@@ -436,7 +436,7 @@ function formatProfileForCopy(profile) {
 const GENERATED_PROFILES_STORAGE_KEY = "ctdp.generatedProfiles.v1";
 const FAVORITE_PROFILES_STORAGE_KEY = "ctdp.favoriteProfiles.v1";
 const MAX_GENERATED_RECORDS = 30;
-function getStorageArea(env) {
+function getStorageArea$1(env) {
   try {
     if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) return chrome.storage.local;
   } catch (_error) {
@@ -529,16 +529,16 @@ function isSameProfile(left, right) {
   });
 }
 async function readGeneratedProfilesMap(env) {
-  return normalizeGeneratedProfilesMap(await readStorageValue(getStorageArea(), GENERATED_PROFILES_STORAGE_KEY));
+  return normalizeGeneratedProfilesMap(await readStorageValue(getStorageArea$1(), GENERATED_PROFILES_STORAGE_KEY));
 }
 async function writeGeneratedProfilesMap(nextMap, env) {
-  await writeStorageValue(getStorageArea(), GENERATED_PROFILES_STORAGE_KEY, nextMap);
+  await writeStorageValue(getStorageArea$1(), GENERATED_PROFILES_STORAGE_KEY, nextMap);
 }
 async function readFavoriteProfilesMap(env) {
-  return normalizeFavoriteProfilesMap(await readStorageValue(getStorageArea(), FAVORITE_PROFILES_STORAGE_KEY));
+  return normalizeFavoriteProfilesMap(await readStorageValue(getStorageArea$1(), FAVORITE_PROFILES_STORAGE_KEY));
 }
 async function writeFavoriteProfilesMap(nextMap, env) {
-  await writeStorageValue(getStorageArea(), FAVORITE_PROFILES_STORAGE_KEY, nextMap);
+  await writeStorageValue(getStorageArea$1(), FAVORITE_PROFILES_STORAGE_KEY, nextMap);
 }
 async function readGeneratedProfiles(scope, env) {
   const normalizedScope = normalizeScopeKey(scope);
@@ -675,9 +675,41 @@ function buildDataManagerPageUrl(baseUrl, scope, view) {
   url.searchParams.set("view", normalizedView);
   return url.toString();
 }
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (_error) {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } catch (_execError) {
+      copied = false;
+    }
+    textarea.remove();
+    return copied;
+  }
+}
+const FIELD_GROUPS = [
+  { title: "个人", fields: ["fullName", "idNumber", "mobile", "email"] },
+  { title: "账户", fields: ["bankCard", "account"] },
+  { title: "企业", fields: ["companyName", "creditCode"] },
+  { title: "联系地址", fields: ["landline", "address", "postalCode"] }
+];
+const DISPLAY_FIELD_ORDER = FIELD_GROUPS.flatMap(function(group) {
+  return group.fields;
+});
+const COLUMN_PREFERENCES_STORAGE_KEY = "ctdp.dataManagerColumns.v1";
 const DEFAULT_COLUMNS = {
   favorites: ["fullName", "idNumber", "mobile", "companyName"],
-  history: ["fullName", "idNumber", "mobile", "companyName", "email"]
+  history: ["fullName", "idNumber", "mobile", "email", "companyName"]
 };
 const MONOSPACE_FIELDS = /* @__PURE__ */ new Set([
   "creditCode",
@@ -690,6 +722,31 @@ const MONOSPACE_FIELDS = /* @__PURE__ */ new Set([
 ]);
 function isMonospaceField(fieldKey) {
   return MONOSPACE_FIELDS.has(fieldKey);
+}
+function sortColumns(columns) {
+  return DISPLAY_FIELD_ORDER.filter(function(fieldKey) {
+    return columns.includes(fieldKey);
+  });
+}
+function toggleColumn(columns, fieldKey) {
+  if (columns.includes(fieldKey)) {
+    return columns.length > 1 ? columns.filter(function(item) {
+      return item !== fieldKey;
+    }) : columns;
+  }
+  return sortColumns(columns.concat(fieldKey));
+}
+function normalizeColumnPreferences(rawValue) {
+  const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue) ? rawValue : {};
+  function readColumns(view) {
+    const value = source[view];
+    if (!Array.isArray(value)) return DEFAULT_COLUMNS[view].slice();
+    const columns = sortColumns(value.filter(function(item) {
+      return typeof item === "string" && FIELD_KEYS.includes(item);
+    }));
+    return columns.length ? columns : DEFAULT_COLUMNS[view].slice();
+  }
+  return { favorites: readColumns("favorites"), history: readColumns("history") };
 }
 function formatDisplayTime(value) {
   const timestamp = Number(value);
@@ -723,6 +780,44 @@ function getCustomFavoriteName(name) {
 function getFavoriteTitle(entry) {
   return getCustomFavoriteName(entry.name) || entry.profile.fullName || "未命名数据";
 }
+function tokenizeQuery(query) {
+  return String(query || "").toLowerCase().split(/\s+/).filter(Boolean);
+}
+function matchesQuery(profile, extraTexts, query) {
+  const tokens = tokenizeQuery(query);
+  if (!tokens.length) return true;
+  const haystack = FIELD_KEYS.map(function(fieldKey) {
+    return profile[fieldKey];
+  }).concat(extraTexts).join("\n").toLowerCase();
+  return tokens.every(function(token) {
+    return haystack.includes(token);
+  });
+}
+function splitHighlight(text, query) {
+  const value = String(text || "");
+  const tokens = tokenizeQuery(query);
+  if (!value || !tokens.length) return [{ text: value, match: false }];
+  const lower = value.toLowerCase();
+  const marks = new Array(value.length).fill(false);
+  tokens.forEach(function(token) {
+    let index = lower.indexOf(token);
+    while (index >= 0) {
+      for (let offset = 0; offset < token.length; offset += 1) marks[index + offset] = true;
+      index = lower.indexOf(token, index + token.length);
+    }
+  });
+  const segments = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const match = !!marks[index];
+    const last = segments[segments.length - 1];
+    if (last && last.match === match) {
+      last.text += value[index];
+    } else {
+      segments.push({ text: value[index] || "", match });
+    }
+  }
+  return segments;
+}
 function Icon(props) {
   const iconAssets = typeof window !== "undefined" ? window.ChromeTestDataIconAssets : void 0;
   const url = iconAssets?.getIconAssetUrl ? iconAssets.getIconAssetUrl(props.name) : "";
@@ -733,6 +828,100 @@ function Icon(props) {
       "data-icon": props.name,
       "aria-hidden": "true",
       style: { "--ctdp-icon-url": 'url("' + url + '")' }
+    }
+  );
+}
+function Popover(props) {
+  const [open, setOpen] = d(false);
+  const rootRef = T(null);
+  A(function() {
+    if (!open) return;
+    function handlePointerDown(event) {
+      if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    return function() {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [open]);
+  function close() {
+    setOpen(false);
+    rootRef.current?.querySelector(".dm-popover-trigger")?.focus();
+  }
+  return /* @__PURE__ */ u$1(
+    "div",
+    {
+      ref: rootRef,
+      class: "dm-popover-root",
+      onKeyDown: function(event) {
+        if (event.key !== "Escape" || !open) return;
+        event.stopPropagation();
+        close();
+      },
+      children: [
+        /* @__PURE__ */ u$1(
+          "button",
+          {
+            type: "button",
+            class: "dm-popover-trigger " + (props.triggerClass || "dm-ghost-btn"),
+            "aria-label": props.label,
+            title: props.label,
+            "aria-expanded": open,
+            onClick: function(event) {
+              event.stopPropagation();
+              setOpen(!open);
+            },
+            children: props.trigger
+          }
+        ),
+        open ? /* @__PURE__ */ u$1("div", { class: "dm-popover" + (props.align === "start" ? " is-start" : ""), children: props.children(close) }) : null
+      ]
+    }
+  );
+}
+function ColumnPicker(props) {
+  return /* @__PURE__ */ u$1(
+    Popover,
+    {
+      label: "选择显示的列",
+      trigger: /* @__PURE__ */ u$1(M, { children: [
+        /* @__PURE__ */ u$1(Icon, { name: "columns-3" }),
+        "列"
+      ] }),
+      children: function() {
+        return /* @__PURE__ */ u$1("div", { class: "dm-column-picker", children: [
+          /* @__PURE__ */ u$1("div", { class: "dm-popover-title", children: "显示的列" }),
+          DISPLAY_FIELD_ORDER.map(function(fieldKey) {
+            const checked = props.columns.includes(fieldKey);
+            const locked = checked && props.columns.length === 1;
+            return /* @__PURE__ */ u$1("label", { class: "dm-check-row" + (locked ? " is-locked" : ""), children: [
+              /* @__PURE__ */ u$1(
+                "input",
+                {
+                  type: "checkbox",
+                  checked,
+                  disabled: locked,
+                  onChange: function() {
+                    props.onChange(toggleColumn(props.columns, fieldKey));
+                  }
+                }
+              ),
+              getFieldLabel(fieldKey)
+            ] }, fieldKey);
+          }),
+          /* @__PURE__ */ u$1("div", { class: "dm-popover-foot", children: /* @__PURE__ */ u$1(
+            "button",
+            {
+              type: "button",
+              class: "dm-link-btn",
+              onClick: function() {
+                props.onChange(props.defaultColumns.slice());
+              },
+              children: "恢复默认"
+            }
+          ) })
+        ] });
+      }
     }
   );
 }
@@ -855,9 +1044,29 @@ function FavoriteModal(props) {
     }
   );
 }
+function Highlight(props) {
+  return /* @__PURE__ */ u$1(M, { children: splitHighlight(props.text, props.query).map(function(segment, index) {
+    return segment.match ? /* @__PURE__ */ u$1("mark", { class: "dm-mark", children: segment.text }, index) : segment.text;
+  }) });
+}
 function FieldCell(props) {
   if (!props.value) return /* @__PURE__ */ u$1("span", { class: "dm-cell-empty", children: "—" });
-  return /* @__PURE__ */ u$1("span", { class: "dm-cell-value" + (isMonospaceField(props.fieldKey) ? " is-mono" : ""), title: props.value, children: props.value });
+  return /* @__PURE__ */ u$1(
+    "button",
+    {
+      type: "button",
+      class: "dm-copy-cell" + (isMonospaceField(props.fieldKey) ? " is-mono" : ""),
+      title: props.value + "（点击复制）",
+      onClick: function(event) {
+        event.stopPropagation();
+        props.onCopy(props.fieldKey, props.value);
+      },
+      children: [
+        /* @__PURE__ */ u$1("span", { class: "dm-copy-cell-text", children: /* @__PURE__ */ u$1(Highlight, { text: props.value, query: props.query }) }),
+        /* @__PURE__ */ u$1(Icon, { name: "copy", class: "dm-copy-cell-icon" })
+      ]
+    }
+  );
 }
 function IconButton(props) {
   return /* @__PURE__ */ u$1(
@@ -941,17 +1150,32 @@ function FavoritesTable(props) {
             "tr",
             {
               "data-favorite-id": entry.id,
-              class: dragOrder && draggedIdRef.current === entry.id ? "is-dragging" : void 0,
+              tabIndex: 0,
+              class: [
+                "dm-row",
+                props.selectedId === entry.id ? "is-selected" : "",
+                dragOrder && draggedIdRef.current === entry.id ? "is-dragging" : ""
+              ].join(" ").trim(),
+              onClick: function() {
+                props.onSelect(entry.id);
+              },
+              onKeyDown: function(event) {
+                if (event.key === "Enter" && event.target === event.currentTarget) props.onSelect(entry.id);
+              },
               children: [
                 /* @__PURE__ */ u$1("td", { class: "dm-col-handle", children: /* @__PURE__ */ u$1(
                   "button",
                   {
                     type: "button",
                     class: "dm-drag-handle",
-                    draggable: true,
+                    draggable: props.sortable,
+                    disabled: !props.sortable,
                     "data-id": entry.id,
                     "aria-label": "拖动排序",
-                    title: "拖动排序（也可使用上下方向键）",
+                    title: props.sortable ? "拖动排序（也可使用上下方向键）" : "搜索时不可排序",
+                    onClick: function(event) {
+                      event.stopPropagation();
+                    },
                     onDragStart: function(event) {
                       draggedIdRef.current = entry.id;
                       setDragOrder(props.entries.map(function(item) {
@@ -980,13 +1204,16 @@ function FavoritesTable(props) {
                   }
                 ) }),
                 /* @__PURE__ */ u$1("td", { children: /* @__PURE__ */ u$1("div", { class: "dm-title-cell", children: [
-                  /* @__PURE__ */ u$1("span", { class: "dm-title-text" + (customName ? "" : " dm-cell-empty"), children: getFavoriteTitle(entry) }),
-                  entry.note ? /* @__PURE__ */ u$1("span", { class: "dm-title-note", title: entry.note, children: entry.note }) : null
+                  /* @__PURE__ */ u$1("span", { class: "dm-title-text" + (customName ? "" : " is-fallback"), children: /* @__PURE__ */ u$1(Highlight, { text: getFavoriteTitle(entry), query: props.query }) }),
+                  entry.note ? /* @__PURE__ */ u$1("span", { class: "dm-title-note", title: entry.note, children: /* @__PURE__ */ u$1(Highlight, { text: entry.note, query: props.query }) }) : null
                 ] }) }),
                 props.columns.map(function(fieldKey) {
-                  return /* @__PURE__ */ u$1("td", { children: /* @__PURE__ */ u$1(FieldCell, { fieldKey, value: entry.profile[fieldKey] }) }, fieldKey);
+                  return /* @__PURE__ */ u$1("td", { children: /* @__PURE__ */ u$1(FieldCell, { fieldKey, value: entry.profile[fieldKey], query: props.query, onCopy: props.onCopyField }) }, fieldKey);
                 }),
                 /* @__PURE__ */ u$1("td", { class: "dm-col-actions", children: /* @__PURE__ */ u$1("div", { class: "dm-row-actions", children: [
+                  /* @__PURE__ */ u$1(IconButton, { icon: "copy", label: "复制整组", onClick: function() {
+                    props.onCopyAll(entry.id);
+                  } }),
                   /* @__PURE__ */ u$1(IconButton, { icon: "pencil", label: "编辑", onClick: function() {
                     props.onEdit(entry.id);
                   } }),
@@ -1033,22 +1260,115 @@ function HistoryTable(props) {
       /* @__PURE__ */ u$1("th", { class: "dm-col-actions", children: "操作" })
     ] }) }),
     /* @__PURE__ */ u$1("tbody", { children: props.entries.map(function(entry) {
-      return /* @__PURE__ */ u$1("tr", { children: [
-        /* @__PURE__ */ u$1("td", { class: "dm-cell-time", children: formatDisplayTime(entry.createdAt) }),
-        props.columns.map(function(fieldKey) {
-          return /* @__PURE__ */ u$1("td", { children: /* @__PURE__ */ u$1(FieldCell, { fieldKey, value: entry.profile[fieldKey] }) }, fieldKey);
-        }),
-        /* @__PURE__ */ u$1("td", { class: "dm-col-actions", children: /* @__PURE__ */ u$1("div", { class: "dm-row-actions", children: [
-          /* @__PURE__ */ u$1(IconButton, { icon: "star", label: "收藏", onClick: function() {
-            props.onFavorite(entry.id);
-          } }),
-          /* @__PURE__ */ u$1(IconButton, { icon: "copy", label: "复制整组", onClick: function() {
-            props.onCopy(entry.id);
-          } })
-        ] }) })
-      ] }, entry.id);
+      return /* @__PURE__ */ u$1(
+        "tr",
+        {
+          tabIndex: 0,
+          class: "dm-row" + (props.selectedId === entry.id ? " is-selected" : ""),
+          onClick: function() {
+            props.onSelect(entry.id);
+          },
+          onKeyDown: function(event) {
+            if (event.key === "Enter" && event.target === event.currentTarget) props.onSelect(entry.id);
+          },
+          children: [
+            /* @__PURE__ */ u$1("td", { class: "dm-cell-time", children: formatDisplayTime(entry.createdAt) }),
+            props.columns.map(function(fieldKey) {
+              return /* @__PURE__ */ u$1("td", { children: /* @__PURE__ */ u$1(FieldCell, { fieldKey, value: entry.profile[fieldKey], query: props.query, onCopy: props.onCopyField }) }, fieldKey);
+            }),
+            /* @__PURE__ */ u$1("td", { class: "dm-col-actions", children: /* @__PURE__ */ u$1("div", { class: "dm-row-actions", children: [
+              /* @__PURE__ */ u$1(IconButton, { icon: "star", label: "收藏", onClick: function() {
+                props.onFavorite(entry.id);
+              } }),
+              /* @__PURE__ */ u$1(IconButton, { icon: "copy", label: "复制整组", onClick: function() {
+                props.onCopy(entry.id);
+              } })
+            ] }) })
+          ]
+        },
+        entry.id
+      );
     }) })
   ] }) });
+}
+function DrawerShell(props) {
+  return /* @__PURE__ */ u$1("aside", { class: "dm-drawer", "aria-label": props.eyebrow + "详情", children: [
+    /* @__PURE__ */ u$1("header", { class: "dm-drawer-head", children: [
+      /* @__PURE__ */ u$1("div", { class: "dm-drawer-heading", children: [
+        /* @__PURE__ */ u$1("span", { class: "dm-drawer-eyebrow", children: props.eyebrow }),
+        /* @__PURE__ */ u$1("h2", { class: "dm-drawer-title", title: props.title, children: props.title }),
+        props.subtitle ? /* @__PURE__ */ u$1("p", { class: "dm-drawer-subtitle", children: props.subtitle }) : null
+      ] }),
+      /* @__PURE__ */ u$1(IconButton, { icon: "x", label: "关闭详情", onClick: props.onClose })
+    ] }),
+    /* @__PURE__ */ u$1("div", { class: "dm-drawer-body", children: props.children }),
+    props.footer ? /* @__PURE__ */ u$1("footer", { class: "dm-drawer-foot", children: props.footer }) : null
+  ] });
+}
+function ProfileDetails(props) {
+  return /* @__PURE__ */ u$1(M, { children: FIELD_GROUPS.map(function(group) {
+    return /* @__PURE__ */ u$1("section", { class: "dm-detail-group", children: [
+      /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: group.title }),
+      /* @__PURE__ */ u$1("dl", { class: "dm-detail-list", children: group.fields.map(function(fieldKey) {
+        const value = props.profile[fieldKey];
+        return /* @__PURE__ */ u$1("div", { class: "dm-detail-row", children: [
+          /* @__PURE__ */ u$1("dt", { children: getFieldLabel(fieldKey) }),
+          /* @__PURE__ */ u$1("dd", { children: value ? /* @__PURE__ */ u$1(
+            "button",
+            {
+              type: "button",
+              class: "dm-detail-value" + (isMonospaceField(fieldKey) ? " is-mono" : ""),
+              title: "点击复制",
+              onClick: function() {
+                props.onCopyField(fieldKey, value);
+              },
+              children: [
+                /* @__PURE__ */ u$1("span", { children: value }),
+                /* @__PURE__ */ u$1(Icon, { name: "copy", class: "dm-copy-cell-icon" })
+              ]
+            }
+          ) : /* @__PURE__ */ u$1("span", { class: "dm-cell-empty", children: "—" }) })
+        ] }, fieldKey);
+      }) })
+    ] }, group.title);
+  }) });
+}
+function SearchBox(props) {
+  return /* @__PURE__ */ u$1("label", { class: "dm-search", children: [
+    /* @__PURE__ */ u$1(Icon, { name: "search", class: "dm-search-icon" }),
+    /* @__PURE__ */ u$1(
+      "input",
+      {
+        ref: props.inputRef,
+        type: "search",
+        class: "dm-search-input",
+        value: props.value,
+        placeholder: "搜索姓名、手机号、身份证…",
+        "aria-label": "搜索数据",
+        onInput: function(event) {
+          props.onChange(event.currentTarget.value);
+        },
+        onKeyDown: function(event) {
+          if (event.key === "Escape" && props.value) {
+            event.stopPropagation();
+            props.onChange("");
+          }
+        }
+      }
+    ),
+    props.value ? /* @__PURE__ */ u$1(
+      "button",
+      {
+        type: "button",
+        class: "dm-search-clear",
+        "aria-label": "清空搜索",
+        onClick: function() {
+          props.onChange("");
+        },
+        children: /* @__PURE__ */ u$1(Icon, { name: "x" })
+      }
+    ) : /* @__PURE__ */ u$1("kbd", { class: "dm-kbd", "aria-hidden": "true", children: "/" })
+  ] });
 }
 const VIEW_LABELS = {
   favorites: "常用数据",
@@ -1093,6 +1413,31 @@ function Toolbar(props) {
       props.children
     ] })
   ] });
+}
+function getStorageArea() {
+  try {
+    return typeof chrome !== "undefined" && chrome.storage && chrome.storage.local ? chrome.storage.local : null;
+  } catch (_error) {
+    return null;
+  }
+}
+function useColumnPreferences() {
+  const [columns, setColumns] = d(normalizeColumnPreferences(DEFAULT_COLUMNS));
+  A(function() {
+    const storageArea = getStorageArea();
+    if (!storageArea) return;
+    storageArea.get([COLUMN_PREFERENCES_STORAGE_KEY], function(result) {
+      setColumns(normalizeColumnPreferences(result ? result[COLUMN_PREFERENCES_STORAGE_KEY] : void 0));
+    });
+  }, []);
+  const setViewColumns = j(function(view, nextColumns) {
+    setColumns(function(current) {
+      const next = normalizeColumnPreferences({ ...current, [view]: nextColumns });
+      getStorageArea()?.set({ [COLUMN_PREFERENCES_STORAGE_KEY]: next });
+      return next;
+    });
+  }, []);
+  return { columns, setViewColumns };
 }
 function useConfirm() {
   const [pending, setPending] = d(null);
@@ -1180,16 +1525,50 @@ function App() {
   const scope = route.scope;
   const [view, setView] = d(route.view);
   const [editor, setEditor] = d({ open: false });
+  const [query, setQuery] = d("");
+  const [selection, setSelection] = d(null);
+  const searchInputRef = T(null);
   const records = useRecords(scope);
+  const { columns, setViewColumns } = useColumnPreferences();
   const { toast, showToast } = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const editingEntry = editor.open && editor.id ? records.favorites.find(function(entry) {
     return entry.id === editor.id;
   }) || null : null;
+  const visibleFavorites = records.favorites.filter(function(entry) {
+    return matchesQuery(entry.profile, [getFavoriteTitle(entry), entry.note], query);
+  });
+  const visibleHistory = records.history.filter(function(entry) {
+    return matchesQuery(entry.profile, [formatDisplayTime(entry.createdAt)], query);
+  });
+  const selectedFavorite = selection && selection.view === "favorites" ? records.favorites.find(function(entry) {
+    return entry.id === selection.id;
+  }) || null : null;
+  const selectedHistory = selection && selection.view === "history" ? records.history.find(function(entry) {
+    return entry.id === selection.id;
+  }) || null : null;
+  const overlayOpen = editor.open || !!confirmDialog;
   A(function() {
     if (!window.history || typeof window.history.replaceState !== "function") return;
     window.history.replaceState(null, "", buildDataManagerPageUrl(window.location.href, scope, view));
   }, [scope, view]);
+  A(function() {
+    function handleKeydown(event) {
+      if (event.defaultPrevented || overlayOpen) return;
+      const target = event.target;
+      const typing = !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      if (event.key === "/" && !typing && scope) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+      if (event.key === "Escape" && selection) setSelection(null);
+    }
+    document.addEventListener("keydown", handleKeydown);
+    return function() {
+      document.removeEventListener("keydown", handleKeydown);
+    };
+  }, [overlayOpen, scope, selection]);
   async function runSafely(task) {
     try {
       await task();
@@ -1198,12 +1577,26 @@ function App() {
     }
   }
   async function copyProfile(profile) {
-    try {
-      await navigator.clipboard.writeText(formatProfileForCopy(profile));
+    if (await copyText(formatProfileForCopy(profile))) {
       showToast("已复制整组数据", "success");
-    } catch (_error) {
+    } else {
       showToast("自动复制失败，请手动复制", "warning");
     }
+  }
+  async function copyField(fieldKey, value) {
+    if (await copyText(value)) {
+      showToast("已复制" + getFieldLabel(fieldKey), "success");
+    } else {
+      showToast("自动复制失败，请手动复制", "warning");
+    }
+  }
+  function handleCopyField(fieldKey, value) {
+    void copyField(fieldKey, value);
+  }
+  function toggleSelection(nextView, id) {
+    setSelection(function(current) {
+      return current && current.view === nextView && current.id === id ? null : { view: nextView, id };
+    });
   }
   async function handleSubmit(input) {
     if (editor.open && editor.id) {
@@ -1245,6 +1638,99 @@ function App() {
   function openCreate() {
     setEditor({ open: true, id: null });
   }
+  function renderNoMatch() {
+    return /* @__PURE__ */ u$1(EmptyState, { icon: "search", title: "没有匹配的数据", description: "没有找到包含「" + query.trim() + "」的数据。", children: /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: function() {
+      setQuery("");
+    }, children: "清空搜索" }) });
+  }
+  function renderDrawer() {
+    if (selectedFavorite) {
+      const entry = selectedFavorite;
+      return /* @__PURE__ */ u$1(
+        DrawerShell,
+        {
+          eyebrow: "常用数据",
+          title: getFavoriteTitle(entry),
+          subtitle: entry.note,
+          onClose: function() {
+            setSelection(null);
+          },
+          footer: /* @__PURE__ */ u$1(M, { children: [
+            /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: function() {
+              void copyProfile(entry.profile);
+            }, children: [
+              /* @__PURE__ */ u$1(Icon, { name: "copy" }),
+              "复制整组"
+            ] }),
+            /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: function() {
+              setEditor({ open: true, id: entry.id });
+            }, children: [
+              /* @__PURE__ */ u$1(Icon, { name: "pencil" }),
+              "编辑"
+            ] }),
+            /* @__PURE__ */ u$1("span", { class: "dm-drawer-foot-spacer" }),
+            /* @__PURE__ */ u$1(
+              "button",
+              {
+                type: "button",
+                class: "dm-ghost-btn is-danger",
+                onClick: function() {
+                  void runSafely(function() {
+                    return handleDelete(entry.id);
+                  });
+                },
+                children: [
+                  /* @__PURE__ */ u$1(Icon, { name: "trash-2" }),
+                  "删除"
+                ]
+              }
+            )
+          ] }),
+          children: /* @__PURE__ */ u$1(ProfileDetails, { profile: entry.profile, onCopyField: handleCopyField })
+        }
+      );
+    }
+    if (selectedHistory) {
+      const entry = selectedHistory;
+      return /* @__PURE__ */ u$1(
+        DrawerShell,
+        {
+          eyebrow: "生成记录",
+          title: entry.profile.fullName || "生成记录",
+          subtitle: "生成于 " + formatDisplayTime(entry.createdAt),
+          onClose: function() {
+            setSelection(null);
+          },
+          footer: /* @__PURE__ */ u$1(M, { children: [
+            /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: function() {
+              void copyProfile(entry.profile);
+            }, children: [
+              /* @__PURE__ */ u$1(Icon, { name: "copy" }),
+              "复制整组"
+            ] }),
+            /* @__PURE__ */ u$1(
+              "button",
+              {
+                type: "button",
+                class: "dm-secondary-btn",
+                onClick: function() {
+                  void runSafely(function() {
+                    return handleHistoryFavorite(entry.id);
+                  });
+                },
+                children: [
+                  /* @__PURE__ */ u$1(Icon, { name: "star" }),
+                  "收藏"
+                ]
+              }
+            )
+          ] }),
+          children: /* @__PURE__ */ u$1(ProfileDetails, { profile: entry.profile, onCopyField: handleCopyField })
+        }
+      );
+    }
+    return null;
+  }
   function renderWorkspace() {
     if (!scope) {
       return /* @__PURE__ */ u$1(
@@ -1268,11 +1754,18 @@ function App() {
           }
         );
       }
+      if (!visibleHistory.length) return renderNoMatch();
       return /* @__PURE__ */ u$1(
         HistoryTable,
         {
-          entries: records.history,
-          columns: DEFAULT_COLUMNS.history,
+          entries: visibleHistory,
+          columns: columns.history,
+          query,
+          selectedId: selectedHistory ? selectedHistory.id : null,
+          onSelect: function(id) {
+            toggleSelection("history", id);
+          },
+          onCopyField: handleCopyField,
           onFavorite: function(id) {
             void runSafely(function() {
               return handleHistoryFavorite(id);
@@ -1301,11 +1794,25 @@ function App() {
         }
       );
     }
+    if (!visibleFavorites.length) return renderNoMatch();
     return /* @__PURE__ */ u$1(
       FavoritesTable,
       {
-        entries: records.favorites,
-        columns: DEFAULT_COLUMNS.favorites,
+        entries: visibleFavorites,
+        columns: columns.favorites,
+        query,
+        selectedId: selectedFavorite ? selectedFavorite.id : null,
+        sortable: !query.trim(),
+        onSelect: function(id) {
+          toggleSelection("favorites", id);
+        },
+        onCopyField: handleCopyField,
+        onCopyAll: function(id) {
+          const entry = records.favorites.find(function(item) {
+            return item.id === id;
+          });
+          if (entry) void copyProfile(entry.profile);
+        },
         onEdit: function(id) {
           setEditor({ open: true, id });
         },
@@ -1335,11 +1842,28 @@ function App() {
         hint: view === "history" ? "仅保留最近 " + MAX_GENERATED_RECORDS + " 条" : "",
         onViewChange: function(nextView) {
           setView(nextView);
+          setSelection(null);
           void records.reload();
-        }
+        },
+        children: [
+          /* @__PURE__ */ u$1(SearchBox, { inputRef: searchInputRef, value: query, onChange: setQuery }),
+          /* @__PURE__ */ u$1(
+            ColumnPicker,
+            {
+              columns: columns[view],
+              defaultColumns: DEFAULT_COLUMNS[view],
+              onChange: function(nextColumns) {
+                setViewColumns(view, nextColumns);
+              }
+            }
+          )
+        ]
       }
     ) : null,
-    /* @__PURE__ */ u$1("div", { class: "dm-body", children: /* @__PURE__ */ u$1("section", { class: "dm-main", role: "tabpanel", "aria-label": VIEW_LABELS[view], children: renderWorkspace() }) }),
+    /* @__PURE__ */ u$1("div", { class: "dm-body", children: [
+      /* @__PURE__ */ u$1("section", { class: "dm-main", role: "tabpanel", "aria-label": VIEW_LABELS[view], children: renderWorkspace() }),
+      renderDrawer()
+    ] }),
     toast ? /* @__PURE__ */ u$1("div", { class: "dm-toast", role: "status", "data-tone": toast.tone, children: toast.message }, toast.id) : null,
     editor.open ? /* @__PURE__ */ u$1(
       FavoriteModal,
