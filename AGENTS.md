@@ -10,17 +10,25 @@
 - `place-fill` is a Chrome Manifest V3 extension for generating Chinese-standard test data for QA, regression testing, and demo recording.
 - Current manifest version: `0.9.8` (source: `extension/manifest.json`).
 - The runtime combines plain JavaScript under `extension/src/` with committed bundles generated from `extension/src-ts/`.
-- Chrome loads content scripts from `extension/manifest.json`; the data manager loads generated assets from `extension/data-manager.html`.
+- Chrome loads content scripts from `extension/manifest.json`; the data manager page is `extension/data-manager.html`, which loads generated assets through a versioned loader.
+- There is no build step for plain JS: Chrome executes committed files directly, so `extension/generated/` must always be committed in sync with `extension/src-ts/`.
 
 ## Repo Layout
 
-- `extension/`: Chrome Manifest V3 extension source
-- `extension/src/`: plain-JS extension modules
-- `extension/generated/`: committed runtime assets loaded by the extension UI
-- `extension/src-ts/`: TypeScript sources for the data manager, shared data logic, offline form snapshots, and runtime bridges
-- `scripts/`: repository-level build scripts
-- `mock-form/`: local manual verification page
-- `tests/`: JavaScript and TypeScript tests
+- `extension/`: Chrome Manifest V3 extension source (the only directory shipped in release zips)
+- `extension/background.js`: service worker; must stay at the extension root
+- `extension/src/`: plain-JS extension modules, content-script CSS (`theme.css`, `sidepanel.css`), and extension-page scripts
+- `extension/generated/`: committed Vite output (`data-manager.js`, `data-manager.css`, `data-manager-bridge.js`, `data-records-api.js`, `offline-form-snapshot-api.js`)
+- `extension/src-ts/shared/`: shared TypeScript logic (data records, data-manager routing, field meta, offline form snapshots)
+- `extension/src-ts/bridges/`: IIFE entry points that expose shared TypeScript logic as globals
+- `extension/src-ts/pages/data-manager/`: data manager page sources and styles
+- `extension/*.html`: extension pages — `data-manager.html`, `ai-permission.html` (AI host permission grant), `local-annotation-permission.html` (local directory backup grant)
+- `extension/assets/`: Lucide icons (`icons/lucide/`) and app icons (`app-icons/`)
+- `extension/scripts/`: icon, version-sync, packaging, and release scripts
+- `scripts/build-extension.mjs`: Vite build driver for all `extension/generated/` outputs
+- `assets/`: README images and logo sources (not shipped)
+- `mock-form/`: local manual verification pages (`index.html`, `element-ui-demo.html`, `element-plus-demo.html`)
+- `tests/`: `*.test.mjs` (node:test) and `*.test.ts` (tsx) tests
 - `releases/`: local release artifacts output directory
 - `nodata.png`: PNG carrier prepended to each release zip to create `releases/place-fill.png`
 - `*.zip`: exported delivery artifacts, kept local and ignored by Git
@@ -41,8 +49,17 @@ pnpm check
 # Type-check TypeScript sources and tests
 pnpm typecheck
 
-# Run all tests
+# Run all tests (JS + TS)
 pnpm test
+
+# Run only plain-JS tests (node --test tests/*.test.mjs)
+pnpm run test:js
+
+# Run only TypeScript tests (tsx --test tests/*.test.ts)
+pnpm run test:ts
+
+# Run a single test file
+node --test tests/smart-fill.test.mjs
 
 # Sync Lucide icons
 node extension/scripts/localize-icons.mjs
@@ -76,11 +93,13 @@ pnpm release:verify
 ## Architecture
 
 - Content scripts are loaded sequentially by Chrome from `extension/manifest.json`.
-- Plain-JS modules under `extension/src/` use IIFE wrappers; shared modules expose globals for browser use and CommonJS exports for Node.js tests.
-- TypeScript is bundled by Vite into `extension/generated/`, targeting Chrome 109 without minification or source maps.
-- `extension/data-manager.html` loads `generated/data-manager.css` and the `generated/data-manager.js` ES module.
+- Plain-JS modules under `extension/src/` use IIFE wrappers; shared modules expose `ChromeTestData*` globals for browser use and CommonJS exports for Node.js tests.
+- TypeScript is bundled by `scripts/build-extension.mjs` (Vite library mode) into `extension/generated/`, targeting `chrome109` without minification or source maps. The build clears `extension/generated/` first.
+- `extension/data-manager.html` loads `src/theme.css`, `generated/data-manager.css`, `src/icon-assets.js`, and `src/data-manager-page.js`, which dynamically imports `generated/data-manager.js?v=<manifest version>` to bust caches after updates.
 - Generated IIFE bridges expose shared TypeScript logic to content scripts and the background worker.
-- `background.js` runs as the extension service worker.
+- `background.js` runs as the extension service worker (context menus, action click, backup reminder alarms, GitHub update check, data-manager bridge, opening permission pages).
+- Content scripts run in all frames (`all_frames: true`) at `document_idle` on `<all_urls>`.
+- Permissions: `alarms`, `clipboardWrite`, `contextMenus`, `storage`; host access is limited to `https://api.github.com/*`, and AI endpoints are requested at runtime through `optional_host_permissions` from `ai-permission.html`.
 
 ### Module Pattern
 
@@ -114,21 +133,33 @@ pnpm release:verify
 
 ### Background Worker Load Order
 
-`extension/background.js` imports these scripts in order:
+`extension/background.js` imports these scripts in order through `importScripts` (paths resolve relative to the worker file):
 
-1. `field-meta.js`
-2. `site-feature-toggle.js`
-3. `ai-recognition.js`
-4. `smart-fill.js`
-5. `storage-mirror.js`
-6. `generated/data-manager-bridge.js`
+1. `src/field-meta.js`
+2. `src/site-feature-toggle.js`
+3. `src/ai-recognition.js`
+4. `src/smart-fill.js`
+5. `src/storage-mirror.js`
+6. `src/local-annotation-file.js` (only on Chrome `122+`)
+7. `generated/data-manager-bridge.js`
+
+When adding a background dependency, keep this list, `tests/background-runtime.test.mjs`, and Chrome 109 compatibility in mind.
+
+### Extension Pages
+
+- `data-manager.html`: favorites and generated-history management (TypeScript, `generated/data-manager.js`).
+- `ai-permission.html` + `src/ai-permission-page.js`: requests optional host permission for the configured AI endpoint origin.
+- `local-annotation-permission.html` + `src/local-annotation-permission-page.js`: picks and grants the persistent backup directory (Chrome `122+`), using `storage-mirror.js` and `local-annotation-file.js`.
 
 ### Storage Isolation
 
-- Manual field annotations are stored in `chrome.storage.local` and keyed by `domain + first-level subpath`.
-- Field visibility config is keyed by domain.
-- Site feature toggles are keyed by domain and default to disabled until the user enables smart-fill and right-click annotation for that site.
-- Global preferences use flat keys in `chrome.storage.local`.
+- All persistent state lives in `chrome.storage.local` under versioned `ctdp.*.v1` keys.
+- Manual field annotations (`ctdp.smartFillOverrides.v1`) are keyed by `domain + first-level subpath`: the same business area shares annotations, different areas stay isolated.
+- Site feature toggles (`ctdp.siteFeatureEnabled.v1`) are keyed by domain and default to disabled until the user enables smart-fill and right-click annotation for that site.
+- AI recognition config (`ctdp.aiRecognitionConfig.v1`) and AI field mappings (`ctdp.aiFieldMappings.v1`) are managed by `ai-recognition.js`; never log or export the API key.
+- Global preferences (floating icon, focus style, dock position, etc.) use flat keys read and written directly with `chrome.storage.local.get/set`; no dedicated API module is needed.
+- Full backup/restore covers the `STORAGE_KEYS` list in `storage-mirror.js`. When adding a user-data key that should survive backup, add it there and update `tests/storage-mirror.test.mjs`.
+- Persistent local-directory backup stores its directory handle in IndexedDB (`local-annotation-file.js`) and the JSON file `place-fill-data/place-fill-user-data.json`.
 
 ### DOM Structure Note
 
@@ -153,8 +184,9 @@ pnpm release:verify
 
 - Minimum supported Chrome is `109`.
 - Persistent local-directory backup requires Chrome `122`; Chrome `109`–`121` keep manual full-data backup and restore.
-- Do not use native CSS nesting in this repository; Chrome 109 does not support it reliably.
-- Keep `background.js` at the extension root rather than moving it under `src/`.
+- Do not use native CSS nesting in this repository; Chrome 109 does not support it reliably. Write flat selectors.
+- Keep `background.js` at the extension root rather than moving it under `src/`; Chrome 109 resolves `importScripts` paths relative to the worker file.
+- Gate newer APIs (for example `showDirectoryPicker` persistent permissions) by Chrome major version or feature detection, and keep a working fallback for Chrome 109.
 
 ## Release Workflow
 
@@ -174,7 +206,9 @@ pnpm release:verify
 ## Development
 
 - Load `extension/` as an unpacked extension in `chrome://extensions`.
-- Use `mock-form/index.html` for local manual verification of the supported field types.
+- After code changes, click reload on the extension card and refresh the target page; content scripts are not re-injected into already-open tabs.
+- Use `mock-form/index.html` for local manual verification of the supported field types, and `mock-form/element-ui-demo.html` / `mock-form/element-plus-demo.html` for Element UI / Element Plus adapters.
+- Smart-fill and right-click annotation are off by default per site; enable them for the mock-form origin before testing.
 - Prefer the existing CSS custom-property approach and flat selectors to stay compatible with Chrome 109.
 
 ## Verification
@@ -198,9 +232,13 @@ pnpm run test:js
 pnpm build
 pnpm typecheck
 pnpm test
+git status --short extension/generated
 ```
+
+- For release-script or version-sync changes, also run `node --test tests/release-workflow.test.mjs tests/sync-readme-version.test.mjs tests/package-release.test.mjs`.
 
 ## Git Notes
 
 - Ignore packaged zip files and planning files through `.gitignore`.
+- Commit messages follow Conventional Commit prefixes with Chinese summaries, for example `feat: 添加邮政编码智能识别`, `fix: 约束数字字段兜底填充`; release commits use `chore: 发布 <version> 版本` and are created by `pnpm release`.
 - Do not commit `.DS_Store` or other local system artifacts.
