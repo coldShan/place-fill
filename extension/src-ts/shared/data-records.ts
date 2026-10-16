@@ -142,7 +142,7 @@ function normalizeFavoriteProfilesMap(rawValue: unknown): Record<ScopeKey, Favor
   return nextMap;
 }
 
-function isSameProfile(left: ProfileFieldMap, right: ProfileFieldMap): boolean {
+export function isSameProfile(left: ProfileFieldMap, right: ProfileFieldMap): boolean {
   return FIELD_KEYS.every(function (fieldKey) {
     return left[fieldKey] === right[fieldKey];
   });

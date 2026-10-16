@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 
 import {
   DEFAULT_COLUMNS,
@@ -8,6 +9,8 @@ import {
   toggleColumn
 } from "../extension/src-ts/pages/data-manager/lib/columns";
 import { getFavoriteTitle, moveId, shiftId } from "../extension/src-ts/pages/data-manager/lib/display";
+import { getFieldWarning } from "../extension/src-ts/pages/data-manager/lib/field-validation";
+import { generateRandomProfile, type GeneratorsApi } from "../extension/src-ts/pages/data-manager/lib/generators";
 import { DISPLAY_FIELD_ORDER, FIELD_GROUPS } from "../extension/src-ts/pages/data-manager/lib/field-groups";
 import { matchesQuery, splitHighlight } from "../extension/src-ts/pages/data-manager/lib/record-search";
 import { FIELD_KEYS, normalizeProfile } from "../extension/src-ts/shared/data-records";
@@ -68,4 +71,36 @@ test("moveId and shiftId reorder ids for drag and keyboard sorting", () => {
   assert.deepEqual(moveId(["a", "b", "c"], "c", "a", true), ["c", "a", "b"]);
   assert.deepEqual(shiftId(["a", "b", "c"], "b", -1), ["b", "a", "c"]);
   assert.equal(shiftId(["a", "b", "c"], "a", -1), null);
+});
+
+test("field warnings use the shared generators validators and stay advisory", () => {
+  const generators = createRequire(import.meta.url)("../extension/src/generators.js") as GeneratorsApi;
+  const validId = generators.generateFieldValue?.("idNumber") || "";
+  const validCredit = generators.generateFieldValue?.("creditCode") || "";
+  const validCard = generators.generateFieldValue?.("bankCard") || "";
+  assert.equal(getFieldWarning("idNumber", validId, generators), "");
+  assert.equal(getFieldWarning("creditCode", validCredit, generators), "");
+  assert.equal(getFieldWarning("bankCard", validCard, generators), "");
+  assert.notEqual(getFieldWarning("idNumber", "110101199003071000", generators), "");
+  assert.notEqual(getFieldWarning("mobile", "2380013", generators), "");
+  assert.equal(getFieldWarning("mobile", "13912345678", generators), "");
+  assert.notEqual(getFieldWarning("email", "foo@bar", generators), "");
+  assert.notEqual(getFieldWarning("postalCode", "20003", generators), "");
+  assert.equal(getFieldWarning("landline", "021-68881234", generators), "");
+  assert.equal(getFieldWarning("fullName", "任意", generators), "");
+  assert.equal(getFieldWarning("idNumber", "", generators), "");
+  assert.equal(getFieldWarning("idNumber", "bad", {}), "");
+});
+
+test("generateRandomProfile fills every field through the generators api", () => {
+  const generators = createRequire(import.meta.url)("../extension/src/generators.js") as GeneratorsApi;
+  const profile = generateRandomProfile(generators);
+  assert.ok(FIELD_KEYS.every(function (fieldKey) { return profile[fieldKey] !== ""; }));
+  for (let round = 0; round < 50; round += 1) {
+    const sample = generateRandomProfile(generators);
+    FIELD_KEYS.forEach(function (fieldKey) {
+      assert.equal(getFieldWarning(fieldKey, sample[fieldKey], generators), "", fieldKey + ": " + sample[fieldKey]);
+    });
+  }
+  assert.deepEqual(generateRandomProfile({}), normalizeProfile({}));
 });
