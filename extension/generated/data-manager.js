@@ -119,7 +119,7 @@ function N(t2, i2, r2, u2, f2, o2, e2, l2, c2, a2) {
   n: if ("function" == typeof D2) {
     g2 = e2.length;
     try {
-      if (C2 = i2.props, j2 = (s2 = D2.prototype) && s2.render, H2 = (s2 = D2.contextType) && u2[s2.__c], I2 = s2 ? H2 ? H2.props.value : s2.__ : u2, r2.__c ? 2 & (k2 = i2.__c = r2.__c).__g && (k2.__g |= 1) : (j2 ? i2.__c = k2 = new D2(C2, I2) : (i2.__c = k2 = new $(C2, I2), k2.constructor = D2, k2.render = F), H2 && H2.sub(k2), k2.state || (k2.state = {}), k2.__n = u2, k2.__g |= 8, k2.__h = [], k2.__k = []), j2 && (k2.__s || (k2.__s = k2.state), D2.getDerivedStateFromProps && (k2.__s == k2.state && (k2.__s = w({}, k2.__s)), w(k2.__s, D2.getDerivedStateFromProps(C2, k2.__s)))), b2 = k2.props, m2 = k2.state, k2.__v = i2, r2.__c) {
+      if (C2 = i2.props, j2 = (s2 = D2.prototype) && s2.render, H2 = (s2 = D2.contextType) && u2[s2.__c], I2 = s2 ? H2 ? H2.props.value : s2.__ : u2, r2.__c ? 2 & (k2 = i2.__c = r2.__c).__g && (k2.__g |= 1) : (j2 ? i2.__c = k2 = new D2(C2, I2) : (i2.__c = k2 = new $(C2, I2), k2.constructor = D2, k2.render = F$1), H2 && H2.sub(k2), k2.state || (k2.state = {}), k2.__n = u2, k2.__g |= 8, k2.__h = [], k2.__k = []), j2 && (k2.__s || (k2.__s = k2.state), D2.getDerivedStateFromProps && (k2.__s == k2.state && (k2.__s = w({}, k2.__s)), w(k2.__s, D2.getDerivedStateFromProps(C2, k2.__s)))), b2 = k2.props, m2 = k2.state, k2.__v = i2, r2.__c) {
         if (j2 && !D2.getDerivedStateFromProps && C2 !== b2 && k2.componentWillReceiveProps && k2.componentWillReceiveProps(C2, I2), i2.__v == r2.__v && !(8 & k2.__g) || !(4 & k2.__g) && k2.shouldComponentUpdate && false === k2.shouldComponentUpdate(C2, k2.__s, I2)) {
           i2.__v != r2.__v && (k2.props = C2, k2.state = k2.__s, k2.__g &= -9), i2.__e = r2.__e, i2.__k = r2.__k, i2.__k.some(function(n2) {
             n2 && (n2.__ = i2);
@@ -218,7 +218,7 @@ function E$1(t2, i2, r2) {
   if (u2 = t2.__k) for (f2 = 0; f2 < u2.length; f2++) u2[f2] && E$1(u2[f2], i2, "function" != typeof t2.type || r2 && !t2.props.__P);
   (u2 = t2.__e) && (r2 || _$1(u2), u2.__e && (u2.__e = null)), t2.__e = t2.__c = t2.__ = null;
 }
-function F(n2, t2, i2) {
+function F$1(n2, t2, i2) {
   return this.constructor(n2, i2);
 }
 function G$1(t2, i2) {
@@ -286,6 +286,10 @@ function _(n2, u2, i2) {
 function A(n2, u2) {
   var i2 = y(t++, 3);
   !a.__s && E(i2.__H, u2) && (i2.__P = true, i2.__ = n2, i2.u = u2, r.__H.__h.push(i2));
+}
+function F(n2, u2) {
+  var i2 = y(t++, 4);
+  !a.__s && E(i2.__H, u2) && (i2.__P = false, i2.__ = n2, i2.u = u2, r.__h.push(i2));
 }
 function T(n2) {
   return f = 5, b(function() {
@@ -933,111 +937,320 @@ function EmptyState(props) {
     props.children
   ] });
 }
-function Dialog(props) {
-  const dialogRef = T(null);
-  A(function() {
-    const previousFocus = document.activeElement;
-    const node = dialogRef.current;
-    const focusTarget = node?.querySelector("[data-autofocus]") || node?.querySelector("input, button");
-    focusTarget?.focus();
-    return function() {
-      if (previousFocus && document.contains(previousFocus)) previousFocus.focus();
-    };
-  }, []);
+function checkWith(validator, message) {
+  return function(value, api) {
+    const validate = api[validator];
+    if (typeof validate !== "function") return "";
+    return validate(value) ? "" : message;
+  };
+}
+function checkPattern(pattern, message) {
+  return function(value) {
+    return pattern.test(value) ? "" : message;
+  };
+}
+const RULES = {
+  bankCard: checkWith("validateBankCardNumber", "银行卡号应为 16–19 位数字且通过 Luhn 校验"),
+  creditCode: checkWith("validateUnifiedSocialCreditCode", "统一社会信用代码格式或校验位不正确"),
+  email: checkPattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "邮箱格式不正确"),
+  idNumber: checkWith("validateChineseIdNumber", "身份证号格式、出生日期或校验位不正确"),
+  landline: checkPattern(/^0\d{2,3}-?\d{7,8}$/, "固定电话应形如 021-68881234"),
+  mobile: checkPattern(/^1[3-9]\d{9}$/, "手机号应为以 1 开头的 11 位数字"),
+  postalCode: checkPattern(/^\d{6}$/, "邮政编码应为 6 位数字")
+};
+function getFieldWarning(fieldKey, value, api) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+  const rule = RULES[fieldKey];
+  return rule ? rule(trimmed, api) : "";
+}
+function getGeneratorsApi() {
+  return typeof window !== "undefined" && window.ChromeTestDataGenerators || {};
+}
+function generateFieldValue(fieldKey, api = getGeneratorsApi()) {
+  return typeof api.generateFieldValue === "function" ? String(api.generateFieldValue(fieldKey) || "") : "";
+}
+function generateRandomProfile(api = getGeneratorsApi()) {
+  return normalizeProfile(Object.fromEntries(FIELD_KEYS.map(function(fieldKey) {
+    return [fieldKey, generateFieldValue(fieldKey, api)];
+  })));
+}
+function IconButton(props) {
   return /* @__PURE__ */ u$1(
-    "div",
+    "button",
     {
-      class: "dm-dialog-layer",
-      onKeyDown: function(event) {
-        if (event.key !== "Escape") return;
+      type: "button",
+      class: "dm-icon-btn" + (props.tone ? " is-" + props.tone : ""),
+      "aria-label": props.label,
+      title: props.label,
+      disabled: props.disabled,
+      onClick: function(event) {
         event.stopPropagation();
-        props.onClose();
+        props.onClick();
       },
-      children: [
-        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-dialog-backdrop", tabIndex: -1, "aria-label": "关闭", onClick: props.onClose }),
-        /* @__PURE__ */ u$1(
-          "section",
-          {
-            ref: dialogRef,
-            class: "dm-dialog" + (props.wide ? " is-wide" : ""),
-            role: "dialog",
-            "aria-modal": "true",
-            "aria-label": props.title,
-            children: [
-              /* @__PURE__ */ u$1("header", { class: "dm-dialog-head", children: /* @__PURE__ */ u$1("div", { children: [
-                /* @__PURE__ */ u$1("h2", { class: "dm-dialog-title", children: props.title }),
-                props.description ? /* @__PURE__ */ u$1("p", { class: "dm-dialog-desc", children: props.description }) : null
-              ] }) }),
-              props.children ? /* @__PURE__ */ u$1("div", { class: "dm-dialog-body", children: props.children }) : null,
-              props.footer ? /* @__PURE__ */ u$1("footer", { class: "dm-dialog-foot", children: props.footer }) : null
-            ]
-          }
-        )
-      ]
+      children: /* @__PURE__ */ u$1(Icon, { name: props.icon })
     }
   );
 }
-function FavoriteModal(props) {
-  const [profile, setProfile] = d(normalizeProfile(props.entry?.profile));
-  const [note, setNote] = d(props.entry?.note || "");
-  const formId = "dm-favorite-form";
+function DrawerShell(props) {
+  return /* @__PURE__ */ u$1("aside", { class: "dm-drawer", "aria-label": props.eyebrow + "详情", children: [
+    /* @__PURE__ */ u$1("header", { class: "dm-drawer-head", children: [
+      /* @__PURE__ */ u$1("div", { class: "dm-drawer-heading", children: [
+        /* @__PURE__ */ u$1("span", { class: "dm-drawer-eyebrow", children: props.eyebrow }),
+        /* @__PURE__ */ u$1("h2", { class: "dm-drawer-title", title: props.title, children: props.title }),
+        props.subtitle ? /* @__PURE__ */ u$1("p", { class: "dm-drawer-subtitle", children: props.subtitle }) : null
+      ] }),
+      /* @__PURE__ */ u$1(IconButton, { icon: "x", label: "关闭详情", onClick: props.onClose })
+    ] }),
+    /* @__PURE__ */ u$1("div", { class: "dm-drawer-body", children: props.children }),
+    props.footer ? /* @__PURE__ */ u$1("footer", { class: "dm-drawer-foot", children: props.footer }) : null
+  ] });
+}
+function ProfileDetails(props) {
+  return /* @__PURE__ */ u$1(M, { children: FIELD_GROUPS.map(function(group) {
+    return /* @__PURE__ */ u$1("section", { class: "dm-detail-group", children: [
+      /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: group.title }),
+      /* @__PURE__ */ u$1("dl", { class: "dm-detail-list", children: group.fields.map(function(fieldKey) {
+        const value = props.profile[fieldKey];
+        return /* @__PURE__ */ u$1("div", { class: "dm-detail-row", children: [
+          /* @__PURE__ */ u$1("dt", { children: getFieldLabel(fieldKey) }),
+          /* @__PURE__ */ u$1("dd", { children: value ? /* @__PURE__ */ u$1(
+            "button",
+            {
+              type: "button",
+              class: "dm-detail-value" + (isMonospaceField(fieldKey) ? " is-mono" : ""),
+              title: "点击复制",
+              onClick: function() {
+                props.onCopyField(fieldKey, value);
+              },
+              children: [
+                /* @__PURE__ */ u$1("span", { children: value }),
+                /* @__PURE__ */ u$1(Icon, { name: "copy", class: "dm-copy-cell-icon" })
+              ]
+            }
+          ) : /* @__PURE__ */ u$1("span", { class: "dm-cell-empty", children: "—" }) })
+        ] }, fieldKey);
+      }) })
+    ] }, group.title);
+  }) });
+}
+const NOTE_MAX_LENGTH = 120;
+const NAME_MAX_LENGTH = 40;
+function createInitialDraft(entry) {
+  return {
+    name: entry ? getCustomFavoriteName(entry.name) : "",
+    note: entry ? entry.note : "",
+    profile: normalizeProfile(entry ? entry.profile : void 0)
+  };
+}
+function isSameDraft(left, right) {
+  return left.name.trim() === right.name.trim() && left.note.trim() === right.note.trim() && isSameProfile(normalizeProfile(left.profile), normalizeProfile(right.profile));
+}
+function FavoriteEditor(props) {
+  const initialDraft = b(function() {
+    return createInitialDraft(props.entry);
+  }, [props.entry ? props.entry.id : ""]);
+  const [draft, setDraft] = d(initialDraft);
+  const [duplicate, setDuplicate] = d(null);
+  const [saving, setSaving] = d(false);
+  const formRef = T(null);
+  const bannerRef = T(null);
+  const generatorsApi = getGeneratorsApi();
+  const canGenerate = typeof generatorsApi.generateFieldValue === "function";
+  const dirty = !isSameDraft(draft, initialDraft);
+  const hasValue = FIELD_KEYS.some(function(fieldKey) {
+    return draft.profile[fieldKey].trim() !== "";
+  });
+  const formId = "dm-favorite-editor";
+  F(function() {
+    props.onDirtyChange(dirty);
+  }, [dirty]);
+  A(function() {
+    return function() {
+      props.onDirtyChange(false);
+    };
+  }, []);
+  A(function() {
+    formRef.current?.querySelector("input")?.focus();
+  }, []);
+  A(function() {
+    if (duplicate) bannerRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [duplicate]);
+  A(function() {
+    function handleKeydown(event) {
+      if (event.key.toLowerCase() !== "s" || !(event.metaKey || event.ctrlKey)) return;
+      event.preventDefault();
+      formRef.current?.requestSubmit();
+    }
+    document.addEventListener("keydown", handleKeydown);
+    return function() {
+      document.removeEventListener("keydown", handleKeydown);
+    };
+  }, []);
+  function updateDraft(patch) {
+    setDuplicate(null);
+    setDraft(function(current) {
+      return { ...current, ...patch };
+    });
+  }
+  function updateField(fieldKey, value) {
+    setDuplicate(null);
+    setDraft(function(current) {
+      return { ...current, profile: { ...current.profile, [fieldKey]: value } };
+    });
+  }
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (!hasValue || saving) return;
+    const profile = normalizeProfile(Object.fromEntries(FIELD_KEYS.map(function(fieldKey) {
+      return [fieldKey, draft.profile[fieldKey].trim()];
+    })));
+    const existing = props.favorites.find(function(entry) {
+      return (!props.entry || entry.id !== props.entry.id) && isSameProfile(entry.profile, profile);
+    });
+    if (existing) {
+      setDuplicate(existing);
+      return;
+    }
+    setSaving(true);
+    try {
+      await props.onSave({ name: draft.name.trim() || DEFAULT_FAVORITE_NAME, note: draft.note.trim(), profile });
+    } finally {
+      setSaving(false);
+    }
+  }
   return /* @__PURE__ */ u$1(
-    Dialog,
+    DrawerShell,
     {
-      wide: true,
-      title: props.entry ? "编辑常用数据" : "新增常用数据",
-      description: props.entry ? "保存后将覆盖当前这组常用数据。" : "仅保存到当前站点。",
-      onClose: props.onClose,
+      eyebrow: props.entry ? "编辑常用数据" : "新增常用数据",
+      title: props.entry ? getFavoriteTitle(props.entry) : "新的常用数据",
+      subtitle: props.entry ? "" : "仅保存到当前站点，格式问题只做提示，不影响保存。",
+      onClose: props.onCancel,
       footer: /* @__PURE__ */ u$1(M, { children: [
-        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: props.onClose, children: "取消" }),
-        /* @__PURE__ */ u$1("button", { type: "submit", form: formId, class: "dm-primary-btn", children: "保存" })
+        /* @__PURE__ */ u$1("span", { class: "dm-drawer-foot-hint", children: hasValue ? "⌘/Ctrl + S 保存" : "至少填写一个字段" }),
+        /* @__PURE__ */ u$1("span", { class: "dm-drawer-foot-spacer" }),
+        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: props.onCancel, children: "取消" }),
+        /* @__PURE__ */ u$1("button", { type: "submit", form: formId, class: "dm-primary-btn", disabled: !hasValue || saving, children: "保存" })
       ] }),
       children: /* @__PURE__ */ u$1(
         "form",
         {
           id: formId,
-          class: "dm-form-grid",
+          ref: formRef,
+          class: "dm-editor",
           onSubmit: function(event) {
-            event.preventDefault();
-            props.onSubmit({ note: note.trim(), profile: normalizeProfile(profile) });
+            void handleSubmit(event);
           },
           children: [
-            FIELD_KEYS.map(function(fieldKey) {
-              return /* @__PURE__ */ u$1("label", { class: "dm-form-field", children: [
-                /* @__PURE__ */ u$1("span", { class: "dm-form-label", children: getFieldLabel(fieldKey) }),
+            duplicate ? /* @__PURE__ */ u$1("div", { ref: bannerRef, class: "dm-banner is-warning", role: "alert", children: [
+              /* @__PURE__ */ u$1(Icon, { name: "circle-alert" }),
+              /* @__PURE__ */ u$1("span", { class: "dm-banner-text", children: [
+                "已存在相同数据「",
+                getFavoriteTitle(duplicate),
+                "」，未重复保存。"
+              ] }),
+              /* @__PURE__ */ u$1("button", { type: "button", class: "dm-link-btn", onClick: function() {
+                props.onShowExisting(duplicate.id);
+              }, children: "查看" })
+            ] }) : null,
+            /* @__PURE__ */ u$1("section", { class: "dm-detail-group", children: [
+              /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: "基本信息" }),
+              /* @__PURE__ */ u$1("label", { class: "dm-form-field", children: [
+                /* @__PURE__ */ u$1("span", { class: "dm-form-label", children: "名称" }),
                 /* @__PURE__ */ u$1(
                   "input",
                   {
                     class: "dm-input",
                     type: "text",
-                    value: profile[fieldKey],
-                    placeholder: "填写" + getFieldLabel(fieldKey),
+                    maxLength: NAME_MAX_LENGTH,
+                    value: draft.name,
+                    placeholder: "如：主账号；留空则显示姓名",
                     onInput: function(event) {
-                      const value = event.currentTarget.value;
-                      setProfile(function(current) {
-                        return { ...current, [fieldKey]: value };
-                      });
+                      updateDraft({ name: event.currentTarget.value });
                     }
                   }
                 )
-              ] }, fieldKey);
-            }),
-            /* @__PURE__ */ u$1("label", { class: "dm-form-field is-wide", children: [
-              /* @__PURE__ */ u$1("span", { class: "dm-form-label", children: "备注" }),
-              /* @__PURE__ */ u$1(
-                "input",
-                {
-                  class: "dm-input",
-                  type: "text",
-                  maxLength: 120,
-                  value: note,
-                  placeholder: "填写这组常用数据的备注",
-                  onInput: function(event) {
-                    setNote(event.currentTarget.value);
+              ] }),
+              /* @__PURE__ */ u$1("label", { class: "dm-form-field", children: [
+                /* @__PURE__ */ u$1("span", { class: "dm-form-label", children: "备注" }),
+                /* @__PURE__ */ u$1(
+                  "textarea",
+                  {
+                    class: "dm-input dm-textarea",
+                    rows: 2,
+                    maxLength: NOTE_MAX_LENGTH,
+                    value: draft.note,
+                    placeholder: "记录这组数据的用途",
+                    onInput: function(event) {
+                      updateDraft({ note: event.currentTarget.value });
+                    }
                   }
+                )
+              ] })
+            ] }),
+            /* @__PURE__ */ u$1("div", { class: "dm-editor-tools", children: [
+              /* @__PURE__ */ u$1("span", { class: "dm-detail-group-title", children: "字段" }),
+              canGenerate ? /* @__PURE__ */ u$1(
+                "button",
+                {
+                  type: "button",
+                  class: "dm-ghost-btn is-small",
+                  onClick: function() {
+                    updateDraft({ profile: generateRandomProfile(generatorsApi) });
+                  },
+                  children: [
+                    /* @__PURE__ */ u$1(Icon, { name: "dices" }),
+                    "整组随机生成"
+                  ]
                 }
-              )
-            ] })
+              ) : null
+            ] }),
+            FIELD_GROUPS.map(function(group) {
+              return /* @__PURE__ */ u$1("section", { class: "dm-detail-group is-compact", children: [
+                /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: group.title }),
+                group.fields.map(function(fieldKey) {
+                  const value = draft.profile[fieldKey];
+                  const warning = getFieldWarning(fieldKey, value, generatorsApi);
+                  const warningId = "dm-warning-" + fieldKey;
+                  return /* @__PURE__ */ u$1("div", { class: "dm-form-field", children: [
+                    /* @__PURE__ */ u$1("label", { class: "dm-form-label", for: "dm-field-" + fieldKey, children: getFieldLabel(fieldKey) }),
+                    /* @__PURE__ */ u$1("div", { class: "dm-input-group", children: [
+                      /* @__PURE__ */ u$1(
+                        "input",
+                        {
+                          id: "dm-field-" + fieldKey,
+                          class: "dm-input" + (warning ? " is-warning" : ""),
+                          type: "text",
+                          value,
+                          placeholder: "填写" + getFieldLabel(fieldKey),
+                          "aria-describedby": warning ? warningId : void 0,
+                          onInput: function(event) {
+                            updateField(fieldKey, event.currentTarget.value);
+                          }
+                        }
+                      ),
+                      canGenerate ? /* @__PURE__ */ u$1(
+                        "button",
+                        {
+                          type: "button",
+                          class: "dm-input-addon",
+                          "aria-label": "随机生成" + getFieldLabel(fieldKey),
+                          title: "随机生成" + getFieldLabel(fieldKey),
+                          onClick: function() {
+                            updateField(fieldKey, generateFieldValue(fieldKey, generatorsApi));
+                          },
+                          children: /* @__PURE__ */ u$1(Icon, { name: "dices" })
+                        }
+                      ) : null
+                    ] }),
+                    warning ? /* @__PURE__ */ u$1("span", { id: warningId, class: "dm-field-warning", children: [
+                      /* @__PURE__ */ u$1(Icon, { name: "circle-alert" }),
+                      warning
+                    ] }) : null
+                  ] }, fieldKey);
+                })
+              ] }, group.title);
+            })
           ]
         }
       )
@@ -1065,23 +1278,6 @@ function FieldCell(props) {
         /* @__PURE__ */ u$1("span", { class: "dm-copy-cell-text", children: /* @__PURE__ */ u$1(Highlight, { text: props.value, query: props.query }) }),
         /* @__PURE__ */ u$1(Icon, { name: "copy", class: "dm-copy-cell-icon" })
       ]
-    }
-  );
-}
-function IconButton(props) {
-  return /* @__PURE__ */ u$1(
-    "button",
-    {
-      type: "button",
-      class: "dm-icon-btn" + (props.tone ? " is-" + props.tone : ""),
-      "aria-label": props.label,
-      title: props.label,
-      disabled: props.disabled,
-      onClick: function(event) {
-        event.stopPropagation();
-        props.onClick();
-      },
-      children: /* @__PURE__ */ u$1(Icon, { name: props.icon })
     }
   );
 }
@@ -1291,48 +1487,6 @@ function HistoryTable(props) {
     }) })
   ] }) });
 }
-function DrawerShell(props) {
-  return /* @__PURE__ */ u$1("aside", { class: "dm-drawer", "aria-label": props.eyebrow + "详情", children: [
-    /* @__PURE__ */ u$1("header", { class: "dm-drawer-head", children: [
-      /* @__PURE__ */ u$1("div", { class: "dm-drawer-heading", children: [
-        /* @__PURE__ */ u$1("span", { class: "dm-drawer-eyebrow", children: props.eyebrow }),
-        /* @__PURE__ */ u$1("h2", { class: "dm-drawer-title", title: props.title, children: props.title }),
-        props.subtitle ? /* @__PURE__ */ u$1("p", { class: "dm-drawer-subtitle", children: props.subtitle }) : null
-      ] }),
-      /* @__PURE__ */ u$1(IconButton, { icon: "x", label: "关闭详情", onClick: props.onClose })
-    ] }),
-    /* @__PURE__ */ u$1("div", { class: "dm-drawer-body", children: props.children }),
-    props.footer ? /* @__PURE__ */ u$1("footer", { class: "dm-drawer-foot", children: props.footer }) : null
-  ] });
-}
-function ProfileDetails(props) {
-  return /* @__PURE__ */ u$1(M, { children: FIELD_GROUPS.map(function(group) {
-    return /* @__PURE__ */ u$1("section", { class: "dm-detail-group", children: [
-      /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: group.title }),
-      /* @__PURE__ */ u$1("dl", { class: "dm-detail-list", children: group.fields.map(function(fieldKey) {
-        const value = props.profile[fieldKey];
-        return /* @__PURE__ */ u$1("div", { class: "dm-detail-row", children: [
-          /* @__PURE__ */ u$1("dt", { children: getFieldLabel(fieldKey) }),
-          /* @__PURE__ */ u$1("dd", { children: value ? /* @__PURE__ */ u$1(
-            "button",
-            {
-              type: "button",
-              class: "dm-detail-value" + (isMonospaceField(fieldKey) ? " is-mono" : ""),
-              title: "点击复制",
-              onClick: function() {
-                props.onCopyField(fieldKey, value);
-              },
-              children: [
-                /* @__PURE__ */ u$1("span", { children: value }),
-                /* @__PURE__ */ u$1(Icon, { name: "copy", class: "dm-copy-cell-icon" })
-              ]
-            }
-          ) : /* @__PURE__ */ u$1("span", { class: "dm-cell-empty", children: "—" }) })
-        ] }, fieldKey);
-      }) })
-    ] }, group.title);
-  }) });
-}
 function SearchBox(props) {
   return /* @__PURE__ */ u$1("label", { class: "dm-search", children: [
     /* @__PURE__ */ u$1(Icon, { name: "search", class: "dm-search-icon" }),
@@ -1439,6 +1593,50 @@ function useColumnPreferences() {
   }, []);
   return { columns, setViewColumns };
 }
+function Dialog(props) {
+  const dialogRef = T(null);
+  A(function() {
+    const previousFocus = document.activeElement;
+    const node = dialogRef.current;
+    const focusTarget = node?.querySelector("[data-autofocus]") || node?.querySelector("input, button");
+    focusTarget?.focus();
+    return function() {
+      if (previousFocus && document.contains(previousFocus)) previousFocus.focus();
+    };
+  }, []);
+  return /* @__PURE__ */ u$1(
+    "div",
+    {
+      class: "dm-dialog-layer",
+      onKeyDown: function(event) {
+        if (event.key !== "Escape") return;
+        event.stopPropagation();
+        props.onClose();
+      },
+      children: [
+        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-dialog-backdrop", tabIndex: -1, "aria-label": "关闭", onClick: props.onClose }),
+        /* @__PURE__ */ u$1(
+          "section",
+          {
+            ref: dialogRef,
+            class: "dm-dialog" + (props.wide ? " is-wide" : ""),
+            role: "dialog",
+            "aria-modal": "true",
+            "aria-label": props.title,
+            children: [
+              /* @__PURE__ */ u$1("header", { class: "dm-dialog-head", children: /* @__PURE__ */ u$1("div", { children: [
+                /* @__PURE__ */ u$1("h2", { class: "dm-dialog-title", children: props.title }),
+                props.description ? /* @__PURE__ */ u$1("p", { class: "dm-dialog-desc", children: props.description }) : null
+              ] }) }),
+              props.children ? /* @__PURE__ */ u$1("div", { class: "dm-dialog-body", children: props.children }) : null,
+              props.footer ? /* @__PURE__ */ u$1("footer", { class: "dm-dialog-foot", children: props.footer }) : null
+            ]
+          }
+        )
+      ]
+    }
+  );
+}
 function useConfirm() {
   const [pending, setPending] = d(null);
   const confirm = j(function(options) {
@@ -1524,37 +1722,34 @@ function App() {
   }, []);
   const scope = route.scope;
   const [view, setView] = d(route.view);
-  const [editor, setEditor] = d({ open: false });
   const [query, setQuery] = d("");
-  const [selection, setSelection] = d(null);
+  const [drawer, setDrawer] = d(null);
+  const editorDirtyRef = T(false);
   const searchInputRef = T(null);
   const records = useRecords(scope);
   const { columns, setViewColumns } = useColumnPreferences();
   const { toast, showToast } = useToast();
   const { confirm, confirmDialog } = useConfirm();
-  const editingEntry = editor.open && editor.id ? records.favorites.find(function(entry) {
-    return entry.id === editor.id;
-  }) || null : null;
   const visibleFavorites = records.favorites.filter(function(entry) {
     return matchesQuery(entry.profile, [getFavoriteTitle(entry), entry.note], query);
   });
   const visibleHistory = records.history.filter(function(entry) {
     return matchesQuery(entry.profile, [formatDisplayTime(entry.createdAt)], query);
   });
-  const selectedFavorite = selection && selection.view === "favorites" ? records.favorites.find(function(entry) {
-    return entry.id === selection.id;
+  const drawerFavoriteId = drawer && (drawer.mode === "edit" || drawer.mode === "view" && drawer.view === "favorites") ? drawer.id : null;
+  const drawerFavorite = drawerFavoriteId ? records.favorites.find(function(entry) {
+    return entry.id === drawerFavoriteId;
   }) || null : null;
-  const selectedHistory = selection && selection.view === "history" ? records.history.find(function(entry) {
-    return entry.id === selection.id;
+  const drawerHistory = drawer && drawer.mode === "view" && drawer.view === "history" ? records.history.find(function(entry) {
+    return entry.id === drawer.id;
   }) || null : null;
-  const overlayOpen = editor.open || !!confirmDialog;
   A(function() {
     if (!window.history || typeof window.history.replaceState !== "function") return;
     window.history.replaceState(null, "", buildDataManagerPageUrl(window.location.href, scope, view));
   }, [scope, view]);
   A(function() {
     function handleKeydown(event) {
-      if (event.defaultPrevented || overlayOpen) return;
+      if (event.defaultPrevented || confirmDialog) return;
       const target = event.target;
       const typing = !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
       if (event.key === "/" && !typing && scope) {
@@ -1562,19 +1757,38 @@ function App() {
         searchInputRef.current?.focus();
         return;
       }
-      if (event.key === "Escape" && selection) setSelection(null);
+      if (event.key === "Escape" && drawer) {
+        event.preventDefault();
+        void changeDrawer(null);
+      }
     }
     document.addEventListener("keydown", handleKeydown);
     return function() {
       document.removeEventListener("keydown", handleKeydown);
     };
-  }, [overlayOpen, scope, selection]);
+  });
   async function runSafely(task) {
     try {
       await task();
     } catch (_error) {
       showToast("操作失败，请重试", "danger");
     }
+  }
+  async function changeDrawer(next) {
+    const editing = drawer && (drawer.mode === "edit" || drawer.mode === "create");
+    if (editing && editorDirtyRef.current) {
+      const discard = await confirm({
+        title: "放弃未保存的修改？",
+        description: "当前编辑的内容尚未保存，离开后将丢失。",
+        confirmLabel: "放弃修改",
+        cancelLabel: "继续编辑",
+        danger: true
+      });
+      if (!discard) return false;
+    }
+    editorDirtyRef.current = false;
+    setDrawer(next);
+    return true;
   }
   async function copyProfile(profile) {
     if (await copyText(formatProfileForCopy(profile))) {
@@ -1593,21 +1807,28 @@ function App() {
   function handleCopyField(fieldKey, value) {
     void copyField(fieldKey, value);
   }
-  function toggleSelection(nextView, id) {
-    setSelection(function(current) {
-      return current && current.view === nextView && current.id === id ? null : { view: nextView, id };
-    });
+  function toggleRow(rowView, id) {
+    const isOpen = drawer && drawer.mode === "view" && drawer.view === rowView && drawer.id === id;
+    void changeDrawer(isOpen ? null : { mode: "view", view: rowView, id });
   }
-  async function handleSubmit(input) {
-    if (editor.open && editor.id) {
-      await updateFavoriteProfile(scope, editor.id, input);
-      showToast("常用数据已更新", "success");
-    } else {
-      await createFavoriteProfile(scope, input);
-      showToast("已新增常用数据", "success");
+  async function handleSave(draft) {
+    if (!drawer || drawer.mode !== "edit" && drawer.mode !== "create") return;
+    try {
+      if (drawer.mode === "edit") {
+        await updateFavoriteProfile(scope, drawer.id, draft);
+        showToast("常用数据已更新", "success");
+        editorDirtyRef.current = false;
+        setDrawer({ mode: "view", view: "favorites", id: drawer.id });
+      } else {
+        const created = await createFavoriteProfile(scope, draft);
+        showToast("已新增常用数据", "success");
+        editorDirtyRef.current = false;
+        setDrawer({ mode: "view", view: "favorites", id: created.id });
+      }
+      await records.reload();
+    } catch (_error) {
+      showToast("保存失败，请重试", "danger");
     }
-    setEditor({ open: false });
-    await records.reload();
   }
   async function handleDelete(id) {
     const entry = records.favorites.find(function(item) {
@@ -1622,6 +1843,7 @@ function App() {
     });
     if (!confirmed) return;
     await deleteFavoriteProfile(scope, id);
+    if (drawerFavoriteId === id) setDrawer(null);
     await records.reload();
     showToast("已删除常用数据", "success");
   }
@@ -1636,7 +1858,7 @@ function App() {
     showToast("已从生成记录加入常用数据", "success");
   }
   function openCreate() {
-    setEditor({ open: true, id: null });
+    void changeDrawer({ mode: "create" });
   }
   function renderNoMatch() {
     return /* @__PURE__ */ u$1(EmptyState, { icon: "search", title: "没有匹配的数据", description: "没有找到包含「" + query.trim() + "」的数据。", children: /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: function() {
@@ -1644,8 +1866,29 @@ function App() {
     }, children: "清空搜索" }) });
   }
   function renderDrawer() {
-    if (selectedFavorite) {
-      const entry = selectedFavorite;
+    if (!drawer) return null;
+    if (drawer.mode === "create" || drawer.mode === "edit" && drawerFavorite) {
+      return /* @__PURE__ */ u$1(
+        FavoriteEditor,
+        {
+          entry: drawer.mode === "edit" ? drawerFavorite : null,
+          favorites: records.favorites,
+          onCancel: function() {
+            void changeDrawer(drawer.mode === "edit" ? { mode: "view", view: "favorites", id: drawer.id } : null);
+          },
+          onSave: handleSave,
+          onDirtyChange: function(dirty) {
+            editorDirtyRef.current = dirty;
+          },
+          onShowExisting: function(id) {
+            void changeDrawer({ mode: "view", view: "favorites", id });
+          }
+        },
+        drawer.mode === "edit" ? "edit-" + drawer.id : "create"
+      );
+    }
+    if (drawerFavorite) {
+      const entry = drawerFavorite;
       return /* @__PURE__ */ u$1(
         DrawerShell,
         {
@@ -1653,7 +1896,7 @@ function App() {
           title: getFavoriteTitle(entry),
           subtitle: entry.note,
           onClose: function() {
-            setSelection(null);
+            void changeDrawer(null);
           },
           footer: /* @__PURE__ */ u$1(M, { children: [
             /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: function() {
@@ -1663,7 +1906,7 @@ function App() {
               "复制整组"
             ] }),
             /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: function() {
-              setEditor({ open: true, id: entry.id });
+              void changeDrawer({ mode: "edit", id: entry.id });
             }, children: [
               /* @__PURE__ */ u$1(Icon, { name: "pencil" }),
               "编辑"
@@ -1690,8 +1933,8 @@ function App() {
         }
       );
     }
-    if (selectedHistory) {
-      const entry = selectedHistory;
+    if (drawerHistory) {
+      const entry = drawerHistory;
       return /* @__PURE__ */ u$1(
         DrawerShell,
         {
@@ -1699,7 +1942,7 @@ function App() {
           title: entry.profile.fullName || "生成记录",
           subtitle: "生成于 " + formatDisplayTime(entry.createdAt),
           onClose: function() {
-            setSelection(null);
+            void changeDrawer(null);
           },
           footer: /* @__PURE__ */ u$1(M, { children: [
             /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: function() {
@@ -1761,9 +2004,9 @@ function App() {
           entries: visibleHistory,
           columns: columns.history,
           query,
-          selectedId: selectedHistory ? selectedHistory.id : null,
+          selectedId: drawerHistory ? drawerHistory.id : null,
           onSelect: function(id) {
-            toggleSelection("history", id);
+            toggleRow("history", id);
           },
           onCopyField: handleCopyField,
           onFavorite: function(id) {
@@ -1801,10 +2044,10 @@ function App() {
         entries: visibleFavorites,
         columns: columns.favorites,
         query,
-        selectedId: selectedFavorite ? selectedFavorite.id : null,
+        selectedId: drawerFavoriteId,
         sortable: !query.trim(),
         onSelect: function(id) {
-          toggleSelection("favorites", id);
+          toggleRow("favorites", id);
         },
         onCopyField: handleCopyField,
         onCopyAll: function(id) {
@@ -1814,7 +2057,7 @@ function App() {
           if (entry) void copyProfile(entry.profile);
         },
         onEdit: function(id) {
-          setEditor({ open: true, id });
+          void changeDrawer({ mode: "edit", id });
         },
         onDelete: function(id) {
           void runSafely(function() {
@@ -1841,9 +2084,12 @@ function App() {
         counts: { favorites: records.favorites.length, history: records.history.length },
         hint: view === "history" ? "仅保留最近 " + MAX_GENERATED_RECORDS + " 条" : "",
         onViewChange: function(nextView) {
-          setView(nextView);
-          setSelection(null);
-          void records.reload();
+          if (nextView === view) return;
+          void changeDrawer(null).then(function(changed) {
+            if (!changed) return;
+            setView(nextView);
+            void records.reload();
+          });
         },
         children: [
           /* @__PURE__ */ u$1(SearchBox, { inputRef: searchInputRef, value: query, onChange: setQuery }),
@@ -1865,21 +2111,6 @@ function App() {
       renderDrawer()
     ] }),
     toast ? /* @__PURE__ */ u$1("div", { class: "dm-toast", role: "status", "data-tone": toast.tone, children: toast.message }, toast.id) : null,
-    editor.open ? /* @__PURE__ */ u$1(
-      FavoriteModal,
-      {
-        entry: editingEntry,
-        onClose: function() {
-          setEditor({ open: false });
-        },
-        onSubmit: function(input) {
-          void runSafely(function() {
-            return handleSubmit(input);
-          });
-        }
-      },
-      editor.id || "new"
-    ) : null,
     confirmDialog
   ] });
 }

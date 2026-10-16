@@ -301,6 +301,7 @@ var ChromeTestDataDataRecordsBundle = (function() {
     findFavoriteProfile,
     formatProfileForCopy,
     hasFavoriteProfile,
+    isSameProfile,
     listKnownScopes,
     normalizeProfile,
     normalizeScopeKey,

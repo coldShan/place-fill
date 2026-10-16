@@ -84,6 +84,15 @@ test("records open in a detail drawer with per-field copy and search", () => {
   assert.match(pageSource, /COLUMN_PREFERENCES_STORAGE_KEY = "ctdp\.dataManagerColumns\.v1"/);
 });
 
+test("favorites are edited in the drawer with advisory validation and an unsaved-changes guard", () => {
+  assert.match(pageHtml, /<script src="\.\/src\/generators\.js"><\/script>/);
+  assert.match(pageSource, /getFieldWarning/);
+  assert.match(pageSource, /generateFieldValue/);
+  assert.match(pageSource, /放弃未保存的修改/);
+  assert.match(pageSource, /已存在相同数据/);
+  assert.doesNotMatch(pageSource, /class="dm-modal/);
+});
+
 test("data manager keeps top tabs instead of a left sidebar layout", () => {
   assert.match(pageSource, /role="tablist"/);
   assert.match(pageSource, /role="tab"/);

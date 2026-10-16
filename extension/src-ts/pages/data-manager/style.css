@@ -916,6 +916,149 @@ textarea:focus-visible,
   background: var(--dm-surface-hover);
 }
 
+/* ── Editor ─────────────────────────────── */
+
+.dm-editor {
+  display: flex;
+  flex-direction: column;
+}
+
+.dm-editor .dm-detail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dm-editor .dm-detail-group.is-compact {
+  gap: 10px;
+}
+
+.dm-editor .dm-detail-group-title {
+  margin: 0;
+}
+
+.dm-editor-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--dm-line);
+}
+
+.dm-editor-tools .dm-detail-group-title {
+  color: var(--dm-ink-1);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dm-ghost-btn.is-small {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.dm-ghost-btn.is-small .dm-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.dm-textarea {
+  height: auto;
+  min-height: 56px;
+  padding: 7px 10px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.dm-input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.dm-input-group .dm-input {
+  padding-right: 36px;
+}
+
+.dm-input.is-warning {
+  border-color: var(--dm-warning);
+}
+
+.dm-input.is-warning:focus {
+  box-shadow: 0 0 0 3px var(--dm-warning-soft);
+}
+
+.dm-input-addon {
+  position: absolute;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  color: var(--dm-ink-3);
+}
+
+.dm-input-addon:hover {
+  color: var(--dm-accent-ink);
+  background: var(--dm-accent-soft);
+}
+
+.dm-input-addon .dm-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.dm-field-warning {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--dm-warning);
+  font-size: 12px;
+}
+
+.dm-field-warning .dm-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.dm-drawer-foot-hint {
+  color: var(--dm-ink-3);
+  font-size: 12px;
+}
+
+.dm-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 9px 12px;
+  border-radius: var(--dm-radius-sm);
+  font-size: 13px;
+}
+
+.dm-banner .dm-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.dm-banner-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dm-banner.is-warning {
+  color: var(--dm-warning);
+  background: var(--dm-warning-soft);
+}
+
+.dm-banner.is-info {
+  color: var(--dm-accent-ink);
+  background: var(--dm-accent-soft);
+}
+
 /* ── Empty states ───────────────────────── */
 
 .dm-empty-state {

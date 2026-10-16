@@ -3,6 +3,7 @@ export {
   createFavoriteProfile,
   deleteFavoriteProfile,
   FIELD_KEYS,
+  isSameProfile,
   formatProfileForCopy,
   listKnownScopes,
   MAX_GENERATED_RECORDS,

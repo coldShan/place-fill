@@ -9,10 +9,10 @@ import {
   createFavoriteProfile,
   deleteFavoriteProfile,
   formatProfileForCopy,
+  getFieldLabel,
   MAX_GENERATED_RECORDS,
   reorderFavoriteProfiles,
   updateFavoriteProfile,
-  getFieldLabel,
   type ProfileFieldKey,
   type ProfileFieldMap
 } from "./page-model";
@@ -22,7 +22,7 @@ import { formatDisplayTime, getFavoriteTitle } from "./lib/display";
 import { matchesQuery } from "./lib/record-search";
 import { ColumnPicker } from "./components/column-picker";
 import { EmptyState } from "./components/empty-state";
-import { FavoriteModal } from "./components/favorite-modal";
+import { FavoriteEditor, type FavoriteDraft } from "./components/favorite-editor";
 import { FavoritesTable } from "./components/favorites-table";
 import { Header } from "./components/header";
 import { HistoryTable } from "./components/history-table";
@@ -35,8 +35,11 @@ import { useConfirm } from "./state/use-confirm";
 import { useRecords } from "./state/use-records";
 import { useToast } from "./state/use-toast";
 
-type EditorState = { open: false } | { open: true; id: string | null };
-type Selection = { view: DataManagerView; id: string } | null;
+type DrawerState =
+  | null
+  | { mode: "view"; view: DataManagerView; id: string }
+  | { mode: "edit"; id: string }
+  | { mode: "create" };
 
 export function App() {
   const route = useMemo(function () {
@@ -44,30 +47,30 @@ export function App() {
   }, []);
   const scope = route.scope;
   const [view, setView] = useState<DataManagerView>(route.view);
-  const [editor, setEditor] = useState<EditorState>({ open: false });
   const [query, setQuery] = useState("");
-  const [selection, setSelection] = useState<Selection>(null);
+  const [drawer, setDrawer] = useState<DrawerState>(null);
+  const editorDirtyRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const records = useRecords(scope);
   const { columns, setViewColumns } = useColumnPreferences();
   const { toast, showToast } = useToast();
   const { confirm, confirmDialog } = useConfirm();
-  const editingEntry = editor.open && editor.id
-    ? records.favorites.find(function (entry) { return entry.id === editor.id; }) || null
-    : null;
+
   const visibleFavorites = records.favorites.filter(function (entry) {
     return matchesQuery(entry.profile, [getFavoriteTitle(entry), entry.note], query);
   });
   const visibleHistory = records.history.filter(function (entry) {
     return matchesQuery(entry.profile, [formatDisplayTime(entry.createdAt)], query);
   });
-  const selectedFavorite = selection && selection.view === "favorites"
-    ? records.favorites.find(function (entry) { return entry.id === selection.id; }) || null
+  const drawerFavoriteId = drawer && (drawer.mode === "edit" || (drawer.mode === "view" && drawer.view === "favorites"))
+    ? drawer.id
     : null;
-  const selectedHistory = selection && selection.view === "history"
-    ? records.history.find(function (entry) { return entry.id === selection.id; }) || null
+  const drawerFavorite = drawerFavoriteId
+    ? records.favorites.find(function (entry) { return entry.id === drawerFavoriteId; }) || null
     : null;
-  const overlayOpen = editor.open || !!confirmDialog;
+  const drawerHistory = drawer && drawer.mode === "view" && drawer.view === "history"
+    ? records.history.find(function (entry) { return entry.id === drawer.id; }) || null
+    : null;
 
   useEffect(function () {
     if (!window.history || typeof window.history.replaceState !== "function") return;
@@ -76,7 +79,7 @@ export function App() {
 
   useEffect(function () {
     function handleKeydown(event: KeyboardEvent): void {
-      if (event.defaultPrevented || overlayOpen) return;
+      if (event.defaultPrevented || confirmDialog) return;
       const target = event.target as HTMLElement | null;
       const typing = !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
       if (event.key === "/" && !typing && scope) {
@@ -84,13 +87,16 @@ export function App() {
         searchInputRef.current?.focus();
         return;
       }
-      if (event.key === "Escape" && selection) setSelection(null);
+      if (event.key === "Escape" && drawer) {
+        event.preventDefault();
+        void changeDrawer(null);
+      }
     }
     document.addEventListener("keydown", handleKeydown);
     return function () {
       document.removeEventListener("keydown", handleKeydown);
     };
-  }, [overlayOpen, scope, selection]);
+  });
 
   async function runSafely(task: () => Promise<void>): Promise<void> {
     try {
@@ -98,6 +104,23 @@ export function App() {
     } catch (_error) {
       showToast("操作失败，请重试", "danger");
     }
+  }
+
+  async function changeDrawer(next: DrawerState): Promise<boolean> {
+    const editing = drawer && (drawer.mode === "edit" || drawer.mode === "create");
+    if (editing && editorDirtyRef.current) {
+      const discard = await confirm({
+        title: "放弃未保存的修改？",
+        description: "当前编辑的内容尚未保存，离开后将丢失。",
+        confirmLabel: "放弃修改",
+        cancelLabel: "继续编辑",
+        danger: true
+      });
+      if (!discard) return false;
+    }
+    editorDirtyRef.current = false;
+    setDrawer(next);
+    return true;
   }
 
   async function copyProfile(profile: ProfileFieldMap): Promise<void> {
@@ -120,22 +143,29 @@ export function App() {
     void copyField(fieldKey, value);
   }
 
-  function toggleSelection(nextView: DataManagerView, id: string): void {
-    setSelection(function (current) {
-      return current && current.view === nextView && current.id === id ? null : { view: nextView, id };
-    });
+  function toggleRow(rowView: DataManagerView, id: string): void {
+    const isOpen = drawer && drawer.mode === "view" && drawer.view === rowView && drawer.id === id;
+    void changeDrawer(isOpen ? null : { mode: "view", view: rowView, id });
   }
 
-  async function handleSubmit(input: { note: string; profile: ProfileFieldMap }): Promise<void> {
-    if (editor.open && editor.id) {
-      await updateFavoriteProfile(scope, editor.id, input);
-      showToast("常用数据已更新", "success");
-    } else {
-      await createFavoriteProfile(scope, input);
-      showToast("已新增常用数据", "success");
+  async function handleSave(draft: FavoriteDraft): Promise<void> {
+    if (!drawer || (drawer.mode !== "edit" && drawer.mode !== "create")) return;
+    try {
+      if (drawer.mode === "edit") {
+        await updateFavoriteProfile(scope, drawer.id, draft);
+        showToast("常用数据已更新", "success");
+        editorDirtyRef.current = false;
+        setDrawer({ mode: "view", view: "favorites", id: drawer.id });
+      } else {
+        const created = await createFavoriteProfile(scope, draft);
+        showToast("已新增常用数据", "success");
+        editorDirtyRef.current = false;
+        setDrawer({ mode: "view", view: "favorites", id: created.id });
+      }
+      await records.reload();
+    } catch (_error) {
+      showToast("保存失败，请重试", "danger");
     }
-    setEditor({ open: false });
-    await records.reload();
   }
 
   async function handleDelete(id: string): Promise<void> {
@@ -149,6 +179,7 @@ export function App() {
     });
     if (!confirmed) return;
     await deleteFavoriteProfile(scope, id);
+    if (drawerFavoriteId === id) setDrawer(null);
     await records.reload();
     showToast("已删除常用数据", "success");
   }
@@ -166,7 +197,7 @@ export function App() {
   }
 
   function openCreate(): void {
-    setEditor({ open: true, id: null });
+    void changeDrawer({ mode: "create" });
   }
 
   function renderNoMatch() {
@@ -178,21 +209,39 @@ export function App() {
   }
 
   function renderDrawer() {
-    if (selectedFavorite) {
-      const entry = selectedFavorite;
+    if (!drawer) return null;
+    if (drawer.mode === "create" || (drawer.mode === "edit" && drawerFavorite)) {
+      return (
+        <FavoriteEditor
+          key={drawer.mode === "edit" ? "edit-" + drawer.id : "create"}
+          entry={drawer.mode === "edit" ? drawerFavorite : null}
+          favorites={records.favorites}
+          onCancel={function () {
+            void changeDrawer(drawer.mode === "edit" ? { mode: "view", view: "favorites", id: drawer.id } : null);
+          }}
+          onSave={handleSave}
+          onDirtyChange={function (dirty) { editorDirtyRef.current = dirty; }}
+          onShowExisting={function (id) {
+            void changeDrawer({ mode: "view", view: "favorites", id });
+          }}
+        />
+      );
+    }
+    if (drawerFavorite) {
+      const entry = drawerFavorite;
       return (
         <DrawerShell
           eyebrow="常用数据"
           title={getFavoriteTitle(entry)}
           subtitle={entry.note}
-          onClose={function () { setSelection(null); }}
+          onClose={function () { void changeDrawer(null); }}
           footer={
             <>
               <button type="button" class="dm-secondary-btn" onClick={function () { void copyProfile(entry.profile); }}>
                 <Icon name="copy" />
                 复制整组
               </button>
-              <button type="button" class="dm-secondary-btn" onClick={function () { setEditor({ open: true, id: entry.id }); }}>
+              <button type="button" class="dm-secondary-btn" onClick={function () { void changeDrawer({ mode: "edit", id: entry.id }); }}>
                 <Icon name="pencil" />
                 编辑
               </button>
@@ -212,14 +261,14 @@ export function App() {
         </DrawerShell>
       );
     }
-    if (selectedHistory) {
-      const entry = selectedHistory;
+    if (drawerHistory) {
+      const entry = drawerHistory;
       return (
         <DrawerShell
           eyebrow="生成记录"
           title={entry.profile.fullName || "生成记录"}
           subtitle={"生成于 " + formatDisplayTime(entry.createdAt)}
-          onClose={function () { setSelection(null); }}
+          onClose={function () { void changeDrawer(null); }}
           footer={
             <>
               <button type="button" class="dm-secondary-btn" onClick={function () { void copyProfile(entry.profile); }}>
@@ -271,8 +320,8 @@ export function App() {
           entries={visibleHistory}
           columns={columns.history}
           query={query}
-          selectedId={selectedHistory ? selectedHistory.id : null}
-          onSelect={function (id) { toggleSelection("history", id); }}
+          selectedId={drawerHistory ? drawerHistory.id : null}
+          onSelect={function (id) { toggleRow("history", id); }}
           onCopyField={handleCopyField}
           onFavorite={function (id) { void runSafely(function () { return handleHistoryFavorite(id); }); }}
           onCopy={function (id) {
@@ -302,15 +351,15 @@ export function App() {
         entries={visibleFavorites}
         columns={columns.favorites}
         query={query}
-        selectedId={selectedFavorite ? selectedFavorite.id : null}
+        selectedId={drawerFavoriteId}
         sortable={!query.trim()}
-        onSelect={function (id) { toggleSelection("favorites", id); }}
+        onSelect={function (id) { toggleRow("favorites", id); }}
         onCopyField={handleCopyField}
         onCopyAll={function (id) {
           const entry = records.favorites.find(function (item) { return item.id === id; });
           if (entry) void copyProfile(entry.profile);
         }}
-        onEdit={function (id) { setEditor({ open: true, id }); }}
+        onEdit={function (id) { void changeDrawer({ mode: "edit", id }); }}
         onDelete={function (id) { void runSafely(function () { return handleDelete(id); }); }}
         onReorder={function (orderedIds) { void runSafely(function () { return handleReorder(orderedIds); }); }}
       />
@@ -333,9 +382,12 @@ export function App() {
           counts={{ favorites: records.favorites.length, history: records.history.length }}
           hint={view === "history" ? "仅保留最近 " + MAX_GENERATED_RECORDS + " 条" : ""}
           onViewChange={function (nextView) {
-            setView(nextView);
-            setSelection(null);
-            void records.reload();
+            if (nextView === view) return;
+            void changeDrawer(null).then(function (changed) {
+              if (!changed) return;
+              setView(nextView);
+              void records.reload();
+            });
           }}
         >
           <SearchBox inputRef={searchInputRef} value={query} onChange={setQuery} />
@@ -354,14 +406,6 @@ export function App() {
       </div>
       {toast ? (
         <div class="dm-toast" role="status" data-tone={toast.tone} key={toast.id}>{toast.message}</div>
-      ) : null}
-      {editor.open ? (
-        <FavoriteModal
-          key={editor.id || "new"}
-          entry={editingEntry}
-          onClose={function () { setEditor({ open: false }); }}
-          onSubmit={function (input) { void runSafely(function () { return handleSubmit(input); }); }}
-        />
       ) : null}
       {confirmDialog}
     </div>
