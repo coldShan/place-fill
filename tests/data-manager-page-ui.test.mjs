@@ -100,6 +100,14 @@ test("history marks favorited records and only favorites can be copied to other 
   assert.doesNotMatch(readPageFile("components/history-table.tsx"), /复制到其他站点|onCopyToSites/);
 });
 
+test("data manager refreshes on storage changes and imports or exports favorites only", () => {
+  assert.match(pageSource, /chrome\.storage\.onChanged\.addListener/);
+  assert.match(pageSource, /chrome\.storage\.onChanged\.removeListener/);
+  assert.match(pageSource, /importFavoriteProfiles/);
+  assert.match(pageSource, /buildExportPayload\(scope, records\.favorites/);
+  assert.doesNotMatch(readPageFile("lib/import-export.ts"), /history/);
+});
+
 test("data manager keeps top tabs instead of a left sidebar layout", () => {
   assert.match(pageSource, /role="tablist"/);
   assert.match(pageSource, /role="tab"/);

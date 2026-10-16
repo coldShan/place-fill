@@ -420,3 +420,44 @@ export async function copyFavoriteToScopes(
 }
 
 export { FIELD_KEYS, formatProfileForCopy, normalizeProfile, type ProfileFieldMap };
+
+export async function importFavoriteProfiles(
+  scope: string,
+  inputs: { name?: string; note?: string; profile: Partial<Record<string, unknown>> }[],
+  env?: DataRecordsEnv
+): Promise<{ created: FavoriteEntry[]; skipped: number }> {
+  const normalizedScope = normalizeScopeKey(scope);
+  if (!normalizedScope) throw new Error("Invalid scope");
+
+  const favoritesMap = await readFavoriteProfilesMap(env);
+  const currentEntries = favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
+  const now = env && typeof env.now === "function" ? env.now() : Date.now();
+  const random = env && typeof env.random === "function" ? env.random : Math.random;
+  const created: FavoriteEntry[] = [];
+  let skipped = 0;
+
+  inputs.forEach(function (input) {
+    const profile = normalizeProfile(input.profile);
+    const exists = currentEntries.concat(created).some(function (entry) {
+      return isSameProfile(entry.profile, profile);
+    });
+    if (exists) {
+      skipped += 1;
+      return;
+    }
+    created.push({
+      createdAt: String(now),
+      id: createId(now, random),
+      name: String(input.name || "").trim() || "常用数据",
+      note: String(input.note || "").trim(),
+      profile,
+      updatedAt: String(now)
+    });
+  });
+
+  if (created.length) {
+    favoritesMap[normalizedScope] = currentEntries.concat(created);
+    await writeFavoriteProfilesMap(favoritesMap, env);
+  }
+  return { created, skipped };
+}

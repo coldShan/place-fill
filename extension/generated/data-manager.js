@@ -694,6 +694,39 @@ async function copyFavoriteToScopes(scope, favoriteId, targetScopes, env) {
   }
   return results;
 }
+async function importFavoriteProfiles(scope, inputs, env) {
+  const normalizedScope = normalizeScopeKey(scope);
+  if (!normalizedScope) throw new Error("Invalid scope");
+  const favoritesMap = await readFavoriteProfilesMap();
+  const currentEntries = favoritesMap[normalizedScope] ? favoritesMap[normalizedScope].slice() : [];
+  const now = Date.now();
+  const random = Math.random;
+  const created = [];
+  let skipped = 0;
+  inputs.forEach(function(input) {
+    const profile = normalizeProfile(input.profile);
+    const exists = currentEntries.concat(created).some(function(entry) {
+      return isSameProfile(entry.profile, profile);
+    });
+    if (exists) {
+      skipped += 1;
+      return;
+    }
+    created.push({
+      createdAt: String(now),
+      id: createId(now, random),
+      name: String(input.name || "").trim() || "常用数据",
+      note: String(input.note || "").trim(),
+      profile,
+      updatedAt: String(now)
+    });
+  });
+  if (created.length) {
+    favoritesMap[normalizedScope] = currentEntries.concat(created);
+    await writeFavoriteProfilesMap(favoritesMap);
+  }
+  return { created, skipped };
+}
 const DATA_MANAGER_PAGE_PATH = "data-manager.html";
 function normalizeDataManagerView(value) {
   const normalized = String(value || "").trim().toLowerCase();
@@ -860,6 +893,73 @@ function splitHighlight(text, query) {
     }
   }
   return segments;
+}
+const EXPORT_FILE_TYPE = "place-fill-data-records";
+const EXPORT_FILE_VERSION = 1;
+function buildExportPayload(scope, favorites, now) {
+  return {
+    type: EXPORT_FILE_TYPE,
+    version: EXPORT_FILE_VERSION,
+    scope,
+    exportedAt: now.toISOString(),
+    favorites: favorites.map(function(entry) {
+      return { name: entry.name, note: entry.note, profile: normalizeProfile(entry.profile) };
+    })
+  };
+}
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+function buildExportFileName(scope, now) {
+  const stamp = String(now.getFullYear()) + pad2(now.getMonth() + 1) + pad2(now.getDate());
+  return "place-fill-" + (scope || "data") + "-favorites-" + stamp + ".json";
+}
+function parseImportPayload(text) {
+  let raw;
+  try {
+    raw = JSON.parse(String(text || "").replace(/^﻿/, ""));
+  } catch (_error) {
+    return { ok: false, error: "文件不是有效的 JSON" };
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { ok: false, error: "文件格式不正确，请选择数据管理页导出的文件" };
+  }
+  const payload = raw;
+  if (payload.type !== EXPORT_FILE_TYPE || !Array.isArray(payload.favorites)) {
+    return { ok: false, error: "文件格式不正确，请选择数据管理页导出的文件" };
+  }
+  const favorites = payload.favorites.filter(function(item) {
+    return !!item && typeof item === "object" && !Array.isArray(item);
+  }).map(function(item) {
+    return {
+      name: String(item.name || "").trim(),
+      note: String(item.note || "").trim(),
+      profile: normalizeProfile(item.profile)
+    };
+  }).filter(function(item) {
+    return FIELD_KEYS.some(function(fieldKey) {
+      return item.profile[fieldKey] !== "";
+    });
+  });
+  if (!favorites.length) return { ok: false, error: "文件中没有可导入的常用数据" };
+  return { ok: true, sourceScope: normalizeScopeKey(String(payload.scope || "")), favorites };
+}
+function planImport(existing, incoming) {
+  const toCreate = [];
+  let duplicates = 0;
+  incoming.forEach(function(item) {
+    const seen = existing.some(function(entry) {
+      return isSameProfile(entry.profile, item.profile);
+    }) || toCreate.some(function(entry) {
+      return isSameProfile(entry.profile, item.profile);
+    });
+    if (seen) {
+      duplicates += 1;
+    } else {
+      toCreate.push(item);
+    }
+  });
+  return { toCreate, duplicates };
 }
 function parseScopeInput(input, currentScope) {
   const raw = String(input || "").trim();
@@ -1447,6 +1547,15 @@ function FavoriteEditor(props) {
             void handleSubmit(event);
           },
           children: [
+            props.entry && props.liveEntry === null ? /* @__PURE__ */ u$1("div", { class: "dm-banner is-warning", role: "status", children: [
+              /* @__PURE__ */ u$1(Icon, { name: "circle-alert" }),
+              /* @__PURE__ */ u$1("span", { class: "dm-banner-text", children: "这组数据已在其他页面被删除，保存后将重新创建。" })
+            ] }) : null,
+            props.entry && props.liveEntry && props.liveEntry.updatedAt !== props.entry.updatedAt ? /* @__PURE__ */ u$1("div", { class: "dm-banner is-info", role: "status", children: [
+              /* @__PURE__ */ u$1(Icon, { name: "circle-alert" }),
+              /* @__PURE__ */ u$1("span", { class: "dm-banner-text", children: "这组数据已在其他页面更新，保存将覆盖那次修改。" }),
+              props.onLoadLatest ? /* @__PURE__ */ u$1("button", { type: "button", class: "dm-link-btn", onClick: props.onLoadLatest, children: "载入最新" }) : null
+            ] }) : null,
             duplicate ? /* @__PURE__ */ u$1("div", { ref: bannerRef, class: "dm-banner is-warning", role: "alert", children: [
               /* @__PURE__ */ u$1(Icon, { name: "circle-alert" }),
               /* @__PURE__ */ u$1("span", { class: "dm-banner-text", children: [
@@ -1799,7 +1908,7 @@ function HistoryTable(props) {
         "tr",
         {
           tabIndex: 0,
-          class: "dm-row" + (props.selectedId === entry.id ? " is-selected" : ""),
+          class: "dm-row" + (props.selectedId === entry.id ? " is-selected" : "") + (props.freshIds.has(entry.id) ? " is-fresh" : ""),
           onClick: function() {
             props.onSelect(entry.id);
           },
@@ -1830,6 +1939,65 @@ function HistoryTable(props) {
       );
     }) })
   ] }) });
+}
+const PREVIEW_LIMIT = 5;
+function ImportDialog(props) {
+  const [submitting, setSubmitting] = d(false);
+  const count = props.toCreate.length;
+  const description = count ? "将导入 " + count + " 条常用数据" + (props.duplicates ? "，" + props.duplicates + " 条与已有数据重复将跳过" : "") + "。" : "文件中的 " + props.duplicates + " 条数据都已存在，没有需要导入的新数据。";
+  async function submit() {
+    if (!count || submitting) return;
+    setSubmitting(true);
+    try {
+      await props.onConfirm();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+  return /* @__PURE__ */ u$1(
+    Dialog,
+    {
+      title: "导入常用数据",
+      description,
+      onClose: props.onClose,
+      footer: count ? /* @__PURE__ */ u$1(M, { children: [
+        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: props.onClose, children: "取消" }),
+        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-primary-btn", disabled: submitting, onClick: function() {
+          void submit();
+        }, children: [
+          "导入 ",
+          count,
+          " 条"
+        ] })
+      ] }) : /* @__PURE__ */ u$1("button", { type: "button", class: "dm-primary-btn", onClick: props.onClose, children: "知道了" }),
+      children: /* @__PURE__ */ u$1("div", { class: "dm-import-summary", children: [
+        /* @__PURE__ */ u$1("div", { class: "dm-import-meta", children: [
+          /* @__PURE__ */ u$1("span", { children: "文件" }),
+          /* @__PURE__ */ u$1("span", { class: "dm-import-meta-value", title: props.fileName, children: props.fileName })
+        ] }),
+        props.sourceScope && props.sourceScope !== props.scope ? /* @__PURE__ */ u$1("p", { class: "dm-banner is-info", children: [
+          "文件导出自 ",
+          props.sourceScope,
+          "，将导入到当前站点 ",
+          props.scope,
+          "。"
+        ] }) : null,
+        count ? /* @__PURE__ */ u$1("ul", { class: "dm-import-preview", children: [
+          props.toCreate.slice(0, PREVIEW_LIMIT).map(function(item, index) {
+            return /* @__PURE__ */ u$1("li", { children: [
+              /* @__PURE__ */ u$1("span", { class: "dm-import-preview-title", children: getFavoriteTitle(item) }),
+              /* @__PURE__ */ u$1("span", { class: "dm-import-preview-meta", children: item.profile.mobile || item.profile.idNumber || item.profile.companyName })
+            ] }, index);
+          }),
+          count > PREVIEW_LIMIT ? /* @__PURE__ */ u$1("li", { class: "dm-import-preview-more", children: [
+            "以及另外 ",
+            count - PREVIEW_LIMIT,
+            " 条"
+          ] }) : null
+        ] }) : null
+      ] })
+    }
+  );
 }
 function SearchBox(props) {
   return /* @__PURE__ */ u$1("label", { class: "dm-search", children: [
@@ -1977,15 +2145,40 @@ function useConfirm() {
   ) : null;
   return { confirm, confirmDialog };
 }
+const FRESH_HIGHLIGHT_MS = 2400;
 function useRecords(scope) {
   const [records, setRecords] = d({ favorites: [], history: [], loaded: false });
+  const [freshHistoryIds, setFreshHistoryIds] = d(/* @__PURE__ */ new Set());
+  const knownHistoryIdsRef = T(null);
+  const freshTimerRef = T(null);
+  const latestRequestRef = T(0);
   const reload = j(async function() {
     if (!scope) {
       setRecords({ favorites: [], history: [], loaded: true });
       return;
     }
+    const requestId = latestRequestRef.current + 1;
+    latestRequestRef.current = requestId;
     const [favorites, history] = await Promise.all([readFavoriteProfiles(scope), readGeneratedProfiles(scope)]);
+    if (requestId !== latestRequestRef.current) return;
+    const knownIds = knownHistoryIdsRef.current;
+    const freshIds = knownIds ? history.filter(function(entry) {
+      return !knownIds.has(entry.id);
+    }).map(function(entry) {
+      return entry.id;
+    }) : [];
+    knownHistoryIdsRef.current = new Set(history.map(function(entry) {
+      return entry.id;
+    }));
     setRecords({ favorites, history, loaded: true });
+    if (freshIds.length) {
+      setFreshHistoryIds(new Set(freshIds));
+      if (freshTimerRef.current) window.clearTimeout(freshTimerRef.current);
+      freshTimerRef.current = window.setTimeout(function() {
+        setFreshHistoryIds(/* @__PURE__ */ new Set());
+        freshTimerRef.current = null;
+      }, FRESH_HIGHLIGHT_MS);
+    }
   }, [scope]);
   const setFavorites = j(function(entries) {
     setRecords(function(current) {
@@ -1995,7 +2188,24 @@ function useRecords(scope) {
   A(function() {
     void reload();
   }, [reload]);
-  return { ...records, reload, setFavorites };
+  A(function() {
+    if (!scope || typeof chrome === "undefined" || !chrome.storage || !chrome.storage.onChanged) return;
+    function handleChange(changes, areaName) {
+      if (areaName !== "local") return;
+      if (!changes[FAVORITE_PROFILES_STORAGE_KEY] && !changes[GENERATED_PROFILES_STORAGE_KEY]) return;
+      void reload();
+    }
+    chrome.storage.onChanged.addListener(handleChange);
+    return function() {
+      chrome.storage.onChanged.removeListener(handleChange);
+    };
+  }, [scope, reload]);
+  A(function() {
+    return function() {
+      if (freshTimerRef.current) window.clearTimeout(freshTimerRef.current);
+    };
+  }, []);
+  return { ...records, freshHistoryIds, reload, setFavorites };
 }
 const TOAST_DURATION_MS = 2400;
 function useToast() {
@@ -2025,6 +2235,8 @@ function App() {
   const [query, setQuery] = d("");
   const [drawer, setDrawer] = d(null);
   const [copyTargetId, setCopyTargetId] = d(null);
+  const [importPreview, setImportPreview] = d(null);
+  const importInputRef = T(null);
   const editorDirtyRef = T(false);
   const searchInputRef = T(null);
   const records = useRecords(scope);
@@ -2061,7 +2273,7 @@ function App() {
   }, [scope, view]);
   A(function() {
     function handleKeydown(event) {
-      if (event.defaultPrevented || confirmDialog || copyTarget) return;
+      if (event.defaultPrevented || confirmDialog || copyTarget || importPreview) return;
       const target = event.target;
       const typing = !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
       if (event.key === "/" && !typing && scope) {
@@ -2126,11 +2338,11 @@ function App() {
   async function handleSave(draft) {
     if (!drawer || drawer.mode !== "edit" && drawer.mode !== "create") return;
     try {
-      if (drawer.mode === "edit") {
-        await updateFavoriteProfile(scope, drawer.id, draft);
+      const updated = drawer.mode === "edit" ? await updateFavoriteProfile(scope, drawer.id, draft) : null;
+      if (updated) {
         showToast("常用数据已更新", "success");
         editorDirtyRef.current = false;
-        setDrawer({ mode: "view", view: "favorites", id: drawer.id });
+        setDrawer({ mode: "view", view: "favorites", id: updated.id });
       } else {
         const created = await createFavoriteProfile(scope, draft);
         showToast("已新增常用数据", "success");
@@ -2191,6 +2403,50 @@ function App() {
       showToast("复制失败，请重试", "danger");
     }
   }
+  function handleExport() {
+    if (!records.favorites.length) return;
+    const now = /* @__PURE__ */ new Date();
+    const blob = new Blob([JSON.stringify(buildExportPayload(scope, records.favorites, now), null, 2)], {
+      type: "application/json"
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = buildExportFileName(scope, now);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(function() {
+      URL.revokeObjectURL(url);
+    }, 1e3);
+    showToast("已导出 " + records.favorites.length + " 条常用数据", "success");
+  }
+  async function handleImportFile(file) {
+    const parsed = parseImportPayload(await file.text());
+    if (!parsed.ok) {
+      showToast(parsed.error, "danger");
+      return;
+    }
+    const plan = planImport(records.favorites, parsed.favorites);
+    setImportPreview({ fileName: file.name, sourceScope: parsed.sourceScope, ...plan });
+  }
+  async function confirmImport() {
+    if (!importPreview) return;
+    try {
+      const result = await importFavoriteProfiles(scope, importPreview.toCreate);
+      setImportPreview(null);
+      await records.reload();
+      showToast(
+        "已导入 " + result.created.length + " 条常用数据" + (result.skipped ? "，跳过 " + result.skipped + " 条重复数据" : ""),
+        "success"
+      );
+    } catch (_error) {
+      showToast("导入失败，请重试", "danger");
+    }
+  }
+  function startEdit(entry) {
+    void changeDrawer({ mode: "edit", id: entry.id, snapshot: entry });
+  }
   function openCreate() {
     void changeDrawer({ mode: "create" });
   }
@@ -2201,11 +2457,19 @@ function App() {
   }
   function renderDrawer() {
     if (!drawer) return null;
-    if (drawer.mode === "create" || drawer.mode === "edit" && drawerFavorite) {
+    if (drawer.mode === "create" || drawer.mode === "edit") {
+      const snapshot = drawer.mode === "edit" ? drawer.snapshot : null;
       return /* @__PURE__ */ u$1(
         FavoriteEditor,
         {
-          entry: drawer.mode === "edit" ? drawerFavorite : null,
+          entry: snapshot,
+          liveEntry: snapshot ? drawerFavorite : void 0,
+          onLoadLatest: function() {
+            if (drawerFavorite) {
+              editorDirtyRef.current = false;
+              setDrawer({ mode: "edit", id: drawerFavorite.id, snapshot: drawerFavorite });
+            }
+          },
           favorites: records.favorites,
           onCancel: function() {
             void changeDrawer(drawer.mode === "edit" ? { mode: "view", view: "favorites", id: drawer.id } : null);
@@ -2218,7 +2482,7 @@ function App() {
             void changeDrawer({ mode: "view", view: "favorites", id });
           }
         },
-        drawer.mode === "edit" ? "edit-" + drawer.id : "create"
+        snapshot ? "edit-" + snapshot.id + "-" + snapshot.updatedAt : "create"
       );
     }
     if (drawerFavorite) {
@@ -2240,7 +2504,7 @@ function App() {
               "复制整组"
             ] }),
             /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: function() {
-              void changeDrawer({ mode: "edit", id: entry.id });
+              startEdit(entry);
             }, children: [
               /* @__PURE__ */ u$1(Icon, { name: "pencil" }),
               "编辑"
@@ -2349,6 +2613,7 @@ function App() {
           },
           onCopyField: handleCopyField,
           favoritedIds: favoritedHistoryIds,
+          freshIds: records.freshHistoryIds,
           onFavorite: function(id) {
             void runSafely(function() {
               return handleHistoryFavorite(id);
@@ -2397,7 +2662,10 @@ function App() {
           if (entry) void copyProfile(entry.profile);
         },
         onEdit: function(id) {
-          void changeDrawer({ mode: "edit", id });
+          const entry = records.favorites.find(function(item) {
+            return item.id === id;
+          });
+          if (entry) startEdit(entry);
         },
         onCopyToSites: setCopyTargetId,
         onDelete: function(id) {
@@ -2414,9 +2682,57 @@ function App() {
     );
   }
   return /* @__PURE__ */ u$1("div", { class: "dm-app", children: [
-    /* @__PURE__ */ u$1(Header, { scope, children: scope && view === "favorites" ? /* @__PURE__ */ u$1("button", { type: "button", class: "dm-primary-btn", onClick: openCreate, children: [
-      /* @__PURE__ */ u$1(Icon, { name: "plus" }),
-      "新增"
+    /* @__PURE__ */ u$1(Header, { scope, children: scope && view === "favorites" ? /* @__PURE__ */ u$1(M, { children: [
+      /* @__PURE__ */ u$1(
+        "button",
+        {
+          type: "button",
+          class: "dm-ghost-btn",
+          title: "从导出的 JSON 文件导入常用数据",
+          onClick: function() {
+            importInputRef.current?.click();
+          },
+          children: [
+            /* @__PURE__ */ u$1(Icon, { name: "upload" }),
+            "导入"
+          ]
+        }
+      ),
+      /* @__PURE__ */ u$1(
+        "button",
+        {
+          type: "button",
+          class: "dm-ghost-btn",
+          title: "导出当前站点的常用数据",
+          disabled: !records.favorites.length,
+          onClick: handleExport,
+          children: [
+            /* @__PURE__ */ u$1(Icon, { name: "download" }),
+            "导出"
+          ]
+        }
+      ),
+      /* @__PURE__ */ u$1("button", { type: "button", class: "dm-primary-btn", onClick: openCreate, children: [
+        /* @__PURE__ */ u$1(Icon, { name: "plus" }),
+        "新增"
+      ] }),
+      /* @__PURE__ */ u$1(
+        "input",
+        {
+          ref: importInputRef,
+          type: "file",
+          accept: ".json,application/json",
+          hidden: true,
+          onChange: function(event) {
+            const input = event.currentTarget;
+            const file = input.files && input.files[0];
+            input.value = "";
+            if (file) void runSafely(function() {
+              return handleImportFile(file);
+            });
+          }
+        }
+      )
     ] }) : null }),
     scope ? /* @__PURE__ */ u$1(
       Toolbar,
@@ -2461,6 +2777,17 @@ function App() {
           setCopyTargetId(null);
         },
         onConfirm: handleCopyToSites
+      }
+    ) : null,
+    importPreview ? /* @__PURE__ */ u$1(
+      ImportDialog,
+      {
+        scope,
+        ...importPreview,
+        onClose: function() {
+          setImportPreview(null);
+        },
+        onConfirm: confirmImport
       }
     ) : null,
     confirmDialog
