@@ -7,6 +7,7 @@ import { IconButton } from "./icon-button";
 
 export function DrawerShell(props: {
   eyebrow: string;
+  badge?: string;
   title: string;
   subtitle?: string;
   onClose: () => void;
@@ -17,7 +18,10 @@ export function DrawerShell(props: {
     <aside class="dm-drawer" aria-label={props.eyebrow + "详情"}>
       <header class="dm-drawer-head">
         <div class="dm-drawer-heading">
-          <span class="dm-drawer-eyebrow">{props.eyebrow}</span>
+          <span class="dm-drawer-eyebrow">
+            {props.eyebrow}
+            {props.badge ? <span class="dm-badge">{props.badge}</span> : null}
+          </span>
           <h2 class="dm-drawer-title" title={props.title}>{props.title}</h2>
           {props.subtitle ? <p class="dm-drawer-subtitle">{props.subtitle}</p> : null}
         </div>

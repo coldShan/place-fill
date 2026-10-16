@@ -1,4 +1,5 @@
 export {
+  copyFavoriteToScopes,
   createFavoriteFromHistory,
   createFavoriteProfile,
   deleteFavoriteProfile,
@@ -6,6 +7,7 @@ export {
   isSameProfile,
   formatProfileForCopy,
   listKnownScopes,
+  listScopeSummaries,
   MAX_GENERATED_RECORDS,
   normalizeProfile,
   normalizeScopeKey,
@@ -15,6 +17,7 @@ export {
   updateFavoriteProfile,
   type FavoriteEntry,
   type HistoryEntry,
+  type ScopeSummary,
   type ProfileFieldMap
 } from "../../shared/data-records";
 

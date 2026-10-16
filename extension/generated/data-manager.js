@@ -535,9 +535,6 @@ function isSameProfile(left, right) {
 async function readGeneratedProfilesMap(env) {
   return normalizeGeneratedProfilesMap(await readStorageValue(getStorageArea$1(), GENERATED_PROFILES_STORAGE_KEY));
 }
-async function writeGeneratedProfilesMap(nextMap, env) {
-  await writeStorageValue(getStorageArea$1(), GENERATED_PROFILES_STORAGE_KEY, nextMap);
-}
 async function readFavoriteProfilesMap(env) {
   return normalizeFavoriteProfilesMap(await readStorageValue(getStorageArea$1(), FAVORITE_PROFILES_STORAGE_KEY));
 }
@@ -642,18 +639,60 @@ async function deleteFavoriteProfile(scope, id, env) {
 async function createFavoriteFromHistory(scope, historyId, name = "", env) {
   const normalizedScope = normalizeScopeKey(scope);
   if (!normalizedScope || !historyId) return null;
-  const recordsMap = await readGeneratedProfilesMap();
-  const records = recordsMap[normalizedScope] ? recordsMap[normalizedScope].slice() : [];
+  const records = await readGeneratedProfiles(normalizedScope);
   const historyEntry = records.find(function(entry) {
     return entry.id === historyId;
   });
   if (!historyEntry) return null;
-  recordsMap[normalizedScope] = records.filter(function(entry) {
-    return entry.id !== historyId;
+  return createFavoriteProfile(normalizedScope, { name, profile: historyEntry.profile });
+}
+async function listScopeSummaries(env) {
+  const generatedMap = await readGeneratedProfilesMap();
+  const favoriteMap = await readFavoriteProfilesMap();
+  return Array.from(new Set(Object.keys(generatedMap).concat(Object.keys(favoriteMap)))).sort().map(function(scope) {
+    return {
+      favorites: (favoriteMap[scope] || []).length,
+      history: (generatedMap[scope] || []).length,
+      scope
+    };
   });
-  const favorite = await createFavoriteProfile(normalizedScope, { name, profile: historyEntry.profile });
-  await writeGeneratedProfilesMap(recordsMap);
-  return favorite;
+}
+async function copyFavoriteToScopes(scope, favoriteId, targetScopes, env) {
+  const normalizedScope = normalizeScopeKey(scope);
+  if (!normalizedScope || !favoriteId) return null;
+  const favoritesMap = await readFavoriteProfilesMap();
+  const source = (favoritesMap[normalizedScope] || []).find(function(entry) {
+    return entry.id === favoriteId;
+  });
+  if (!source) return null;
+  const targets = Array.from(new Set(targetScopes.map(normalizeScopeKey))).filter(function(target) {
+    return !!target && target !== normalizedScope;
+  });
+  const now = Date.now();
+  const random = Math.random;
+  const results = targets.map(function(target) {
+    const currentEntries = favoritesMap[target] ? favoritesMap[target].slice() : [];
+    const exists = currentEntries.some(function(entry) {
+      return isSameProfile(entry.profile, source.profile);
+    });
+    if (exists) return { scope: target, status: "duplicate" };
+    const copied = {
+      createdAt: String(now),
+      id: createId(now, random),
+      name: source.name,
+      note: source.note,
+      profile: normalizeProfile(source.profile),
+      updatedAt: String(now)
+    };
+    favoritesMap[target] = [copied].concat(currentEntries);
+    return { scope: target, status: "created" };
+  });
+  if (results.some(function(result) {
+    return result.status === "created";
+  })) {
+    await writeFavoriteProfilesMap(favoritesMap);
+  }
+  return results;
 }
 const DATA_MANAGER_PAGE_PATH = "data-manager.html";
 function normalizeDataManagerView(value) {
@@ -822,6 +861,38 @@ function splitHighlight(text, query) {
   }
   return segments;
 }
+function parseScopeInput(input, currentScope) {
+  const raw = String(input || "").trim();
+  if (!raw) return { scope: "", error: "请输入域名或网址" };
+  let hostname = "";
+  try {
+    hostname = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : "http://" + raw).hostname;
+  } catch (_error) {
+    hostname = "";
+  }
+  const scope = normalizeScopeKey(hostname);
+  if (!scope || !scope.includes(".") && scope !== "localhost") return { scope: "", error: "请输入有效的域名，例如 test.example.com" };
+  if (scope === normalizeScopeKey(currentScope)) return { scope: "", error: "不能复制到当前站点" };
+  return { scope, error: "" };
+}
+function summarizeCopyResults(results) {
+  const created = results.filter(function(result) {
+    return result.status === "created";
+  });
+  const skipped = results.filter(function(result) {
+    return result.status === "duplicate";
+  });
+  const skippedNames = skipped.length > 2 ? skipped.slice(0, 2).map(function(result) {
+    return result.scope;
+  }).join("、") + " 等 " + skipped.length + " 个站点" : skipped.map(function(result) {
+    return result.scope;
+  }).join("、");
+  if (!created.length) {
+    return { message: skippedNames + " 已存在相同数据，未重复复制", tone: "warning" };
+  }
+  const base = "已复制到 " + created.length + " 个站点";
+  return skipped.length ? { message: base + "；" + skippedNames + " 已存在相同数据，已跳过", tone: "success" } : { message: base, tone: "success" };
+}
 function Icon(props) {
   const iconAssets = typeof window !== "undefined" ? window.ChromeTestDataIconAssets : void 0;
   const url = iconAssets?.getIconAssetUrl ? iconAssets.getIconAssetUrl(props.name) : "";
@@ -835,28 +906,58 @@ function Icon(props) {
     }
   );
 }
+const VIEWPORT_MARGIN = 8;
 function Popover(props) {
   const [open, setOpen] = d(false);
+  const [position, setPosition] = d(null);
   const rootRef = T(null);
+  const triggerRef = T(null);
+  const panelRef = T(null);
+  F(function() {
+    if (!open) {
+      setPosition(null);
+      return;
+    }
+    const trigger = triggerRef.current;
+    const panel = panelRef.current;
+    if (!trigger || !panel) return;
+    const triggerRect = trigger.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - triggerRect.bottom;
+    const top = spaceBelow < panelRect.height + VIEWPORT_MARGIN && triggerRect.top > panelRect.height + VIEWPORT_MARGIN ? triggerRect.top - panelRect.height - 6 : triggerRect.bottom + 6;
+    const left = Math.max(VIEWPORT_MARGIN, Math.min(triggerRect.right - panelRect.width, window.innerWidth - panelRect.width - VIEWPORT_MARGIN));
+    setPosition({ top, left });
+  }, [open]);
   A(function() {
     if (!open) return;
     function handlePointerDown(event) {
       if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
     }
+    function handleViewportChange(event) {
+      if (panelRef.current && event.target instanceof Node && panelRef.current.contains(event.target)) return;
+      setOpen(false);
+    }
     document.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("resize", handleViewportChange);
+    document.addEventListener("scroll", handleViewportChange, true);
     return function() {
       document.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("resize", handleViewportChange);
+      document.removeEventListener("scroll", handleViewportChange, true);
     };
   }, [open]);
   function close() {
     setOpen(false);
-    rootRef.current?.querySelector(".dm-popover-trigger")?.focus();
+    triggerRef.current?.focus();
   }
   return /* @__PURE__ */ u$1(
     "div",
     {
       ref: rootRef,
       class: "dm-popover-root",
+      onClick: function(event) {
+        event.stopPropagation();
+      },
       onKeyDown: function(event) {
         if (event.key !== "Escape" || !open) return;
         event.stopPropagation();
@@ -866,19 +967,27 @@ function Popover(props) {
         /* @__PURE__ */ u$1(
           "button",
           {
+            ref: triggerRef,
             type: "button",
-            class: "dm-popover-trigger " + (props.triggerClass || "dm-ghost-btn"),
+            class: props.triggerClass || "dm-ghost-btn",
             "aria-label": props.label,
             title: props.label,
             "aria-expanded": open,
-            onClick: function(event) {
-              event.stopPropagation();
+            onClick: function() {
               setOpen(!open);
             },
             children: props.trigger
           }
         ),
-        open ? /* @__PURE__ */ u$1("div", { class: "dm-popover" + (props.align === "start" ? " is-start" : ""), children: props.children(close) }) : null
+        open ? /* @__PURE__ */ u$1(
+          "div",
+          {
+            ref: panelRef,
+            class: "dm-popover",
+            style: position ? { top: position.top + "px", left: position.left + "px" } : { visibility: "hidden" },
+            children: props.children(close)
+          }
+        ) : null
       ]
     }
   );
@@ -926,6 +1035,199 @@ function ColumnPicker(props) {
           ) })
         ] });
       }
+    }
+  );
+}
+function Dialog(props) {
+  const dialogRef = T(null);
+  A(function() {
+    const previousFocus = document.activeElement;
+    const node = dialogRef.current;
+    const focusTarget = node?.querySelector("[data-autofocus]") || node?.querySelector("input, button");
+    focusTarget?.focus();
+    return function() {
+      if (previousFocus && document.contains(previousFocus)) previousFocus.focus();
+    };
+  }, []);
+  return /* @__PURE__ */ u$1(
+    "div",
+    {
+      class: "dm-dialog-layer",
+      onKeyDown: function(event) {
+        if (event.key !== "Escape") return;
+        event.stopPropagation();
+        props.onClose();
+      },
+      children: [
+        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-dialog-backdrop", tabIndex: -1, "aria-label": "关闭", onClick: props.onClose }),
+        /* @__PURE__ */ u$1(
+          "section",
+          {
+            ref: dialogRef,
+            class: "dm-dialog" + (props.wide ? " is-wide" : ""),
+            role: "dialog",
+            "aria-modal": "true",
+            "aria-label": props.title,
+            children: [
+              /* @__PURE__ */ u$1("header", { class: "dm-dialog-head", children: /* @__PURE__ */ u$1("div", { children: [
+                /* @__PURE__ */ u$1("h2", { class: "dm-dialog-title", children: props.title }),
+                props.description ? /* @__PURE__ */ u$1("p", { class: "dm-dialog-desc", children: props.description }) : null
+              ] }) }),
+              props.children ? /* @__PURE__ */ u$1("div", { class: "dm-dialog-body", children: props.children }) : null,
+              props.footer ? /* @__PURE__ */ u$1("footer", { class: "dm-dialog-foot", children: props.footer }) : null
+            ]
+          }
+        )
+      ]
+    }
+  );
+}
+function CopyToSitesDialog(props) {
+  const [sites, setSites] = d(null);
+  const [selected, setSelected] = d([]);
+  const [filter, setFilter] = d("");
+  const [manualInput, setManualInput] = d("");
+  const [manualError, setManualError] = d("");
+  const [submitting, setSubmitting] = d(false);
+  A(function() {
+    void listScopeSummaries().then(function(summaries) {
+      setSites(summaries.filter(function(summary) {
+        return summary.scope !== props.scope;
+      }));
+    }, function() {
+      setSites([]);
+    });
+  }, [props.scope]);
+  const keyword = filter.trim().toLowerCase();
+  const visibleSites = (sites || []).filter(function(site) {
+    return !keyword || site.scope.includes(keyword);
+  });
+  function toggle(scope) {
+    setSelected(function(current) {
+      return current.includes(scope) ? current.filter(function(item) {
+        return item !== scope;
+      }) : current.concat(scope);
+    });
+  }
+  function addManualSite() {
+    const parsed = parseScopeInput(manualInput, props.scope);
+    if (parsed.error) {
+      setManualError(parsed.error);
+      return;
+    }
+    setSites(function(current) {
+      const list = current || [];
+      return list.some(function(site) {
+        return site.scope === parsed.scope;
+      }) ? list : list.concat({ favorites: 0, history: 0, scope: parsed.scope });
+    });
+    setSelected(function(current) {
+      return current.includes(parsed.scope) ? current : current.concat(parsed.scope);
+    });
+    setFilter("");
+    setManualInput("");
+    setManualError("");
+  }
+  async function submit() {
+    if (!selected.length || submitting) return;
+    setSubmitting(true);
+    try {
+      await props.onConfirm(selected);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+  return /* @__PURE__ */ u$1(
+    Dialog,
+    {
+      title: "复制「" + props.title + "」到其他站点",
+      description: "将写入目标站点的常用数据；目标站点已有相同数据时会跳过。",
+      onClose: props.onClose,
+      footer: /* @__PURE__ */ u$1(M, { children: [
+        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: props.onClose, children: "取消" }),
+        /* @__PURE__ */ u$1(
+          "button",
+          {
+            type: "button",
+            class: "dm-primary-btn",
+            disabled: !selected.length || submitting,
+            onClick: function() {
+              void submit();
+            },
+            children: selected.length ? "复制到 " + selected.length + " 个站点" : "选择目标站点"
+          }
+        )
+      ] }),
+      children: /* @__PURE__ */ u$1("div", { class: "dm-site-picker", children: [
+        /* @__PURE__ */ u$1("label", { class: "dm-search is-block", children: [
+          /* @__PURE__ */ u$1(Icon, { name: "search", class: "dm-search-icon" }),
+          /* @__PURE__ */ u$1(
+            "input",
+            {
+              type: "search",
+              class: "dm-search-input",
+              value: filter,
+              placeholder: "筛选站点",
+              "aria-label": "筛选站点",
+              onInput: function(event) {
+                setFilter(event.currentTarget.value);
+              }
+            }
+          )
+        ] }),
+        /* @__PURE__ */ u$1("div", { class: "dm-site-list", role: "group", "aria-label": "目标站点", children: [
+          sites === null ? /* @__PURE__ */ u$1("p", { class: "dm-site-empty", children: "正在读取站点…" }) : null,
+          sites !== null && !visibleSites.length ? /* @__PURE__ */ u$1("p", { class: "dm-site-empty", children: sites.length ? "没有匹配的站点" : "还没有其他站点的数据，可在下方手动添加。" }) : null,
+          visibleSites.map(function(site) {
+            const checked = selected.includes(site.scope);
+            return /* @__PURE__ */ u$1("label", { class: "dm-site-option" + (checked ? " is-checked" : ""), children: [
+              /* @__PURE__ */ u$1("input", { type: "checkbox", checked, onChange: function() {
+                toggle(site.scope);
+              } }),
+              /* @__PURE__ */ u$1("span", { class: "dm-site-option-name", title: site.scope, children: site.scope }),
+              /* @__PURE__ */ u$1("span", { class: "dm-site-option-meta", children: [
+                "常用 ",
+                site.favorites,
+                " · 记录 ",
+                site.history
+              ] })
+            ] }, site.scope);
+          })
+        ] }),
+        /* @__PURE__ */ u$1("div", { class: "dm-form-field", children: [
+          /* @__PURE__ */ u$1("span", { class: "dm-form-label", children: "其他站点" }),
+          /* @__PURE__ */ u$1("div", { class: "dm-inline-form", children: [
+            /* @__PURE__ */ u$1(
+              "input",
+              {
+                class: "dm-input" + (manualError ? " is-warning" : ""),
+                type: "text",
+                value: manualInput,
+                placeholder: "输入域名或粘贴网址",
+                "aria-label": "输入其他站点",
+                "aria-describedby": manualError ? "dm-manual-site-error" : void 0,
+                onInput: function(event) {
+                  setManualInput(event.currentTarget.value);
+                  setManualError("");
+                },
+                onKeyDown: function(event) {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  addManualSite();
+                }
+              }
+            ),
+            /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: addManualSite, children: [
+              /* @__PURE__ */ u$1(Icon, { name: "plus" }),
+              "添加"
+            ] })
+          ] }),
+          manualError ? /* @__PURE__ */ u$1("span", { id: "dm-manual-site-error", class: "dm-field-warning", children: [
+            /* @__PURE__ */ u$1(Icon, { name: "circle-alert" }),
+            manualError
+          ] }) : null
+        ] })
+      ] })
     }
   );
 }
@@ -996,7 +1298,10 @@ function DrawerShell(props) {
   return /* @__PURE__ */ u$1("aside", { class: "dm-drawer", "aria-label": props.eyebrow + "详情", children: [
     /* @__PURE__ */ u$1("header", { class: "dm-drawer-head", children: [
       /* @__PURE__ */ u$1("div", { class: "dm-drawer-heading", children: [
-        /* @__PURE__ */ u$1("span", { class: "dm-drawer-eyebrow", children: props.eyebrow }),
+        /* @__PURE__ */ u$1("span", { class: "dm-drawer-eyebrow", children: [
+          props.eyebrow,
+          props.badge ? /* @__PURE__ */ u$1("span", { class: "dm-badge", children: props.badge }) : null
+        ] }),
         /* @__PURE__ */ u$1("h2", { class: "dm-drawer-title", title: props.title, children: props.title }),
         props.subtitle ? /* @__PURE__ */ u$1("p", { class: "dm-drawer-subtitle", children: props.subtitle }) : null
       ] }),
@@ -1281,6 +1586,29 @@ function FieldCell(props) {
     }
   );
 }
+function MoreMenu(props) {
+  return /* @__PURE__ */ u$1(Popover, { label: props.label, triggerClass: "dm-icon-btn", trigger: /* @__PURE__ */ u$1(Icon, { name: "ellipsis" }), children: function(close) {
+    return /* @__PURE__ */ u$1("div", { class: "dm-menu", role: "menu", children: props.items.map(function(item) {
+      return /* @__PURE__ */ u$1(
+        "button",
+        {
+          type: "button",
+          role: "menuitem",
+          class: "dm-menu-item" + (item.danger ? " is-danger" : ""),
+          onClick: function() {
+            close();
+            item.onSelect();
+          },
+          children: [
+            /* @__PURE__ */ u$1(Icon, { name: item.icon }),
+            item.label
+          ]
+        },
+        item.label
+      );
+    }) });
+  } });
+}
 function FavoritesTable(props) {
   const [dragOrder, setDragOrder] = d(null);
   const draggedIdRef = T(null);
@@ -1413,9 +1741,20 @@ function FavoritesTable(props) {
                   /* @__PURE__ */ u$1(IconButton, { icon: "pencil", label: "编辑", onClick: function() {
                     props.onEdit(entry.id);
                   } }),
-                  /* @__PURE__ */ u$1(IconButton, { icon: "trash-2", label: "删除", tone: "danger", onClick: function() {
-                    props.onDelete(entry.id);
-                  } })
+                  /* @__PURE__ */ u$1(
+                    MoreMenu,
+                    {
+                      label: "更多操作",
+                      items: [
+                        { icon: "copy-plus", label: "复制到其他站点", onSelect: function() {
+                          props.onCopyToSites(entry.id);
+                        } },
+                        { icon: "trash-2", label: "删除", danger: true, onSelect: function() {
+                          props.onDelete(entry.id);
+                        } }
+                      ]
+                    }
+                  )
                 ] }) })
               ]
             },
@@ -1468,12 +1807,17 @@ function HistoryTable(props) {
             if (event.key === "Enter" && event.target === event.currentTarget) props.onSelect(entry.id);
           },
           children: [
-            /* @__PURE__ */ u$1("td", { class: "dm-cell-time", children: formatDisplayTime(entry.createdAt) }),
+            /* @__PURE__ */ u$1("td", { class: "dm-cell-time", children: [
+              formatDisplayTime(entry.createdAt),
+              props.favoritedIds.has(entry.id) ? /* @__PURE__ */ u$1("span", { class: "dm-badge", children: "已收藏" }) : null
+            ] }),
             props.columns.map(function(fieldKey) {
               return /* @__PURE__ */ u$1("td", { children: /* @__PURE__ */ u$1(FieldCell, { fieldKey, value: entry.profile[fieldKey], query: props.query, onCopy: props.onCopyField }) }, fieldKey);
             }),
             /* @__PURE__ */ u$1("td", { class: "dm-col-actions", children: /* @__PURE__ */ u$1("div", { class: "dm-row-actions", children: [
-              /* @__PURE__ */ u$1(IconButton, { icon: "star", label: "收藏", onClick: function() {
+              props.favoritedIds.has(entry.id) ? /* @__PURE__ */ u$1(IconButton, { icon: "star", label: "已收藏，查看常用数据", tone: "accent", onClick: function() {
+                props.onFavorite(entry.id);
+              } }) : /* @__PURE__ */ u$1(IconButton, { icon: "star", label: "收藏", onClick: function() {
                 props.onFavorite(entry.id);
               } }),
               /* @__PURE__ */ u$1(IconButton, { icon: "copy", label: "复制整组", onClick: function() {
@@ -1593,50 +1937,6 @@ function useColumnPreferences() {
   }, []);
   return { columns, setViewColumns };
 }
-function Dialog(props) {
-  const dialogRef = T(null);
-  A(function() {
-    const previousFocus = document.activeElement;
-    const node = dialogRef.current;
-    const focusTarget = node?.querySelector("[data-autofocus]") || node?.querySelector("input, button");
-    focusTarget?.focus();
-    return function() {
-      if (previousFocus && document.contains(previousFocus)) previousFocus.focus();
-    };
-  }, []);
-  return /* @__PURE__ */ u$1(
-    "div",
-    {
-      class: "dm-dialog-layer",
-      onKeyDown: function(event) {
-        if (event.key !== "Escape") return;
-        event.stopPropagation();
-        props.onClose();
-      },
-      children: [
-        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-dialog-backdrop", tabIndex: -1, "aria-label": "关闭", onClick: props.onClose }),
-        /* @__PURE__ */ u$1(
-          "section",
-          {
-            ref: dialogRef,
-            class: "dm-dialog" + (props.wide ? " is-wide" : ""),
-            role: "dialog",
-            "aria-modal": "true",
-            "aria-label": props.title,
-            children: [
-              /* @__PURE__ */ u$1("header", { class: "dm-dialog-head", children: /* @__PURE__ */ u$1("div", { children: [
-                /* @__PURE__ */ u$1("h2", { class: "dm-dialog-title", children: props.title }),
-                props.description ? /* @__PURE__ */ u$1("p", { class: "dm-dialog-desc", children: props.description }) : null
-              ] }) }),
-              props.children ? /* @__PURE__ */ u$1("div", { class: "dm-dialog-body", children: props.children }) : null,
-              props.footer ? /* @__PURE__ */ u$1("footer", { class: "dm-dialog-foot", children: props.footer }) : null
-            ]
-          }
-        )
-      ]
-    }
-  );
-}
 function useConfirm() {
   const [pending, setPending] = d(null);
   const confirm = j(function(options) {
@@ -1724,6 +2024,7 @@ function App() {
   const [view, setView] = d(route.view);
   const [query, setQuery] = d("");
   const [drawer, setDrawer] = d(null);
+  const [copyTargetId, setCopyTargetId] = d(null);
   const editorDirtyRef = T(false);
   const searchInputRef = T(null);
   const records = useRecords(scope);
@@ -1736,6 +2037,17 @@ function App() {
   const visibleHistory = records.history.filter(function(entry) {
     return matchesQuery(entry.profile, [formatDisplayTime(entry.createdAt)], query);
   });
+  const favoriteIdByHistoryId = /* @__PURE__ */ new Map();
+  records.history.forEach(function(historyEntry) {
+    const favorite = records.favorites.find(function(entry) {
+      return isSameProfile(entry.profile, historyEntry.profile);
+    });
+    if (favorite) favoriteIdByHistoryId.set(historyEntry.id, favorite.id);
+  });
+  const favoritedHistoryIds = new Set(favoriteIdByHistoryId.keys());
+  const copyTarget = copyTargetId ? records.favorites.find(function(entry) {
+    return entry.id === copyTargetId;
+  }) || null : null;
   const drawerFavoriteId = drawer && (drawer.mode === "edit" || drawer.mode === "view" && drawer.view === "favorites") ? drawer.id : null;
   const drawerFavorite = drawerFavoriteId ? records.favorites.find(function(entry) {
     return entry.id === drawerFavoriteId;
@@ -1749,7 +2061,7 @@ function App() {
   }, [scope, view]);
   A(function() {
     function handleKeydown(event) {
-      if (event.defaultPrevented || confirmDialog) return;
+      if (event.defaultPrevented || confirmDialog || copyTarget) return;
       const target = event.target;
       const typing = !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
       if (event.key === "/" && !typing && scope) {
@@ -1852,10 +2164,32 @@ function App() {
     showToast("常用数据顺序已保存", "success");
   }
   async function handleHistoryFavorite(id) {
+    const favoriteId = favoriteIdByHistoryId.get(id);
+    if (favoriteId) {
+      if (!await changeDrawer({ mode: "view", view: "favorites", id: favoriteId })) return;
+      setQuery("");
+      setView("favorites");
+      return;
+    }
     const created = await createFavoriteFromHistory(scope, id);
     if (!created) return;
     await records.reload();
-    showToast("已从生成记录加入常用数据", "success");
+    showToast("已收藏为常用数据", "success");
+  }
+  async function handleCopyToSites(targetScopes) {
+    if (!copyTarget) return;
+    try {
+      const results = await copyFavoriteToScopes(scope, copyTarget.id, targetScopes);
+      if (!results) {
+        showToast("这组常用数据已不存在", "warning");
+      } else {
+        const summary = summarizeCopyResults(results);
+        showToast(summary.message, summary.tone);
+      }
+      setCopyTargetId(null);
+    } catch (_error) {
+      showToast("复制失败，请重试", "danger");
+    }
   }
   function openCreate() {
     void changeDrawer({ mode: "create" });
@@ -1911,21 +2245,24 @@ function App() {
               /* @__PURE__ */ u$1(Icon, { name: "pencil" }),
               "编辑"
             ] }),
+            /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: function() {
+              setCopyTargetId(entry.id);
+            }, children: [
+              /* @__PURE__ */ u$1(Icon, { name: "copy-plus" }),
+              "复制到其他站点"
+            ] }),
             /* @__PURE__ */ u$1("span", { class: "dm-drawer-foot-spacer" }),
             /* @__PURE__ */ u$1(
-              "button",
+              IconButton,
               {
-                type: "button",
-                class: "dm-ghost-btn is-danger",
+                icon: "trash-2",
+                label: "删除",
+                tone: "danger",
                 onClick: function() {
                   void runSafely(function() {
                     return handleDelete(entry.id);
                   });
-                },
-                children: [
-                  /* @__PURE__ */ u$1(Icon, { name: "trash-2" }),
-                  "删除"
-                ]
+                }
               }
             )
           ] }),
@@ -1935,10 +2272,12 @@ function App() {
     }
     if (drawerHistory) {
       const entry = drawerHistory;
+      const favorited = favoritedHistoryIds.has(entry.id);
       return /* @__PURE__ */ u$1(
         DrawerShell,
         {
           eyebrow: "生成记录",
+          badge: favorited ? "已收藏" : "",
           title: entry.profile.fullName || "生成记录",
           subtitle: "生成于 " + formatDisplayTime(entry.createdAt),
           onClose: function() {
@@ -1963,7 +2302,7 @@ function App() {
                 },
                 children: [
                   /* @__PURE__ */ u$1(Icon, { name: "star" }),
-                  "收藏"
+                  favorited ? "查看常用数据" : "收藏"
                 ]
               }
             )
@@ -2009,6 +2348,7 @@ function App() {
             toggleRow("history", id);
           },
           onCopyField: handleCopyField,
+          favoritedIds: favoritedHistoryIds,
           onFavorite: function(id) {
             void runSafely(function() {
               return handleHistoryFavorite(id);
@@ -2059,6 +2399,7 @@ function App() {
         onEdit: function(id) {
           void changeDrawer({ mode: "edit", id });
         },
+        onCopyToSites: setCopyTargetId,
         onDelete: function(id) {
           void runSafely(function() {
             return handleDelete(id);
@@ -2111,6 +2452,17 @@ function App() {
       renderDrawer()
     ] }),
     toast ? /* @__PURE__ */ u$1("div", { class: "dm-toast", role: "status", "data-tone": toast.tone, children: toast.message }, toast.id) : null,
+    copyTarget ? /* @__PURE__ */ u$1(
+      CopyToSitesDialog,
+      {
+        scope,
+        title: getFavoriteTitle(copyTarget),
+        onClose: function() {
+          setCopyTargetId(null);
+        },
+        onConfirm: handleCopyToSites
+      }
+    ) : null,
     confirmDialog
   ] });
 }

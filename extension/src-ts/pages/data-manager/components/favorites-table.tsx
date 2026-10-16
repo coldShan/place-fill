@@ -5,6 +5,7 @@ import { FieldCell } from "./field-cell";
 import { Highlight } from "./highlight";
 import { Icon } from "./icon";
 import { IconButton } from "./icon-button";
+import { MoreMenu } from "./menu";
 
 export function FavoritesTable(props: {
   entries: FavoriteEntry[];
@@ -16,6 +17,7 @@ export function FavoritesTable(props: {
   onCopyField: (fieldKey: ProfileFieldKey, value: string) => void;
   onCopyAll: (id: string) => void;
   onEdit: (id: string) => void;
+  onCopyToSites: (id: string) => void;
   onDelete: (id: string) => void;
   onReorder: (orderedIds: string[]) => void;
 }) {
@@ -151,7 +153,13 @@ export function FavoritesTable(props: {
                   <div class="dm-row-actions">
                     <IconButton icon="copy" label="复制整组" onClick={function () { props.onCopyAll(entry.id); }} />
                     <IconButton icon="pencil" label="编辑" onClick={function () { props.onEdit(entry.id); }} />
-                    <IconButton icon="trash-2" label="删除" tone="danger" onClick={function () { props.onDelete(entry.id); }} />
+                    <MoreMenu
+                      label="更多操作"
+                      items={[
+                        { icon: "copy-plus", label: "复制到其他站点", onSelect: function () { props.onCopyToSites(entry.id); } },
+                        { icon: "trash-2", label: "删除", danger: true, onSelect: function () { props.onDelete(entry.id); } }
+                      ]}
+                    />
                   </div>
                 </td>
               </tr>
