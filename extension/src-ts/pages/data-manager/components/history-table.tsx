@@ -1,38 +1,42 @@
-import type { HistoryEntry } from "../page-model";
+import { getFieldLabel, type HistoryEntry, type ProfileFieldKey } from "../page-model";
 import { formatDisplayTime } from "../lib/display";
-import { ActionButton } from "./action-button";
+import { FieldCell } from "./field-cell";
+import { IconButton } from "./icon-button";
 
 export function HistoryTable(props: {
   entries: HistoryEntry[];
+  columns: ProfileFieldKey[];
   onFavorite: (id: string) => void;
   onCopy: (id: string) => void;
 }) {
   return (
     <div class="dm-table-shell">
-      <table class="dm-table">
+      <table class="dm-table dm-history-table">
         <thead>
           <tr>
-            <th>时间</th>
-            <th>姓名</th>
-            <th>公司</th>
-            <th>手机</th>
-            <th>邮箱</th>
-            <th>操作</th>
+            <th>生成时间</th>
+            {props.columns.map(function (fieldKey) {
+              return <th key={fieldKey}>{getFieldLabel(fieldKey)}</th>;
+            })}
+            <th class="dm-col-actions">操作</th>
           </tr>
         </thead>
         <tbody>
           {props.entries.map(function (entry) {
             return (
               <tr key={entry.id}>
-                <td>{formatDisplayTime(entry.createdAt)}</td>
-                <td>{entry.profile.fullName || "—"}</td>
-                <td>{entry.profile.companyName || "—"}</td>
-                <td>{entry.profile.mobile || "—"}</td>
-                <td>{entry.profile.email || "—"}</td>
-                <td>
-                  <div class="dm-table-actions">
-                    <ActionButton icon="star" label="收藏" onClick={function () { props.onFavorite(entry.id); }} />
-                    <ActionButton icon="copy" label="复制" onClick={function () { props.onCopy(entry.id); }} />
+                <td class="dm-cell-time">{formatDisplayTime(entry.createdAt)}</td>
+                {props.columns.map(function (fieldKey) {
+                  return (
+                    <td key={fieldKey}>
+                      <FieldCell fieldKey={fieldKey} value={entry.profile[fieldKey]} />
+                    </td>
+                  );
+                })}
+                <td class="dm-col-actions">
+                  <div class="dm-row-actions">
+                    <IconButton icon="star" label="收藏" onClick={function () { props.onFavorite(entry.id); }} />
+                    <IconButton icon="copy" label="复制整组" onClick={function () { props.onCopy(entry.id); }} />
                   </div>
                 </td>
               </tr>

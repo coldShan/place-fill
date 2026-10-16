@@ -58,6 +58,23 @@ test("data manager blue actions use the shared brand blue", () => {
   assert.match(pageStyles, /\.dm-primary-btn\s*\{[\s\S]*?background:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
 });
 
+test("data manager follows the system dark mode through design tokens", () => {
+  assert.match(pageStyles, /@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{[\s\S]*?color-scheme:\s*dark;[\s\S]*?--dm-surface:/);
+  assert.doesNotMatch(pageStyles, /dm-ambient/);
+  assert.doesNotMatch(pageStyles, /backdrop-filter/);
+});
+
+test("data manager replaces native confirm with a styled dialog", () => {
+  assert.doesNotMatch(pageSource, /window\.confirm/);
+  assert.match(pageSource, /role="dialog"/);
+  assert.match(pageSource, /aria-modal="true"/);
+});
+
+test("data manager shows the current site and guides users without a scope", () => {
+  assert.match(pageSource, /dm-site-chip/);
+  assert.match(pageSource, /未指定站点/);
+});
+
 test("data manager keeps top tabs instead of a left sidebar layout", () => {
   assert.match(pageSource, /role="tablist"/);
   assert.match(pageSource, /role="tab"/);

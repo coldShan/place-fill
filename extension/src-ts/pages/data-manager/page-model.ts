@@ -5,6 +5,7 @@ export {
   FIELD_KEYS,
   formatProfileForCopy,
   listKnownScopes,
+  MAX_GENERATED_RECORDS,
   normalizeProfile,
   normalizeScopeKey,
   readFavoriteProfiles,
@@ -16,4 +17,4 @@ export {
   type ProfileFieldMap
 } from "../../shared/data-records";
 
-export { getFieldLabel } from "../../shared/field-meta";
+export { FIELD_DEFINITIONS, getFieldLabel, type ProfileFieldKey } from "../../shared/field-meta";

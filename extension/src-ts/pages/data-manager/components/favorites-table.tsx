@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { FavoriteEntry } from "../page-model";
-import { moveId, shiftId } from "../lib/display";
-import { ActionButton } from "./action-button";
+import { getFieldLabel, type FavoriteEntry, type ProfileFieldKey } from "../page-model";
+import { getCustomFavoriteName, getFavoriteTitle, moveId, shiftId } from "../lib/display";
+import { FieldCell } from "./field-cell";
+import { Icon } from "./icon";
+import { IconButton } from "./icon-button";
 
 export function FavoritesTable(props: {
   entries: FavoriteEntry[];
+  columns: ProfileFieldKey[];
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onReorder: (orderedIds: string[]) => void;
@@ -35,18 +38,16 @@ export function FavoritesTable(props: {
   }
 
   return (
-    <div class="dm-table-shell dm-favorites-shell">
+    <div class="dm-table-shell">
       <table ref={tableRef} class="dm-table dm-favorites-table">
         <thead>
           <tr>
-            <th class="dm-sort-column">排序</th>
-            <th>姓名</th>
-            <th>身份证号</th>
-            <th>公司名称</th>
-            <th>统一社会信用代码</th>
-            <th>手机号</th>
-            <th>备注</th>
-            <th>操作</th>
+            <th class="dm-col-handle" aria-label="排序" />
+            <th>名称</th>
+            {props.columns.map(function (fieldKey) {
+              return <th key={fieldKey}>{getFieldLabel(fieldKey)}</th>;
+            })}
+            <th class="dm-col-actions">操作</th>
           </tr>
         </thead>
         <tbody
@@ -70,13 +71,14 @@ export function FavoritesTable(props: {
           }}
         >
           {orderedEntries.map(function (entry) {
+            const customName = getCustomFavoriteName(entry.name);
             return (
               <tr
                 key={entry.id}
                 data-favorite-id={entry.id}
                 class={dragOrder && draggedIdRef.current === entry.id ? "is-dragging" : undefined}
               >
-                <td class="dm-sort-cell">
+                <td class="dm-col-handle">
                   <button
                     type="button"
                     class="dm-drag-handle"
@@ -105,19 +107,26 @@ export function FavoritesTable(props: {
                       props.onReorder(next);
                     }}
                   >
-                    <span aria-hidden="true">⠿</span>
+                    <Icon name="grip-vertical" />
                   </button>
                 </td>
-                <td>{entry.profile.fullName || "—"}</td>
-                <td>{entry.profile.idNumber || "—"}</td>
-                <td>{entry.profile.companyName || "—"}</td>
-                <td>{entry.profile.creditCode || "—"}</td>
-                <td>{entry.profile.mobile || "—"}</td>
-                <td>{entry.note || "—"}</td>
                 <td>
-                  <div class="dm-table-actions">
-                    <ActionButton icon="pencil" label="编辑" onClick={function () { props.onEdit(entry.id); }} />
-                    <ActionButton icon="trash-2" label="删除" danger onClick={function () { props.onDelete(entry.id); }} />
+                  <div class="dm-title-cell">
+                    <span class={"dm-title-text" + (customName ? "" : " dm-cell-empty")}>{getFavoriteTitle(entry)}</span>
+                    {entry.note ? <span class="dm-title-note" title={entry.note}>{entry.note}</span> : null}
+                  </div>
+                </td>
+                {props.columns.map(function (fieldKey) {
+                  return (
+                    <td key={fieldKey}>
+                      <FieldCell fieldKey={fieldKey} value={entry.profile[fieldKey]} />
+                    </td>
+                  );
+                })}
+                <td class="dm-col-actions">
+                  <div class="dm-row-actions">
+                    <IconButton icon="pencil" label="编辑" onClick={function () { props.onEdit(entry.id); }} />
+                    <IconButton icon="trash-2" label="删除" tone="danger" onClick={function () { props.onDelete(entry.id); }} />
                   </div>
                 </td>
               </tr>

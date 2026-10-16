@@ -6,10 +6,17 @@
     "arrow-left": "assets/icons/lucide/arrow-left.svg",
     "badge-check": "assets/icons/lucide/badge-check.svg",
     "building-2": "assets/icons/lucide/building-2.svg",
+    "circle-alert": "assets/icons/lucide/circle-alert.svg",
+    "columns-3": "assets/icons/lucide/columns-3.svg",
     copy: "assets/icons/lucide/copy.svg",
+    "copy-plus": "assets/icons/lucide/copy-plus.svg",
     "credit-card": "assets/icons/lucide/credit-card.svg",
+    dices: "assets/icons/lucide/dices.svg",
     download: "assets/icons/lucide/download.svg",
+    ellipsis: "assets/icons/lucide/ellipsis.svg",
     github: "assets/icons/lucide/github.svg",
+    globe: "assets/icons/lucide/globe.svg",
+    "grip-vertical": "assets/icons/lucide/grip-vertical.svg",
     "id-card": "assets/icons/lucide/id-card.svg",
     landmark: "assets/icons/lucide/landmark.svg",
     "list-filter": "assets/icons/lucide/list-filter.svg",
@@ -18,15 +25,18 @@
     "map-pinned": "assets/icons/lucide/map-pinned.svg",
     pencil: "assets/icons/lucide/pencil.svg",
     phone: "assets/icons/lucide/phone.svg",
+    plus: "assets/icons/lucide/plus.svg",
     "refresh-cw": "assets/icons/lucide/refresh-cw.svg",
+    search: "assets/icons/lucide/search.svg",
     settings: "assets/icons/lucide/settings.svg",
+    shield: "assets/icons/lucide/shield.svg",
     smartphone: "assets/icons/lucide/smartphone.svg",
     star: "assets/icons/lucide/star.svg",
-    shield: "assets/icons/lucide/shield.svg",
     "trash-2": "assets/icons/lucide/trash-2.svg",
     upload: "assets/icons/lucide/upload.svg",
     "user-round": "assets/icons/lucide/user-round.svg",
-    "wand-sparkles": "assets/icons/lucide/wand-sparkles.svg"
+    "wand-sparkles": "assets/icons/lucide/wand-sparkles.svg",
+    x: "assets/icons/lucide/x.svg"
   };
 
   const PRIMARY_LOGO_ICON = "app-logo";
