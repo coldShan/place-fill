@@ -5,6 +5,8 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
     "lib": ["DOM", "ES2020"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -17,6 +19,7 @@
   },
   "include": [
     "extension/src-ts/**/*.ts",
+    "extension/src-ts/**/*.tsx",
     "tests/**/*.ts",
     "vite.config.ts"
   ]

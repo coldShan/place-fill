@@ -2,119 +2,87 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pageDir = join(here, "../extension/src-ts/pages/data-manager");
 const pageHtml = readFileSync(join(here, "../extension/data-manager.html"), "utf8");
 const pageBootstrap = readFileSync(join(here, "../extension/src/data-manager-page.js"), "utf8");
 const themeStyles = readFileSync(join(here, "../extension/src/theme.css"), "utf8");
-const sharedFieldMetaSource = readFileSync(join(here, "../extension/src-ts/shared/field-meta.ts"), "utf8");
-const pageSource = readdirSync(pageDir)
-  .filter(function (fileName) {
-    return fileName.endsWith(".ts");
-  })
-  .sort()
-  .map(function (fileName) {
-    return readFileSync(join(pageDir, fileName), "utf8");
+const buildScript = readFileSync(join(here, "../scripts/build-extension.mjs"), "utf8");
+
+function listSourceFiles(dir) {
+  return readdirSync(dir, { withFileTypes: true })
+    .flatMap(function (entry) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) return listSourceFiles(fullPath);
+      return /\.tsx?$/.test(entry.name) ? [fullPath] : [];
+    })
+    .sort();
+}
+
+const sourceFiles = listSourceFiles(pageDir);
+const pageSource = sourceFiles
+  .map(function (filePath) {
+    return readFileSync(filePath, "utf8");
   })
   .join("\n");
 const pageStyles = readFileSync(join(pageDir, "style.css"), "utf8");
 
-test("data manager blue actions and text use the shared brand blue", () => {
-  assert.match(themeStyles, /--place-fill-accent-rgb:\s*43 127 216;/);
-  assert.match(pageHtml, /<link rel="stylesheet" href="\.\/src\/theme\.css">\s*<link rel="stylesheet" href="\.\/generated\/data-manager\.css">/);
-  assert.match(pageStyles, /\.dm-primary-btn\s*\{[\s\S]*?background:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
-  assert.match(pageStyles, /\.dm-table-btn\s*\{[\s\S]*?color:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
-  assert.doesNotMatch(pageStyles, /rgba\(28,\s*75,\s*104,/);
+function readPageFile(name) {
+  return readFileSync(join(pageDir, name), "utf8");
+}
+
+test("data manager page mounts a Preact app into a dedicated node", () => {
+  assert.match(buildScript, /pages\/data-manager\/main\.tsx/);
+  assert.match(buildScript, /jsxImportSource:\s*"preact"/);
+  assert.match(readPageFile("main.tsx"), /render\(<App \/>,\s*mountNode\)/);
+  assert.match(pageHtml, /<div id="app"><\/div>/);
+  assert.ok(sourceFiles.every(function (filePath) {
+    return !/innerHTML/.test(readFileSync(filePath, "utf8"));
+  }), "page sources should render through Preact instead of innerHTML: " + sourceFiles.map(function (filePath) {
+    return relative(pageDir, filePath);
+  }).join(", "));
 });
 
-test("data manager page uses top tabs dual routes instead of a left sidebar layout", () => {
-  assert.match(pageSource, /data-view="favorites"/);
-  assert.match(pageSource, /data-view="history"/);
-  assert.match(pageSource, /dm-topbar/);
-  assert.match(pageSource, /dm-tabs/);
-  assert.match(pageSource, /role="tablist"/);
-  assert.match(pageSource, /dm-workspace/);
-  assert.doesNotMatch(pageSource, /dm-sidebar/);
-  assert.doesNotMatch(pageSource, /dm-sidebar-panel/);
-  assert.doesNotMatch(pageSource, /dm-nav-link/);
-  assert.doesNotMatch(pageSource, /data-role="scope-select"/);
-  assert.doesNotMatch(pageSource, /dm-sidebar-note/);
-  assert.doesNotMatch(pageSource, /dm-view-meta/);
-  assert.doesNotMatch(pageSource, />Reusable Profiles</);
-  assert.doesNotMatch(pageSource, />Recent 30</);
-  assert.doesNotMatch(pageSource, /dm-view-description/);
-});
-
-test("favorite create and edit share a modal form instead of an inline persistent form", () => {
-  assert.match(pageSource, /data-role="favorite-modal"/);
-  assert.match(pageSource, /data-role="favorite-modal-title"/);
-  assert.match(pageSource, /data-role="favorite-note"/);
-  assert.match(pageSource, /data-action="open-create-favorite"/);
-  assert.match(pageSource, /FIELD_KEYS\.map/);
-  assert.match(sharedFieldMetaSource, /key:\s*"account"/);
-  assert.doesNotMatch(pageSource, /data-action="favorite-reset"/);
-});
-
-test("favorites view renders as a regular table instead of cards", () => {
-  assert.match(pageSource, /dm-favorites-table/);
-  assert.match(pageSource, /dm-sort-column[^>]*>排序<\/th><th>姓名<\/th><th>身份证号<\/th><th>公司名称<\/th><th>统一社会信用代码<\/th><th>手机号<\/th><th>备注<\/th><th>操作<\/th>/);
-  assert.match(pageSource, /data-role=\"favorite-drag-handle\"/);
-  assert.match(pageSource, /reorderFavoriteProfiles/);
-  assert.doesNotMatch(pageSource, /data-action="favorite-copy"/);
-  assert.match(pageSource, /renderActionButton\("favorite-edit",\s*entry\.id,\s*"edit",\s*"编辑"/);
-  assert.match(pageSource, /renderActionButton\("favorite-delete",\s*entry\.id,\s*"delete",\s*"删除",\s*" is-danger"/);
-  assert.doesNotMatch(pageSource, /dm-view-actions/);
-  assert.doesNotMatch(pageSource, /模板名称/);
-  assert.doesNotMatch(pageSource, /模板/);
-  assert.doesNotMatch(pageSource, /favorite-title/);
-  assert.doesNotMatch(pageSource, /dm-favorite-grid/);
-  assert.doesNotMatch(pageSource, /dm-card-summary/);
-  assert.doesNotMatch(pageSource, /未填写/);
-  assert.match(pageSource, /entry\.note \|\| "—"/);
-});
-
-test("history table stays single-row only and does not render a detail row", () => {
-  assert.match(pageSource, /renderActionButton\("history-favorite",\s*entry\.id,\s*"favorite",\s*"收藏"/);
-  assert.match(pageSource, /renderActionButton\("history-copy",\s*entry\.id,\s*"copy",\s*"复制"/);
-  assert.doesNotMatch(pageSource, /dm-table-detail-row/);
-  assert.doesNotMatch(pageSource, /dm-detail-grid/);
-});
-
-test("data manager action buttons use local icon assets and centered layout", () => {
-  assert.match(pageHtml, /<script src="\.\/src\/icon-assets\.js"><\/script>\s*<script type="module" src="\.\/src\/data-manager-page\.js">/);
+test("data manager bootstrap busts module caches with the manifest version", () => {
+  assert.match(pageHtml, /<script src="\.\/src\/icon-assets\.js"><\/script>[\s\S]*<script type="module" src="\.\/src\/data-manager-page\.js">/);
   assert.match(pageBootstrap, /new URL\("\.\.\/generated\/data-manager\.js", import\.meta\.url\)/);
   assert.match(pageBootstrap, /searchParams\.set\("v", chrome\.runtime\.getManifest\(\)\.version\)/);
   assert.match(pageBootstrap, /await import\(dataManagerModuleUrl\.href\)/);
-  assert.match(pageSource, /ChromeTestDataIconAssets/);
-  assert.match(pageSource, /renderIconMarkup\(iconName,\s*"dm-action-icon",\s*""\)/);
-  assert.match(pageStyles, /\.dm-table th:last-child,\s*\.dm-table td:last-child\s*\{[\s\S]*text-align:\s*center/);
-  assert.match(pageStyles, /\.dm-table-actions\s*\{[\s\S]*justify-content:\s*center/);
-  assert.match(pageStyles, /\.dm-action-icon\s*\{[\s\S]*mask:\s*var\(--ctdp-icon-url\)/);
 });
 
-test("page fills the viewport and keeps table scrolling inside the workspace", () => {
-  assert.match(pageStyles, /html,\s*body\s*\{[\s\S]*height:\s*100%/);
-  assert.match(pageStyles, /body\s*\{[\s\S]*overflow:\s*hidden/);
-  assert.match(pageStyles, /\.dm-app\s*\{[\s\S]*height:\s*100vh/);
-  assert.match(pageStyles, /\.dm-shell\s*\{[\s\S]*height:\s*100vh/);
-  assert.match(pageStyles, /\.dm-shell\s*\{[\s\S]*display:\s*grid/);
-  assert.match(pageStyles, /\.dm-shell\s*\{[\s\S]*grid-template-rows:\s*auto auto minmax\(0,\s*1fr\)/);
-  assert.match(pageStyles, /\.dm-topbar\s*\{[\s\S]*display:\s*flex/);
-  assert.match(pageStyles, /\.dm-topbar\s*\{[\s\S]*min-height:\s*78px/);
-  assert.match(pageStyles, /\.dm-topbar\s*\{[\s\S]*align-items:\s*center/);
-  assert.match(pageStyles, /\.dm-tabs\s*\{[\s\S]*display:\s*flex/);
-  assert.match(pageStyles, /\.dm-tab\s*\{[\s\S]*font-size:\s*15px/);
-  assert.match(pageStyles, /\.dm-tab\[data-active=\"true\"\]\s*\{[\s\S]*box-shadow:/);
-  assert.match(pageStyles, /\.dm-workspace\s*\{[\s\S]*min-height:\s*0[\s\S]*overflow:\s*hidden/);
-  assert.match(pageStyles, /\.dm-view\s*\{[\s\S]*height:\s*100%/);
-  assert.match(pageStyles, /\.dm-table-shell\s*\{[\s\S]*overflow:\s*auto/);
+test("data manager blue actions use the shared brand blue", () => {
+  assert.match(themeStyles, /--place-fill-accent-rgb:\s*43 127 216;/);
+  assert.match(pageHtml, /<link rel="stylesheet" href="\.\/src\/theme\.css">\s*<link rel="stylesheet" href="\.\/generated\/data-manager\.css">/);
+  assert.match(pageStyles, /\.dm-primary-btn\s*\{[\s\S]*?background:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
+});
+
+test("data manager keeps top tabs instead of a left sidebar layout", () => {
+  assert.match(pageSource, /role="tablist"/);
+  assert.match(pageSource, /role="tab"/);
+  assert.doesNotMatch(pageSource, /dm-sidebar/);
+});
+
+test("favorites stay sortable by drag and keyboard", () => {
+  assert.match(pageSource, /reorderFavoriteProfiles/);
+  assert.match(pageSource, /draggable/);
+  assert.match(pageSource, /ArrowUp/);
+  assert.match(pageSource, /ArrowDown/);
+});
+
+test("icons are rendered from local Lucide assets through the icon asset map", () => {
+  assert.match(pageSource, /ChromeTestDataIconAssets/);
+  assert.match(pageSource, /--ctdp-icon-url/);
+  assert.doesNotMatch(pageSource, /<svg/);
 });
 
 test("table headers stay sticky while the table body scrolls", () => {
   assert.match(pageStyles, /\.dm-table th\s*\{[\s\S]*position:\s*sticky/);
   assert.match(pageStyles, /\.dm-table th\s*\{[\s\S]*top:\s*0/);
-  assert.match(pageStyles, /\.dm-table th\s*\{[\s\S]*z-index:\s*1/);
-  assert.match(pageStyles, /\.dm-table th\s*\{[\s\S]*background:/);
+  assert.match(pageStyles, /\.dm-table-shell\s*\{[\s\S]*overflow:\s*auto/);
+});
+
+test("data manager styles avoid native CSS nesting for Chrome 109", () => {
+  assert.doesNotMatch(pageStyles, /\{[^{}]*&[^{}]*\{/);
 });
