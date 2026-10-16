@@ -1,3 +1,395 @@
+var n, t$1, r$1, u$2, f$1, o$2, e$1, l$1, c$1, a$1, h$1 = {}, p$1 = [], v$1 = /^m(i|n|o|s|text|space)$/, y$1 = Array.isArray, d$1 = p$1.slice, w = Object.assign;
+function _$1(n2) {
+  n2 && n2.parentNode && n2.remove();
+}
+function b$1(i2, r2, u2, f2, o2) {
+  var e2 = { type: i2, props: r2, key: u2, ref: f2, __k: null, __: null, __b: 0, __e: null, __c: null, constructor: void 0, __v: o2 || ++t$1, __i: -1, __u: 0 };
+  return !o2 && n.vnode && n.vnode(e2), e2;
+}
+function M(n2) {
+  return n2.children;
+}
+function $(n2, t2) {
+  this.props = n2, this.context = t2, this.__g = 0;
+}
+function x(n2, t2) {
+  if (null == t2) return n2.__ ? x(n2.__, n2.__i + 1) : null;
+  for (var i2; t2 < n2.__k.length; t2++) if ((i2 = n2.__k[t2]) && i2.__e) return i2.__e;
+  return "function" != typeof n2.type || n2.props.__P ? null : x(n2);
+}
+function S(n2) {
+  if ((n2 = n2.__) && n2.__c && !n2.props.__P) return n2.__e = null, n2.__k.some(function(t2) {
+    return t2 && (n2.__e = t2.__e);
+  }), S(n2);
+}
+function C$1(t2) {
+  (8 & t2.__g || !(t2.__g |= 8) || !r$1.push(t2) || f$1++) && u$2 == n.debounceRendering || ((u$2 = n.debounceRendering) || queueMicrotask)(j$1);
+}
+function j$1() {
+  var t2, i2, u2, e2, l2, c2, a2, s2, h2;
+  try {
+    for (i2 = 1; r$1.length; ) r$1.length > i2 && r$1.sort(o$2), t2 = r$1.shift(), i2 = r$1.length, 8 & t2.__g && (e2 = void 0, l2 = void 0, c2 = (l2 = (u2 = t2).__v).__e, a2 = [], s2 = [], (h2 = u2.__P) && ((e2 = w({ constructor: void 0 }, l2)).__v = l2.__v + 1, n.vnode && n.vnode(e2), N(h2, e2, l2, u2.__n, h2.namespaceURI, 32 & l2.__u ? [c2] : null, a2, c2 || x(l2), 32 & l2.__u, s2), e2.__v = l2.__v, e2.__.__k[e2.__i] = e2, z$1(a2, e2, s2), l2.__ = l2.__e = null, e2.__e != c2 && S(e2)));
+  } finally {
+    r$1.length = f$1 = 0;
+  }
+}
+function L(n2, t2, i2, r2, u2, f2, o2, e2, l2, c2, a2) {
+  var s2, v2, y2, d2, w2, _2, g2 = r2.__k || p$1, k2 = t2.length;
+  for (l2 = H(i2, t2, g2, l2, k2), s2 = 0; s2 < k2; s2++) null != (y2 = i2.__k[s2]) && (v2 = ~y2.__i && g2[y2.__i] || h$1, y2.__i = s2, _2 = N(n2, y2, v2, u2, f2, o2, e2, l2, c2, a2), d2 = y2.__e, (v2.ref != y2.ref || 8 & v2.__u) && (v2.ref && D$1(v2.ref, null, y2, v2), y2.ref && a2.push(y2.ref, y2.__c || d2, y2)), w2 = w2 || d2, 4 & y2.__u ? (l2 = I(y2, l2, n2, !v2.__v), v2.__e && (v2.__e = null)) : "function" == typeof y2.type && void 0 !== _2 ? l2 = _2 : d2 && (l2 = d2.nextSibling), y2.__u &= -7);
+  return i2.__e = w2, l2;
+}
+function H(n2, t2, i2, r2, u2) {
+  var f2, o2, e2, l2, c2, a2, s2, h2, p2, v2, d2 = i2.length, w2 = d2, _2 = 0, g2 = false, k2 = n2.__k = Array(u2);
+  for (f2 = 0; f2 < u2; f2++) null != (o2 = t2[f2]) && "boolean" != typeof o2 && "function" != typeof o2 ? ("object" != typeof o2 || o2.constructor == String ? o2 = k2[f2] = b$1(null, o2) : y$1(o2) ? o2 = k2[f2] = b$1(M, { children: o2 }) : void 0 === o2.constructor && o2.__b ? o2 = k2[f2] = b$1(o2.type, o2.props, o2.key, o2.ref, o2.__v) : k2[f2] = o2, l2 = f2 + _2, o2.__ = n2, o2.__b = n2.__b + 1, e2 = null, ~(c2 = o2.__i = O(o2, i2, l2, w2)) && (w2--, (e2 = i2[c2]) && (e2.__u |= 2)), e2 && e2.__v ? (o2.__u |= 2, c2 == l2 - 1 ? _2-- : c2 == l2 + 1 ? _2++ : c2 != l2 && (c2 > l2 ? _2-- : _2++, g2 = true)) : (~c2 || (u2 > d2 ? _2-- : u2 < d2 && _2++), "function" != typeof o2.type && (o2.__u |= 4))) : k2[f2] = null;
+  if (g2) {
+    for (a2 = [], s2 = [], f2 = 0; f2 < u2; f2++) if ((o2 = k2[f2]) && 2 & o2.__u) {
+      for (h2 = 0, p2 = a2.length; h2 < p2; ) a2[v2 = h2 + p2 >> 1] < o2.__i ? h2 = v2 + 1 : p2 = v2;
+      a2[h2] = o2.__i, s2[f2] = h2 + 1;
+    }
+    for (_2 = a2.length; f2--; ) s2[f2] && (s2[f2] == _2 ? _2-- : k2[f2].__u |= 4);
+  }
+  if (w2) for (f2 = 0; f2 < d2; f2++) !(e2 = i2[f2]) || 2 & e2.__u || (e2.__e == r2 && (r2 = x(e2)), E$1(e2, e2));
+  return r2;
+}
+function I(n2, t2, i2, r2) {
+  var u2, f2, o2;
+  if ("function" == typeof n2.type) {
+    if (n2.props.__P) return t2;
+    if (u2 = n2.__k) for (f2 = 0; f2 < u2.length; f2++) u2[f2] && (u2[f2].__ = n2, t2 = I(u2[f2], t2, i2, false));
+    return t2;
+  }
+  for (t2 && !t2.parentNode && (t2 = x(n2)) && !t2.parentNode && (t2 = null), o2 = t2; o2 && 8 == o2.nodeType; ) o2 = o2.nextSibling;
+  for (n2.__e != o2 && (!r2 && i2.moveBefore && n2.__e.parentNode ? i2.moveBefore(n2.__e, t2) : i2.insertBefore(n2.__e, t2 || null)), t2 = n2.__e; (t2 = t2 && t2.nextSibling) && 8 == t2.nodeType; ) ;
+  return t2;
+}
+function O(n2, t2, i2, r2) {
+  var u2, f2, o2, e2 = n2.key, l2 = n2.type, c2 = t2[i2], a2 = c2 && !(2 & c2.__u);
+  if (null === c2 && null == e2 || a2 && e2 == c2.key && l2 == c2.type) return i2;
+  if (r2 > (a2 ? 1 : 0)) {
+    for (u2 = i2 - 1, f2 = i2 + 1; u2 >= 0 || f2 < t2.length; ) if ((c2 = t2[o2 = u2 >= 0 ? u2-- : f2++]) && !(2 & c2.__u) && e2 == c2.key && l2 == c2.type) return o2;
+  }
+  return -1;
+}
+function P(n2, t2, i2) {
+  null == i2 && (i2 = ""), "-" == t2[0] ? n2.setProperty(t2, i2) : n2[t2] = i2;
+}
+function T$1(n2, t2, i2, r2, u2) {
+  var f2, o2;
+  n: if ("style" == t2) if ("string" == typeof i2) n2.style.cssText = i2;
+  else {
+    if ("string" == typeof r2 && (n2.style.cssText = r2 = ""), r2) for (t2 in r2) i2 && t2 in i2 || P(n2.style, t2, "");
+    if (i2) for (t2 in i2) r2 && i2[t2] == r2[t2] || P(n2.style, t2, i2[t2]);
+  }
+  else if ("o" == t2[0] && "n" == t2[1]) (n2.__e || (n2.__e = {}))[t2] = i2, i2 && r2 || (o2 = a$1[t2] || (a$1[t2] = q(t2)), (n2.__a || (n2.__a = {}))[t2] = c$1, f2 = t2 != (t2 = t2.replace(l$1, "$1")), (t2 = t2.slice(2))[0] < "a" && (t2 = t2.toLowerCase()), i2 ? n2.addEventListener(t2, o2, f2) : n2.removeEventListener(t2, o2, f2));
+  else {
+    if ("http://www.w3.org/2000/svg" == u2) t2 = t2.replace(/xlink(H|:h)/, "h").replace(/sName$/, "s");
+    else if ("width" != t2 && "height" != t2 && "href" != t2 && "list" != t2 && "form" != t2 && "tabIndex" != t2 && "download" != t2 && "rowSpan" != t2 && "colSpan" != t2 && "role" != t2 && "popover" != t2 && t2 in n2) try {
+      n2[t2] = null == i2 ? "" : i2;
+      break n;
+    } catch (n3) {
+    }
+    "function" == typeof i2 || (null == i2 || false === i2 && "-" != t2[4] ? n2.removeAttribute(t2) : n2.setAttribute(t2, "popover" == t2 && 1 == i2 ? "" : i2));
+  }
+}
+function q(t2) {
+  return function(i2) {
+    if (this.__e) {
+      var r2 = this.__e[t2];
+      if (null == i2[e$1]) i2[e$1] = c$1++;
+      else if (i2[e$1] < this.__a[t2]) return;
+      return r2(n.event ? n.event(i2) : i2);
+    }
+  };
+}
+function N(t2, i2, r2, u2, f2, o2, e2, l2, c2, a2) {
+  var s2, h2, v2, d2, g2, k2, b2, m2, S2, C2, j2, H2, I2, A2, O2, P2, T2, q2, N2, z2, D2 = i2.type;
+  if (void 0 !== i2.constructor) return null;
+  if (128 & r2.__u && (c2 = 32 & r2.__u, s2 = r2.__c.__z)) {
+    if (i2.__u |= c2, h2 = o2 = [], 8 == s2.nodeType) for (v2 = 1, d2 = s2.nextSibling; d2; d2 = d2.nextSibling) {
+      if (8 == d2.nodeType) {
+        if (d2.data.startsWith("$s")) v2++;
+        else if (d2.data.startsWith("/$s") && !--v2) break;
+      }
+      o2.push(d2);
+    }
+    else o2.push(s2);
+    l2 = o2[0];
+  }
+  (s2 = n.__b) && s2(i2);
+  n: if ("function" == typeof D2) {
+    g2 = e2.length;
+    try {
+      if (C2 = i2.props, j2 = (s2 = D2.prototype) && s2.render, H2 = (s2 = D2.contextType) && u2[s2.__c], I2 = s2 ? H2 ? H2.props.value : s2.__ : u2, r2.__c ? 2 & (k2 = i2.__c = r2.__c).__g && (k2.__g |= 1) : (j2 ? i2.__c = k2 = new D2(C2, I2) : (i2.__c = k2 = new $(C2, I2), k2.constructor = D2, k2.render = F), H2 && H2.sub(k2), k2.state || (k2.state = {}), k2.__n = u2, k2.__g |= 8, k2.__h = [], k2.__k = []), j2 && (k2.__s || (k2.__s = k2.state), D2.getDerivedStateFromProps && (k2.__s == k2.state && (k2.__s = w({}, k2.__s)), w(k2.__s, D2.getDerivedStateFromProps(C2, k2.__s)))), b2 = k2.props, m2 = k2.state, k2.__v = i2, r2.__c) {
+        if (j2 && !D2.getDerivedStateFromProps && C2 !== b2 && k2.componentWillReceiveProps && k2.componentWillReceiveProps(C2, I2), i2.__v == r2.__v && !(8 & k2.__g) || !(4 & k2.__g) && k2.shouldComponentUpdate && false === k2.shouldComponentUpdate(C2, k2.__s, I2)) {
+          i2.__v != r2.__v && (k2.props = C2, k2.state = k2.__s, k2.__g &= -9), i2.__e = r2.__e, i2.__k = r2.__k, i2.__k.some(function(n2) {
+            n2 && (n2.__ = i2);
+          }), p$1.push.apply(k2.__h, k2.__k), k2.__k = [], k2.__h.length && e2.push(k2), l2 = x(r2);
+          break n;
+        }
+        k2.componentWillUpdate && k2.componentWillUpdate(C2, k2.__s, I2), j2 && k2.componentDidUpdate && k2.__h.push(function() {
+          k2.componentDidUpdate(b2, m2, S2);
+        });
+      } else j2 && !D2.getDerivedStateFromProps && k2.componentWillMount && k2.componentWillMount(), j2 && k2.componentDidMount && k2.__h.push(k2.componentDidMount);
+      if (k2.context = I2, k2.props = C2, k2.__P = t2, k2.__g &= -5, A2 = n.__r, O2 = 0, j2) k2.state = k2.__s, k2.__g &= -9, A2 && A2(i2), s2 = k2.render(k2.props, k2.state, k2.context), p$1.push.apply(k2.__h, k2.__k), k2.__k = [];
+      else do {
+        k2.__g &= -9, A2 && A2(i2), s2 = k2.render(k2.props, k2.state, k2.context), k2.state = k2.__s;
+      } while (8 & k2.__g && ++O2 < 25);
+      k2.state = k2.__s, k2.getChildContext && (u2 = w({}, u2, k2.getChildContext())), j2 && r2.__c && k2.getSnapshotBeforeUpdate && (S2 = k2.getSnapshotBeforeUpdate(b2, m2)), P2 = s2 && s2.type === M && null == s2.key ? s2.props.children : s2, C2.__P && (s2 = l2, f2 = (t2 = C2.__P).namespaceURI, c2 = o2 = null, r2.props && r2.props.__P != t2 && (r2.__k.some(function(n2) {
+        n2 && E$1(n2, n2);
+      }), r2.__k = null), l2 = r2.__k ? x(r2, 0) : null), l2 = L(t2, y$1(P2) ? P2 : [P2], i2, r2, u2, f2, o2, e2, l2, c2, a2), C2.__P && (i2.__e = null, l2 = s2), i2.__u &= -161, 128 & r2.__u && (k2.__z = null), h2 && h2.some(_$1), k2.__h.length && e2.push(k2), 1 & k2.__g && (k2.__g &= -4);
+    } catch (t3) {
+      if (e2.length = g2, i2.__v = null, c2 || o2) if (t3.then) {
+        if (T2 = 0, i2.__u |= c2 ? 160 : 128, o2) {
+          for (~(N2 = o2.indexOf(l2 || void 0)) || (N2 = o2.length); (z2 = o2[N2 - 1]) && 8 == z2.nodeType; ) N2--;
+          for (; N2 < o2.length; N2++) if (z2 = o2[N2]) {
+            if (o2[N2] = null, 8 == z2.nodeType) {
+              if (z2.data.startsWith("$s")) T2++ || (q2 = z2);
+              else if (T2 && z2.data.startsWith("/$s") && !--T2) {
+                l2 = z2;
+                break;
+              }
+            } else if (!T2) break;
+          }
+        }
+        if (!q2) {
+          for (; l2 && 8 == l2.nodeType && l2.nextSibling; ) l2 = l2.nextSibling;
+          q2 = l2;
+        }
+        i2.__c.__z || (i2.__c.__z = q2), i2.__e = l2;
+      } else o2 && o2.some(_$1);
+      else i2.__e = r2.__e;
+      i2.__k || (i2.__k = r2.__k || []), t3.then || V(i2), n.__e(t3, i2, r2);
+    }
+  } else l2 = i2.__e = B$1(r2.__e, i2, r2, u2, f2, o2, e2, c2, a2, t2);
+  return (s2 = n.diffed) && s2(i2), 128 & i2.__u ? void 0 : l2;
+}
+function V(n2) {
+  n2 && (n2.__c && (n2.__c.__g |= 4), n2.__k && n2.__k.some(V));
+}
+function z$1(t2, i2, r2) {
+  for (var u2 = 0; u2 < r2.length; ) D$1(r2[u2++], r2[u2++], r2[u2++]);
+  n.__c && n.__c(i2, t2), t2.some(function(i3) {
+    try {
+      t2 = i3.__h, i3.__h = [], t2.some(function(n2) {
+        n2.call(i3);
+      });
+    } catch (t3) {
+      n.__e(t3, i3.__v);
+    }
+  });
+}
+function B$1(t2, i2, r2, u2, f2, o2, e2, l2, c2, a2) {
+  var s2, p2, w2, g2, k2, b2, m2, M2, $2, S2 = r2.props || h$1, C2 = i2.props, j2 = i2.type;
+  if ("svg" == j2 ? f2 = "http://www.w3.org/2000/svg" : "math" == j2 ? f2 = "http://www.w3.org/1998/Math/MathML" : f2 || (f2 = "http://www.w3.org/1999/xhtml"), o2) {
+    for (s2 = 0; s2 < o2.length; s2++) if ((k2 = o2[s2]) && (j2 ? k2.localName == j2 : 3 == k2.nodeType)) {
+      t2 = k2, o2[s2] = null;
+      break;
+    }
+  }
+  if (!t2) {
+    if (M2 = a2.ownerDocument || document, !j2) return M2.createTextNode(C2);
+    t2 = M2.createElementNS(f2, j2, C2.is && C2), l2 && (n.__m && n.__m(i2, o2), l2 = false), o2 = null;
+  }
+  if (j2) {
+    if (a2 = "template" == j2 ? t2.content : t2, o2 = "textarea" == j2 && null != C2.defaultValue ? null : o2 && d$1.call(a2.childNodes), !l2 && o2) for (S2 = {}, s2 = 0; s2 < t2.attributes.length; s2++) S2[(k2 = t2.attributes[s2]).name] = k2.value;
+    for (s2 in S2) k2 = S2[s2], "dangerouslySetInnerHTML" == s2 ? w2 = k2 : "children" == s2 || s2 in C2 || "value" == s2 && "defaultValue" in C2 || "checked" == s2 && "defaultChecked" in C2 || T$1(t2, s2, null, k2, f2);
+    for (s2 in $2 = 1 & r2.__u, C2) k2 = C2[s2], "children" == s2 ? g2 = k2 : "dangerouslySetInnerHTML" == s2 ? p2 = k2 : "value" == s2 ? b2 = k2 : "checked" == s2 ? m2 = k2 : l2 && "function" != typeof k2 || !(S2[s2] !== k2 || $2 && null != k2) || T$1(t2, s2, k2, S2[s2], f2);
+    p2 ? (l2 || w2 && (p2.__html == w2.__html || p2.__html == t2.innerHTML) || (t2.innerHTML = p2.__html), i2.__k = []) : (w2 && (t2.textContent = ""), ("foreignObject" == j2 || "http://www.w3.org/1998/Math/MathML" == f2 && v$1.test(j2)) && (f2 = "http://www.w3.org/1999/xhtml"), L(a2, y$1(g2) ? g2 : [g2], i2, r2, u2, f2, o2, e2, o2 ? o2[0] : r2.__k && x(r2, 0), l2, c2), o2 && o2.some(_$1)), l2 && "textarea" != j2 || (s2 = "value", "progress" == j2 && null == b2 ? t2.removeAttribute(s2) : null == b2 || b2 === t2[s2] && ("progress" != j2 || b2) || T$1(t2, s2, b2, S2[s2], f2), s2 = "checked", null != m2 && m2 != t2[s2] && T$1(t2, s2, m2, S2[s2], f2));
+  } else S2 === C2 || l2 && t2.data == C2 || (t2.data = C2);
+  return t2;
+}
+function D$1(t2, i2, r2, u2) {
+  try {
+    "function" == typeof t2 ? i2 ? i2.__x = t2(i2) || 1 : u2 && (u2 = u2.__c || u2.__e) && (i2 = u2.__x) && (u2.__x = null, "function" == typeof i2 ? i2() : t2(null)) : t2.current = i2;
+  } catch (t3) {
+    n.__e(t3, r2);
+  }
+}
+function E$1(t2, i2, r2) {
+  var u2, f2;
+  if (n.unmount && n.unmount(t2), !(u2 = t2.ref) || u2.current && u2.current != t2.__e || D$1(u2, null, i2, t2), u2 = t2.__c) {
+    if (u2.componentWillUnmount) try {
+      u2.componentWillUnmount();
+    } catch (t3) {
+      n.__e(t3, i2);
+    }
+    u2.__P = u2.__n = null;
+  }
+  if (u2 = t2.__k) for (f2 = 0; f2 < u2.length; f2++) u2[f2] && E$1(u2[f2], i2, "function" != typeof t2.type || r2 && !t2.props.__P);
+  (u2 = t2.__e) && (r2 || _$1(u2), u2.__e && (u2.__e = null)), t2.__e = t2.__c = t2.__ = null;
+}
+function F(n2, t2, i2) {
+  return this.constructor(n2, i2);
+}
+function G$1(t2, i2) {
+  var r2, u2, f2, o2;
+  n.__ && n.__(t2, i2), 9 == i2.nodeType && (i2 = i2.documentElement), u2 = (r2 = t2 && 32 & t2.__u) ? null : i2.__k, i2.__k = b$1(M, { children: [t2] }), f2 = [], o2 = [], N(i2, i2.__k, u2 || h$1, h$1, i2.namespaceURI, u2 ? null : i2.firstChild ? d$1.call(i2.childNodes) : null, f2, u2 ? u2.__e : i2.firstChild, r2, o2), z$1(f2, i2.__k, o2), i2.__k.props.children = null;
+}
+n = { __e: function(n2, t2, i2, r2) {
+  for (var u2, o2, e2; t2 = t2.__; ) if ((u2 = t2.__c) && !(1 & u2.__g)) {
+    u2.__g |= 4;
+    try {
+      if ((o2 = u2.constructor) && o2.getDerivedStateFromError && (u2.setState(o2.getDerivedStateFromError(n2)), e2 = 8 & u2.__g), u2.componentDidCatch && (u2.componentDidCatch(n2, r2 || {}), e2 = 8 & u2.__g), e2) return void (u2.__g |= 2);
+    } catch (t3) {
+      n2 = t3, e2 = 0;
+    }
+  }
+  throw f$1 = 0, n2;
+} }, t$1 = 0, $.prototype.setState = function(n2, t2) {
+  var i2 = this.__s;
+  i2 && i2 != this.state || (i2 = this.__s = w({}, this.state)), "function" == typeof n2 && (n2 = n2(w({}, i2), this.props)), n2 && (w(i2, n2), this.__v && (t2 && this.__k.push(t2), C$1(this)));
+}, $.prototype.forceUpdate = function(n2) {
+  this.__v && (this.__g |= 4, n2 && this.__h.push(n2), C$1(this));
+}, $.prototype.render = M, r$1 = [], f$1 = 0, o$2 = function(n2, t2) {
+  return n2.__v.__b - t2.__v.__b;
+}, e$1 = /* @__PURE__ */ Symbol(), l$1 = /(PointerCapture)$|Capture$/i, c$1 = 0, a$1 = {};
+var o$1 = 0;
+function u$1(t2, e2, n$1, f2, u2, i2) {
+  e2 || (e2 = {});
+  var a2, c2, l2 = e2;
+  if ("ref" in l2 && "function" != typeof t2) for (c2 in l2 = {}, e2) "ref" == c2 ? a2 = e2[c2] : l2[c2] = e2[c2];
+  var p2 = { type: t2, props: l2, key: n$1, ref: a2, __k: null, __: null, __b: 0, __e: null, __c: null, constructor: void 0, __v: --o$1, __i: -1, __u: 0 };
+  return n.vnode && n.vnode(p2), p2;
+}
+var t, r, u, i, o = Object.is, f = 0, c = [], e = [], a = n, v = a.__b, l = a.__r, m = a.diffed, s = a.__c, h = a.unmount, p = a.__;
+function y(n2, t2) {
+  a.__h && a.__h(r, n2, f || t2), f = 0;
+  var u2 = r.__H || (r.__H = { __: [], __h: [] });
+  return n2 >= u2.__.length && u2.__.push({}), u2.__[n2];
+}
+function d(n2) {
+  return f = 1, _(G, n2);
+}
+function _(n2, u2, i2) {
+  var f2 = y(t++, 2);
+  if (f2.t = n2, !f2.__c && (f2.__ = [G(void 0, u2), function(n3) {
+    var t2 = f2.__N ? f2.__N[0] : f2.__[0], r2 = f2.t(t2, n3);
+    o(t2, r2) || (f2.__N = [r2, f2.__[1]], f2.__c.setState({}));
+  }], f2.__c = r, !r.__f)) {
+    r.__f = true;
+    var c2 = r.shouldComponentUpdate;
+    r.shouldComponentUpdate = function(n3, t2, r2) {
+      var u3 = this.__H;
+      if (!u3) return true;
+      var i3 = false, f3 = this.props != n3;
+      if (u3.__.some(function(n4) {
+        n4.__N && (i3 = true, o(n4.__[0], n4.__N[0]) || (f3 = true));
+      }), c2) {
+        var e2 = c2.call(this, n3, t2, r2);
+        return i3 ? e2 || f3 : e2;
+      }
+      return !i3 || f3;
+    };
+  }
+  return f2.__;
+}
+function A(n2, u2) {
+  var i2 = y(t++, 3);
+  !a.__s && E(i2.__H, u2) && (i2.__P = true, i2.__ = n2, i2.u = u2, r.__H.__h.push(i2));
+}
+function T(n2) {
+  return f = 5, b(function() {
+    return { current: n2 };
+  }, []);
+}
+function b(n2, r2) {
+  var u2 = y(t++, 7);
+  return E(u2.__H, r2) && (u2.__ = n2(), u2.__H = r2), u2.__;
+}
+function j(n2, t2) {
+  return f = 8, b(function() {
+    return n2;
+  }, t2);
+}
+function g() {
+  var n2;
+  do {
+    for (; n2 = e.shift(); ) try {
+      C(n2);
+    } catch (t3) {
+      a.__e(t3, { __: (n2 = n2.__P) && n2.__v });
+    }
+    for (; n2 = c.shift(); ) {
+      var t2 = n2.__H;
+      if (n2.__P && t2) try {
+        t2.__h.some(C), t2.__h.some(D), t2.__h = [];
+      } catch (r2) {
+        t2.__h = [], a.__e(r2, n2.__v);
+      }
+    }
+  } while (e.length);
+}
+a.__b = function(n2) {
+  r = null, v && v(n2);
+}, a.__ = function(n2, t2) {
+  n2 && t2.__k && t2.__k.__m && (n2.__m = t2.__k.__m), p && p(n2, t2);
+}, a.__r = function(n2) {
+  l && l(n2), t = 0;
+  var i2 = (r = n2.__c).__H;
+  i2 && (u == r ? r.__h = [] : (i2.__h.some(C), i2.__h.some(D), t = 0), i2.__h = [], i2.__.some(function(n3) {
+    n3.__N && (n3.__ = n3.__N), n3.u = n3.__N = void 0;
+  })), u = r;
+}, a.diffed = function(n2) {
+  m && m(n2);
+  var t2 = n2.__c;
+  t2 && t2.__H && (t2.__H.__h.length && B(c.push(t2)), t2.__H.__.some(function(n3) {
+    n3.u && (n3.__H = n3.u);
+  })), u = r = null;
+}, a.__c = function(n2, t2) {
+  t2.some(function(n3) {
+    try {
+      n3.__h.some(C), n3.__h = n3.__h.filter(function(n4) {
+        return !n4.__ || D(n4);
+      });
+    } catch (r2) {
+      t2.some(function(n4) {
+        n4.__h && (n4.__h = []);
+      }), t2 = [], a.__e(r2, n3.__v);
+    }
+  }), s && s(n2, t2);
+}, a.unmount = function(n2) {
+  h && h(n2);
+  var t2, r2, u2 = n2.__c;
+  u2 && u2.__H && (u2.__H.__.some(function(u3) {
+    try {
+      if (u3.__P && u3.__c) {
+        if (void 0 === r2) {
+          for (r2 = n2.__; r2 && (!r2.__c || !r2.__c.__P); ) r2 = r2.__;
+          r2 = r2 && r2.__c;
+        }
+        u3.__P = r2, B(e.push(u3));
+      } else C(u3);
+    } catch (n3) {
+      t2 = n3;
+    }
+  }), u2.__H = void 0, t2 && a.__e(t2, u2.__v));
+};
+var k = "function" == typeof requestAnimationFrame;
+function z(n2) {
+  var t2, r2 = function() {
+    clearTimeout(u2), k && cancelAnimationFrame(t2), setTimeout(n2);
+  }, u2 = setTimeout(r2, 35);
+  k && (t2 = requestAnimationFrame(r2));
+}
+function B(n2) {
+  1 != n2 && i == a.requestAnimationFrame || ((i = a.requestAnimationFrame) || z)(g);
+}
+function C(n2) {
+  var t2 = r, u2 = n2.__c;
+  "function" == typeof u2 && (n2.__c = void 0, u2()), r = t2;
+}
+function D(n2) {
+  var t2 = r;
+  n2.__c = n2.__(), r = t2;
+}
+function E(n2, t2) {
+  return !n2 || n2.length != t2.length || t2.some(function(t3, r2) {
+    return !o(t3, n2[r2]);
+  });
+}
+function G(n2, t2) {
+  return "function" == typeof t2 ? t2(n2) : t2;
+}
 const FIELD_DEFINITIONS = [
   { key: "creditCode", label: "统一社会信用代码" },
   { key: "companyName", label: "公司名称" },
@@ -259,174 +651,6 @@ async function createFavoriteFromHistory(scope, historyId, name = "", env) {
   await writeGeneratedProfilesMap(recordsMap);
   return favorite;
 }
-function escapeHtml(value) {
-  return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-function renderActionButton(action, id, iconKey, label, extraClass = "") {
-  const iconAssets = typeof window !== "undefined" ? window.ChromeTestDataIconAssets : void 0;
-  const iconName = iconAssets?.ACTION_ICONS?.[iconKey] || iconKey;
-  const iconMarkup = iconAssets?.renderIconMarkup ? iconAssets.renderIconMarkup(iconName, "dm-action-icon", "") : "";
-  return [
-    '<button type="button" class="dm-table-btn',
-    escapeHtml(extraClass),
-    '" data-action="',
-    escapeHtml(action),
-    '" data-id="',
-    escapeHtml(id),
-    '" aria-label="',
-    escapeHtml(label),
-    '" title="',
-    escapeHtml(label),
-    '">',
-    iconMarkup,
-    '<span class="dm-action-label">',
-    escapeHtml(label),
-    "</span></button>"
-  ].join("");
-}
-function formatDisplayTime(value) {
-  const timestamp = Number(value);
-  if (!Number.isFinite(timestamp) || timestamp <= 0) return "时间未知";
-  return new Date(timestamp).toLocaleString("zh-CN");
-}
-function renderFavoriteModal() {
-  return [
-    '<div class="dm-modal" data-role="favorite-modal" hidden>',
-    '  <button type="button" class="dm-modal-backdrop" data-action="close-favorite-modal" aria-label="关闭常用数据表单"></button>',
-    '  <section class="dm-modal-card" role="dialog" aria-modal="true" aria-labelledby="dm-favorite-modal-title">',
-    '    <div class="dm-modal-head">',
-    '      <div class="dm-modal-copy">',
-    '        <h2 id="dm-favorite-modal-title" data-role="favorite-modal-title">新增常用数据</h2>',
-    '        <p class="dm-modal-note" data-role="favorite-modal-note">仅保存当前作用域下的数据。</p>',
-    "      </div>",
-    '      <button type="button" class="dm-icon-btn" data-action="close-favorite-modal" aria-label="关闭弹窗">关闭</button>',
-    "    </div>",
-    '    <form class="dm-modal-form" data-role="favorite-form">',
-    '      <div class="dm-modal-grid">',
-    FIELD_KEYS.map(function(fieldKey) {
-      return [
-        '<label class="dm-form-field">',
-        "  <span>" + escapeHtml(getFieldLabel(fieldKey)) + "</span>",
-        '  <input type="text" data-field-key="' + escapeHtml(fieldKey) + '" placeholder="填写' + escapeHtml(getFieldLabel(fieldKey)) + '">',
-        "</label>"
-      ].join("");
-    }).join(""),
-    '        <label class="dm-form-field dm-form-field-wide">',
-    "          <span>备注</span>",
-    '          <input type="text" data-role="favorite-note" maxlength="120" placeholder="填写这组常用数据的备注">',
-    "        </label>",
-    "      </div>",
-    '      <div class="dm-modal-actions">',
-    '        <button type="button" class="dm-subtle-btn" data-action="close-favorite-modal">取消</button>',
-    '        <button type="submit" class="dm-primary-btn">保存常用数据</button>',
-    "      </div>",
-    "    </form>",
-    "  </section>",
-    "</div>"
-  ].join("");
-}
-function readFavoriteDraft(form) {
-  return normalizeProfile(
-    Object.fromEntries(
-      FIELD_KEYS.map(function(fieldKey) {
-        return [
-          fieldKey,
-          form?.querySelector('[data-field-key="' + fieldKey + '"]')?.value || ""
-        ];
-      })
-    )
-  );
-}
-function readFavoriteNote(form) {
-  return form?.querySelector('[data-role="favorite-note"]')?.value.trim() || "";
-}
-function syncFavoriteForm(form, titleNode, noteNode, entry) {
-  if (!form) return;
-  if (titleNode) titleNode.textContent = entry ? "编辑常用数据" : "新增常用数据";
-  if (noteNode) {
-    noteNode.textContent = entry ? "保存后将覆盖当前这组常用数据。" : "仅保存当前作用域下的数据。";
-  }
-  const profile = normalizeProfile(entry ? entry.profile : void 0);
-  FIELD_KEYS.forEach(function(fieldKey) {
-    const input = form.querySelector('[data-field-key="' + fieldKey + '"]');
-    if (input) input.value = profile[fieldKey];
-  });
-  const noteInput = form.querySelector('[data-role="favorite-note"]');
-  if (noteInput) noteInput.value = entry?.note || "";
-}
-function renderFavoritesView(_scope, entries) {
-  return [
-    '<section class="dm-view dm-view-favorites" aria-label="常用数据">',
-    entries.length ? [
-      '<div class="dm-table-shell dm-favorites-shell">',
-      '  <table class="dm-table dm-favorites-table">',
-      '    <thead><tr><th class="dm-sort-column">排序</th><th>姓名</th><th>身份证号</th><th>公司名称</th><th>统一社会信用代码</th><th>手机号</th><th>备注</th><th>操作</th></tr></thead>',
-      "    <tbody>",
-      entries.map(function(entry) {
-        return [
-          '<tr data-favorite-id="' + escapeHtml(entry.id) + '">',
-          '  <td class="dm-sort-cell"><button type="button" class="dm-drag-handle" draggable="true" data-role="favorite-drag-handle" data-id="' + escapeHtml(entry.id) + '" aria-label="拖动排序" title="拖动排序（也可使用上下方向键）"><span aria-hidden="true">⠿</span></button></td>',
-          "  <td>" + escapeHtml(entry.profile.fullName || "—") + "</td>",
-          "  <td>" + escapeHtml(entry.profile.idNumber || "—") + "</td>",
-          "  <td>" + escapeHtml(entry.profile.companyName || "—") + "</td>",
-          "  <td>" + escapeHtml(entry.profile.creditCode || "—") + "</td>",
-          "  <td>" + escapeHtml(entry.profile.mobile || "—") + "</td>",
-          "  <td>" + escapeHtml(entry.note || "—") + "</td>",
-          '  <td class="dm-table-actions">',
-          renderActionButton("favorite-edit", entry.id, "edit", "编辑"),
-          renderActionButton("favorite-delete", entry.id, "delete", "删除", " is-danger"),
-          "  </td>",
-          "</tr>"
-        ].join("");
-      }).join(""),
-      "    </tbody>",
-      "  </table>",
-      "</div>"
-    ].join("") : [
-      '<section class="dm-empty-state">',
-      "  <h2>当前作用域还没有常用数据</h2>",
-      "  <p>你可以手动新增一组数据，或者稍后从生成记录里收藏一组数据。</p>",
-      '  <button type="button" class="dm-primary-btn" data-action="open-create-favorite">新增第一组数据</button>',
-      "</section>"
-    ].join(""),
-    "</section>"
-  ].join("");
-}
-function renderHistoryView(_scope, entries) {
-  return [
-    '<section class="dm-view dm-view-history" aria-label="生成记录">',
-    entries.length ? [
-      '<div class="dm-table-shell">',
-      '  <table class="dm-table">',
-      "    <thead><tr><th>时间</th><th>姓名</th><th>公司</th><th>手机</th><th>邮箱</th><th>操作</th></tr></thead>",
-      "    <tbody>",
-      entries.map(function(entry) {
-        return [
-          "<tr>",
-          "  <td>" + escapeHtml(formatDisplayTime(entry.createdAt) || "—") + "</td>",
-          "  <td>" + escapeHtml(entry.profile.fullName || "—") + "</td>",
-          "  <td>" + escapeHtml(entry.profile.companyName || "—") + "</td>",
-          "  <td>" + escapeHtml(entry.profile.mobile || "—") + "</td>",
-          "  <td>" + escapeHtml(entry.profile.email || "—") + "</td>",
-          '  <td class="dm-table-actions">',
-          renderActionButton("history-favorite", entry.id, "favorite", "收藏"),
-          renderActionButton("history-copy", entry.id, "copy", "复制"),
-          "  </td>",
-          "</tr>"
-        ].join("");
-      }).join(""),
-      "    </tbody>",
-      "  </table>",
-      "</div>"
-    ].join("") : [
-      '<section class="dm-empty-state">',
-      "  <h2>当前作用域还没有生成记录</h2>",
-      "  <p>先从插件面板生成一组数据，再回到这里进行复制或收藏。</p>",
-      "</section>"
-    ].join(""),
-    "</section>"
-  ].join("");
-}
 const DATA_MANAGER_PAGE_PATH = "data-manager.html";
 function normalizeDataManagerView(value) {
   const normalized = String(value || "").trim().toLowerCase();
@@ -451,293 +675,497 @@ function buildDataManagerPageUrl(baseUrl, scope, view) {
   url.searchParams.set("view", normalizedView);
   return url.toString();
 }
-const doc = document;
-const win = window;
-const state = {
-  activeScope: "",
-  activeView: "favorites",
-  editingFavoriteId: null,
-  favoriteProfiles: [],
-  generatedProfiles: [],
-  modalOpen: false,
-  toastTimer: null
-};
-let workspace = null;
-let toastNode = null;
-let favoriteModal = null;
-let favoriteModalTitle = null;
-let favoriteModalNote = null;
-let favoriteForm = null;
-let viewTitle = null;
-let viewActions = null;
-let draggedFavoriteId = null;
-function setToast(message, tone = "info") {
-  if (!toastNode) return;
-  toastNode.textContent = message;
-  toastNode.setAttribute("data-tone", tone);
-  toastNode.hidden = !message;
-  if (state.toastTimer) win.clearTimeout(state.toastTimer);
-  if (!message) return;
-  state.toastTimer = win.setTimeout(function() {
-    if (!toastNode) return;
-    toastNode.hidden = true;
-    toastNode.textContent = "";
-  }, 2400);
+function FavoriteModal(props) {
+  const [profile, setProfile] = d(normalizeProfile(props.entry?.profile));
+  const [note, setNote] = d(props.entry?.note || "");
+  const formRef = T(null);
+  A(function() {
+    formRef.current?.querySelector("input")?.focus();
+  }, []);
+  return /* @__PURE__ */ u$1("div", { class: "dm-modal", "data-open": "true", children: [
+    /* @__PURE__ */ u$1("button", { type: "button", class: "dm-modal-backdrop", "aria-label": "关闭常用数据表单", onClick: props.onClose }),
+    /* @__PURE__ */ u$1("section", { class: "dm-modal-card", role: "dialog", "aria-modal": "true", "aria-labelledby": "dm-favorite-modal-title", children: [
+      /* @__PURE__ */ u$1("div", { class: "dm-modal-head", children: [
+        /* @__PURE__ */ u$1("div", { class: "dm-modal-copy", children: [
+          /* @__PURE__ */ u$1("h2", { id: "dm-favorite-modal-title", children: props.entry ? "编辑常用数据" : "新增常用数据" }),
+          /* @__PURE__ */ u$1("p", { class: "dm-modal-note", children: props.entry ? "保存后将覆盖当前这组常用数据。" : "仅保存当前作用域下的数据。" })
+        ] }),
+        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-icon-btn", "aria-label": "关闭弹窗", onClick: props.onClose, children: "关闭" })
+      ] }),
+      /* @__PURE__ */ u$1(
+        "form",
+        {
+          ref: formRef,
+          class: "dm-modal-form",
+          onSubmit: function(event) {
+            event.preventDefault();
+            props.onSubmit({ note: note.trim(), profile: normalizeProfile(profile) });
+          },
+          children: [
+            /* @__PURE__ */ u$1("div", { class: "dm-modal-grid", children: [
+              FIELD_KEYS.map(function(fieldKey) {
+                return /* @__PURE__ */ u$1("label", { class: "dm-form-field", children: [
+                  /* @__PURE__ */ u$1("span", { children: getFieldLabel(fieldKey) }),
+                  /* @__PURE__ */ u$1(
+                    "input",
+                    {
+                      type: "text",
+                      value: profile[fieldKey],
+                      placeholder: "填写" + getFieldLabel(fieldKey),
+                      onInput: function(event) {
+                        const value = event.currentTarget.value;
+                        setProfile(function(current) {
+                          return { ...current, [fieldKey]: value };
+                        });
+                      }
+                    }
+                  )
+                ] }, fieldKey);
+              }),
+              /* @__PURE__ */ u$1("label", { class: "dm-form-field dm-form-field-wide", children: [
+                /* @__PURE__ */ u$1("span", { children: "备注" }),
+                /* @__PURE__ */ u$1(
+                  "input",
+                  {
+                    type: "text",
+                    maxLength: 120,
+                    value: note,
+                    placeholder: "填写这组常用数据的备注",
+                    onInput: function(event) {
+                      setNote(event.currentTarget.value);
+                    }
+                  }
+                )
+              ] })
+            ] }),
+            /* @__PURE__ */ u$1("div", { class: "dm-modal-actions", children: [
+              /* @__PURE__ */ u$1("button", { type: "button", class: "dm-subtle-btn", onClick: props.onClose, children: "取消" }),
+              /* @__PURE__ */ u$1("button", { type: "submit", class: "dm-primary-btn", children: "保存常用数据" })
+            ] })
+          ]
+        }
+      )
+    ] })
+  ] });
 }
-async function copyProfile(profile) {
-  try {
-    await navigator.clipboard.writeText(formatProfileForCopy(profile));
-    setToast("已复制整组数据", "success");
-  } catch (_error) {
-    setToast("自动复制失败，请手动复制", "warning");
-  }
+function formatDisplayTime(value) {
+  const timestamp = Number(value);
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return "时间未知";
+  return new Date(timestamp).toLocaleString("zh-CN");
 }
-function updateLocationQuery() {
-  if (!win.history || typeof win.history.replaceState !== "function") return;
-  const url = buildDataManagerPageUrl(win.location.href, state.activeScope, state.activeView);
-  win.history.replaceState(null, "", url);
-}
-function renderNavigation() {
-  Array.from(doc.querySelectorAll("[data-role='view-link']")).forEach(function(node) {
-    const nextView = normalizeDataManagerView(node.getAttribute("data-view"));
-    const isActive = nextView === state.activeView;
-    node.setAttribute("aria-current", isActive ? "page" : "false");
-    node.setAttribute("aria-selected", isActive ? "true" : "false");
-    node.setAttribute("data-active", isActive ? "true" : "false");
-    node.setAttribute("tabindex", isActive ? "0" : "-1");
+function moveId(ids, id, targetId, placeBefore) {
+  if (id === targetId) return ids;
+  const next = ids.filter(function(item) {
+    return item !== id;
   });
+  const targetIndex = next.indexOf(targetId);
+  if (targetIndex < 0) return ids;
+  next.splice(placeBefore ? targetIndex : targetIndex + 1, 0, id);
+  return next;
 }
-function renderWorkspace() {
-  if (!workspace) return;
-  workspace.innerHTML = state.activeView === "history" ? renderHistoryView(state.activeScope, state.generatedProfiles) : renderFavoritesView(state.activeScope, state.favoriteProfiles);
+function shiftId(ids, id, offset) {
+  const currentIndex = ids.indexOf(id);
+  const nextIndex = currentIndex + offset;
+  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= ids.length) return null;
+  const next = ids.slice();
+  next.splice(currentIndex, 1);
+  next.splice(nextIndex, 0, id);
+  return next;
 }
-function renderModal() {
-  if (!favoriteModal) return;
-  const editingEntry = state.editingFavoriteId ? state.favoriteProfiles.find(function(entry) {
-    return entry.id === state.editingFavoriteId;
-  }) || null : null;
-  favoriteModal.hidden = !state.modalOpen;
-  favoriteModal.setAttribute("data-open", state.modalOpen ? "true" : "false");
-  syncFavoriteForm(favoriteForm, favoriteModalTitle, favoriteModalNote, editingEntry);
+function Icon(props) {
+  const iconAssets = typeof window !== "undefined" ? window.ChromeTestDataIconAssets : void 0;
+  const url = iconAssets?.getIconAssetUrl ? iconAssets.getIconAssetUrl(props.name) : "";
+  return /* @__PURE__ */ u$1(
+    "span",
+    {
+      class: "dm-icon" + (props.class ? " " + props.class : ""),
+      "data-icon": props.name,
+      "aria-hidden": "true",
+      style: { "--ctdp-icon-url": 'url("' + url + '")' }
+    }
+  );
 }
-function renderTopbar() {
-  if (viewTitle) viewTitle.textContent = state.activeView === "history" ? "生成记录" : "常用数据";
-  if (!viewActions) return;
-  viewActions.innerHTML = state.activeView === "favorites" ? '<button type="button" class="dm-primary-btn" data-action="open-create-favorite">新增常用数据</button>' : "";
+function ActionButton(props) {
+  return /* @__PURE__ */ u$1(
+    "button",
+    {
+      type: "button",
+      class: "dm-table-btn" + (props.danger ? " is-danger" : ""),
+      "aria-label": props.label,
+      title: props.label,
+      disabled: props.disabled,
+      onClick: function(event) {
+        event.stopPropagation();
+        props.onClick();
+      },
+      children: [
+        /* @__PURE__ */ u$1(Icon, { name: props.icon, class: "dm-action-icon" }),
+        /* @__PURE__ */ u$1("span", { class: "dm-action-label", children: props.label })
+      ]
+    }
+  );
 }
-function renderAll() {
-  renderTopbar();
-  renderNavigation();
-  renderWorkspace();
-  renderModal();
-  updateLocationQuery();
-}
-async function syncViewState(nextScope, nextView) {
-  const normalizedScope = normalizeScopeKey(nextScope || "");
-  state.activeScope = normalizedScope;
-  state.activeView = normalizeDataManagerView(nextView || state.activeView);
-  state.favoriteProfiles = state.activeScope ? await readFavoriteProfiles(state.activeScope) : [];
-  state.generatedProfiles = state.activeScope ? await readGeneratedProfiles(state.activeScope) : [];
-  if (state.editingFavoriteId && !state.favoriteProfiles.some(function(entry) {
-    return entry.id === state.editingFavoriteId;
-  })) {
-    state.editingFavoriteId = null;
-    state.modalOpen = false;
-  }
-  renderAll();
-}
-function openFavoriteModal(entryId) {
-  state.editingFavoriteId = entryId || null;
-  state.modalOpen = true;
-  renderModal();
-  favoriteForm?.querySelector("[data-field-key]")?.focus();
-}
-function closeFavoriteModal() {
-  state.modalOpen = false;
-  state.editingFavoriteId = null;
-  renderModal();
-}
-async function handleFavoriteSubmit(event) {
-  event.preventDefault();
-  if (!state.activeScope) {
-    setToast("当前没有可用作用域", "warning");
-    return;
-  }
-  const draft = readFavoriteDraft(favoriteForm);
-  const note = readFavoriteNote(favoriteForm);
-  if (state.editingFavoriteId) {
-    await updateFavoriteProfile(state.activeScope, state.editingFavoriteId, { note, profile: draft });
-    setToast("常用数据已更新", "success");
-  } else {
-    await createFavoriteProfile(state.activeScope, { note, profile: draft });
-    setToast("已新增常用数据", "success");
-  }
-  closeFavoriteModal();
-  await syncViewState(state.activeScope, "favorites");
-}
-async function handleRootClick(event) {
-  const trigger = event.target?.closest("[data-action]");
-  if (!trigger) return;
-  const action = trigger.getAttribute("data-action") || "";
-  const id = trigger.getAttribute("data-id") || "";
-  if (action === "switch-view") {
-    await syncViewState(state.activeScope, normalizeDataManagerView(trigger.getAttribute("data-view")));
-    return;
-  }
-  if (action === "open-create-favorite") {
-    openFavoriteModal();
-    return;
-  }
-  if (action === "close-favorite-modal") {
-    closeFavoriteModal();
-    return;
-  }
-  if (action === "favorite-edit") {
-    openFavoriteModal(id);
-    return;
-  }
-  if (action === "favorite-delete") {
-    const entry = state.favoriteProfiles.find(function(item) {
-      return item.id === id;
-    });
-    if (!entry || !win.confirm("确认删除这组常用数据？")) return;
-    await deleteFavoriteProfile(state.activeScope, id);
-    if (state.editingFavoriteId === id) closeFavoriteModal();
-    await syncViewState(state.activeScope, state.activeView);
-    setToast("已删除常用数据", "success");
-    return;
-  }
-  if (action === "history-copy") {
-    const entry = state.generatedProfiles.find(function(item) {
-      return item.id === id;
-    });
-    if (entry) await copyProfile(entry.profile);
-    return;
-  }
-  if (action === "history-favorite") {
-    const created = await createFavoriteFromHistory(state.activeScope, id);
-    if (!created) return;
-    await syncViewState(state.activeScope, state.activeView);
-    setToast("已从生成记录加入常用数据", "success");
-  }
-}
-function clearFavoriteDragState() {
-  workspace?.querySelectorAll(".is-dragging").forEach(function(row) {
-    row.classList.remove("is-dragging");
-  });
-}
-function handleFavoriteDragStart(event) {
-  const handle = event.target?.closest("[data-role='favorite-drag-handle']");
-  if (!handle || state.activeView !== "favorites") return;
-  draggedFavoriteId = handle.getAttribute("data-id");
-  const row = handle.closest("tr");
-  row?.classList.add("is-dragging");
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", draggedFavoriteId || "");
-  }
-}
-function handleFavoriteDragOver(event) {
-  if (!draggedFavoriteId) return;
-  event.preventDefault();
-  const targetRow = event.target?.closest("tr[data-favorite-id]");
-  const rows = Array.from(workspace?.querySelectorAll("tr[data-favorite-id]") || []);
-  const draggedRow = rows.find(function(row) {
-    return row.getAttribute("data-favorite-id") === draggedFavoriteId;
-  });
-  if (!targetRow || !draggedRow || targetRow === draggedRow) return;
-  const insertBefore = event.clientY < targetRow.getBoundingClientRect().top + targetRow.offsetHeight / 2;
-  targetRow.parentElement?.insertBefore(draggedRow, insertBefore ? targetRow : targetRow.nextElementSibling);
-}
-async function handleFavoriteDrop(event) {
-  if (!draggedFavoriteId) return;
-  event.preventDefault();
-  const orderedIds = Array.from(workspace?.querySelectorAll("tr[data-favorite-id]") || []).map(function(row) {
-    return row.getAttribute("data-favorite-id") || "";
-  });
-  draggedFavoriteId = null;
-  clearFavoriteDragState();
-  state.favoriteProfiles = await reorderFavoriteProfiles(state.activeScope, orderedIds);
-  renderWorkspace();
-  setToast("常用数据顺序已保存", "success");
-}
-function handleFavoriteDragEnd() {
-  if (!draggedFavoriteId) return;
-  draggedFavoriteId = null;
-  clearFavoriteDragState();
-  renderWorkspace();
-}
-async function handleFavoriteOrderKeydown(event) {
-  if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
-  const handle = event.target?.closest("[data-role='favorite-drag-handle']");
-  if (!handle) return;
-  const id = handle.getAttribute("data-id") || "";
-  const currentIndex = state.favoriteProfiles.findIndex(function(entry) {
-    return entry.id === id;
-  });
-  const nextIndex = currentIndex + (event.key === "ArrowUp" ? -1 : 1);
-  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= state.favoriteProfiles.length) return;
-  event.preventDefault();
-  const orderedIds = state.favoriteProfiles.map(function(entry) {
+function FavoritesTable(props) {
+  const [dragOrder, setDragOrder] = d(null);
+  const draggedIdRef = T(null);
+  const pendingFocusIdRef = T(null);
+  const tableRef = T(null);
+  const entriesById = new Map(props.entries.map(function(entry) {
+    return [entry.id, entry];
+  }));
+  const orderedEntries = (dragOrder || props.entries.map(function(entry) {
     return entry.id;
+  })).map(function(id) {
+    return entriesById.get(id);
+  }).filter(function(entry) {
+    return !!entry;
   });
-  const [movedId] = orderedIds.splice(currentIndex, 1);
-  if (!movedId) return;
-  orderedIds.splice(nextIndex, 0, movedId);
-  state.favoriteProfiles = await reorderFavoriteProfiles(state.activeScope, orderedIds);
-  renderWorkspace();
-  workspace?.querySelector("[data-role='favorite-drag-handle'][data-id='" + CSS.escape(id) + "']")?.focus();
-  setToast("常用数据顺序已保存", "success");
+  A(function() {
+    const focusId = pendingFocusIdRef.current;
+    if (!focusId) return;
+    pendingFocusIdRef.current = null;
+    tableRef.current?.querySelector('.dm-drag-handle[data-id="' + CSS.escape(focusId) + '"]')?.focus();
+  }, [props.entries]);
+  function finishDrag(commit) {
+    const order = dragOrder;
+    draggedIdRef.current = null;
+    setDragOrder(null);
+    if (commit && order) props.onReorder(order);
+  }
+  return /* @__PURE__ */ u$1("div", { class: "dm-table-shell dm-favorites-shell", children: /* @__PURE__ */ u$1("table", { ref: tableRef, class: "dm-table dm-favorites-table", children: [
+    /* @__PURE__ */ u$1("thead", { children: /* @__PURE__ */ u$1("tr", { children: [
+      /* @__PURE__ */ u$1("th", { class: "dm-sort-column", children: "排序" }),
+      /* @__PURE__ */ u$1("th", { children: "姓名" }),
+      /* @__PURE__ */ u$1("th", { children: "身份证号" }),
+      /* @__PURE__ */ u$1("th", { children: "公司名称" }),
+      /* @__PURE__ */ u$1("th", { children: "统一社会信用代码" }),
+      /* @__PURE__ */ u$1("th", { children: "手机号" }),
+      /* @__PURE__ */ u$1("th", { children: "备注" }),
+      /* @__PURE__ */ u$1("th", { children: "操作" })
+    ] }) }),
+    /* @__PURE__ */ u$1(
+      "tbody",
+      {
+        onDragOver: function(event) {
+          const draggedId = draggedIdRef.current;
+          if (!draggedId) return;
+          event.preventDefault();
+          const row = event.target?.closest("tr[data-favorite-id]");
+          const targetId = row?.getAttribute("data-favorite-id");
+          if (!row || !targetId || targetId === draggedId) return;
+          const rect = row.getBoundingClientRect();
+          const placeBefore = event.clientY < rect.top + rect.height / 2;
+          setDragOrder(function(current) {
+            return moveId(current || orderedEntries.map(function(entry) {
+              return entry.id;
+            }), draggedId, targetId, placeBefore);
+          });
+        },
+        onDrop: function(event) {
+          if (!draggedIdRef.current) return;
+          event.preventDefault();
+          finishDrag(true);
+        },
+        children: orderedEntries.map(function(entry) {
+          return /* @__PURE__ */ u$1(
+            "tr",
+            {
+              "data-favorite-id": entry.id,
+              class: dragOrder && draggedIdRef.current === entry.id ? "is-dragging" : void 0,
+              children: [
+                /* @__PURE__ */ u$1("td", { class: "dm-sort-cell", children: /* @__PURE__ */ u$1(
+                  "button",
+                  {
+                    type: "button",
+                    class: "dm-drag-handle",
+                    draggable: true,
+                    "data-id": entry.id,
+                    "aria-label": "拖动排序",
+                    title: "拖动排序（也可使用上下方向键）",
+                    onDragStart: function(event) {
+                      draggedIdRef.current = entry.id;
+                      setDragOrder(props.entries.map(function(item) {
+                        return item.id;
+                      }));
+                      if (event.dataTransfer) {
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", entry.id);
+                      }
+                    },
+                    onDragEnd: function() {
+                      if (draggedIdRef.current) finishDrag(false);
+                    },
+                    onKeyDown: function(event) {
+                      if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+                      const ids = props.entries.map(function(item) {
+                        return item.id;
+                      });
+                      const next = shiftId(ids, entry.id, event.key === "ArrowUp" ? -1 : 1);
+                      if (!next) return;
+                      event.preventDefault();
+                      pendingFocusIdRef.current = entry.id;
+                      props.onReorder(next);
+                    },
+                    children: /* @__PURE__ */ u$1("span", { "aria-hidden": "true", children: "⠿" })
+                  }
+                ) }),
+                /* @__PURE__ */ u$1("td", { children: entry.profile.fullName || "—" }),
+                /* @__PURE__ */ u$1("td", { children: entry.profile.idNumber || "—" }),
+                /* @__PURE__ */ u$1("td", { children: entry.profile.companyName || "—" }),
+                /* @__PURE__ */ u$1("td", { children: entry.profile.creditCode || "—" }),
+                /* @__PURE__ */ u$1("td", { children: entry.profile.mobile || "—" }),
+                /* @__PURE__ */ u$1("td", { children: entry.note || "—" }),
+                /* @__PURE__ */ u$1("td", { children: /* @__PURE__ */ u$1("div", { class: "dm-table-actions", children: [
+                  /* @__PURE__ */ u$1(ActionButton, { icon: "pencil", label: "编辑", onClick: function() {
+                    props.onEdit(entry.id);
+                  } }),
+                  /* @__PURE__ */ u$1(ActionButton, { icon: "trash-2", label: "删除", danger: true, onClick: function() {
+                    props.onDelete(entry.id);
+                  } })
+                ] }) })
+              ]
+            },
+            entry.id
+          );
+        })
+      }
+    )
+  ] }) });
 }
-function renderShell() {
-  doc.body.innerHTML = [
-    '<div class="dm-app">',
-    '  <div class="dm-ambient dm-ambient-top" aria-hidden="true"></div>',
-    '  <div class="dm-ambient dm-ambient-bottom" aria-hidden="true"></div>',
-    '  <div class="dm-shell">',
-    '    <header class="dm-topbar">',
-    '      <h1 class="dm-topbar-title" data-role="view-title"></h1>',
-    '      <div class="dm-topbar-actions" data-role="view-actions"></div>',
-    "    </header>",
-    '    <nav class="dm-tabs" role="tablist" aria-label="数据管理视图">',
-    '      <button type="button" class="dm-tab" role="tab" data-role="view-link" data-action="switch-view" data-view="favorites">常用数据</button>',
-    '      <button type="button" class="dm-tab" role="tab" data-role="view-link" data-action="switch-view" data-view="history">生成记录</button>',
-    "    </nav>",
-    '    <main class="dm-workspace" data-role="workspace"></main>',
-    '    <div class="dm-toast" data-role="toast" hidden></div>',
-    renderFavoriteModal(),
-    "  </div>",
-    "</div>"
-  ].join("");
-  viewTitle = doc.querySelector('[data-role="view-title"]');
-  viewActions = doc.querySelector('[data-role="view-actions"]');
-  workspace = doc.querySelector('[data-role="workspace"]');
-  toastNode = doc.querySelector('[data-role="toast"]');
-  favoriteModal = doc.querySelector('[data-role="favorite-modal"]');
-  favoriteModalTitle = doc.querySelector('[data-role="favorite-modal-title"]');
-  favoriteModalNote = doc.querySelector('[data-role="favorite-modal-note"]');
-  favoriteForm = doc.querySelector('[data-role="favorite-form"]');
-  favoriteForm?.addEventListener("submit", function(event) {
-    void handleFavoriteSubmit(event);
-  });
-  doc.body.addEventListener("click", function(event) {
-    void handleRootClick(event);
-  });
-  doc.body.addEventListener("dragstart", handleFavoriteDragStart);
-  doc.body.addEventListener("dragover", handleFavoriteDragOver);
-  doc.body.addEventListener("drop", function(event) {
-    void handleFavoriteDrop(event);
-  });
-  doc.body.addEventListener("dragend", handleFavoriteDragEnd);
-  doc.addEventListener("keydown", function(event) {
-    if (event.key === "Escape" && state.modalOpen) closeFavoriteModal();
-    void handleFavoriteOrderKeydown(event);
-  });
+function HistoryTable(props) {
+  return /* @__PURE__ */ u$1("div", { class: "dm-table-shell", children: /* @__PURE__ */ u$1("table", { class: "dm-table", children: [
+    /* @__PURE__ */ u$1("thead", { children: /* @__PURE__ */ u$1("tr", { children: [
+      /* @__PURE__ */ u$1("th", { children: "时间" }),
+      /* @__PURE__ */ u$1("th", { children: "姓名" }),
+      /* @__PURE__ */ u$1("th", { children: "公司" }),
+      /* @__PURE__ */ u$1("th", { children: "手机" }),
+      /* @__PURE__ */ u$1("th", { children: "邮箱" }),
+      /* @__PURE__ */ u$1("th", { children: "操作" })
+    ] }) }),
+    /* @__PURE__ */ u$1("tbody", { children: props.entries.map(function(entry) {
+      return /* @__PURE__ */ u$1("tr", { children: [
+        /* @__PURE__ */ u$1("td", { children: formatDisplayTime(entry.createdAt) }),
+        /* @__PURE__ */ u$1("td", { children: entry.profile.fullName || "—" }),
+        /* @__PURE__ */ u$1("td", { children: entry.profile.companyName || "—" }),
+        /* @__PURE__ */ u$1("td", { children: entry.profile.mobile || "—" }),
+        /* @__PURE__ */ u$1("td", { children: entry.profile.email || "—" }),
+        /* @__PURE__ */ u$1("td", { children: /* @__PURE__ */ u$1("div", { class: "dm-table-actions", children: [
+          /* @__PURE__ */ u$1(ActionButton, { icon: "star", label: "收藏", onClick: function() {
+            props.onFavorite(entry.id);
+          } }),
+          /* @__PURE__ */ u$1(ActionButton, { icon: "copy", label: "复制", onClick: function() {
+            props.onCopy(entry.id);
+          } })
+        ] }) })
+      ] }, entry.id);
+    }) })
+  ] }) });
 }
-async function bootstrap() {
-  renderShell();
-  const route = parseDataManagerPageLocation(win.location.search);
-  state.activeView = route.view;
-  await syncViewState(route.scope, route.view);
+function useRecords(scope) {
+  const [records, setRecords] = d({ favorites: [], history: [], loaded: false });
+  const reload = j(async function() {
+    if (!scope) {
+      setRecords({ favorites: [], history: [], loaded: true });
+      return;
+    }
+    const [favorites, history] = await Promise.all([readFavoriteProfiles(scope), readGeneratedProfiles(scope)]);
+    setRecords({ favorites, history, loaded: true });
+  }, [scope]);
+  const setFavorites = j(function(entries) {
+    setRecords(function(current) {
+      return { ...current, favorites: entries };
+    });
+  }, []);
+  A(function() {
+    void reload();
+  }, [reload]);
+  return { ...records, reload, setFavorites };
 }
-void bootstrap();
+const TOAST_DURATION_MS = 2400;
+function useToast() {
+  const [toast, setToast] = d(null);
+  const timerRef = T(null);
+  const showToast = j(function(message, tone = "info") {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    setToast({ id: Date.now(), message, tone });
+    timerRef.current = window.setTimeout(function() {
+      setToast(null);
+      timerRef.current = null;
+    }, TOAST_DURATION_MS);
+  }, []);
+  A(function() {
+    return function() {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+  }, []);
+  return { toast, showToast };
+}
+const VIEW_LABELS = {
+  favorites: "常用数据",
+  history: "生成记录"
+};
+function App() {
+  const route = b(function() {
+    return parseDataManagerPageLocation(window.location.search);
+  }, []);
+  const scope = route.scope;
+  const [view, setView] = d(route.view);
+  const [editor, setEditor] = d({ open: false });
+  const records = useRecords(scope);
+  const { toast, showToast } = useToast();
+  const editingEntry = editor.open && editor.id ? records.favorites.find(function(entry) {
+    return entry.id === editor.id;
+  }) || null : null;
+  A(function() {
+    if (!window.history || typeof window.history.replaceState !== "function") return;
+    window.history.replaceState(null, "", buildDataManagerPageUrl(window.location.href, scope, view));
+  }, [scope, view]);
+  A(function() {
+    if (!editor.open) return;
+    function handleKeydown(event) {
+      if (event.key === "Escape") setEditor({ open: false });
+    }
+    document.addEventListener("keydown", handleKeydown);
+    return function() {
+      document.removeEventListener("keydown", handleKeydown);
+    };
+  }, [editor.open]);
+  async function copyProfile(profile) {
+    try {
+      await navigator.clipboard.writeText(formatProfileForCopy(profile));
+      showToast("已复制整组数据", "success");
+    } catch (_error) {
+      showToast("自动复制失败，请手动复制", "warning");
+    }
+  }
+  async function handleSubmit(input) {
+    if (!scope) {
+      showToast("当前没有可用作用域", "warning");
+      return;
+    }
+    if (editor.open && editor.id) {
+      await updateFavoriteProfile(scope, editor.id, input);
+      showToast("常用数据已更新", "success");
+    } else {
+      await createFavoriteProfile(scope, input);
+      showToast("已新增常用数据", "success");
+    }
+    setEditor({ open: false });
+    await records.reload();
+  }
+  async function handleDelete(id) {
+    if (!window.confirm("确认删除这组常用数据？")) return;
+    await deleteFavoriteProfile(scope, id);
+    await records.reload();
+    showToast("已删除常用数据", "success");
+  }
+  async function handleReorder(orderedIds) {
+    records.setFavorites(await reorderFavoriteProfiles(scope, orderedIds));
+    showToast("常用数据顺序已保存", "success");
+  }
+  async function handleHistoryFavorite(id) {
+    const created = await createFavoriteFromHistory(scope, id);
+    if (!created) return;
+    await records.reload();
+    showToast("已从生成记录加入常用数据", "success");
+  }
+  function renderWorkspace() {
+    if (view === "history") {
+      if (!records.history.length) {
+        return /* @__PURE__ */ u$1("section", { class: "dm-empty-state", children: [
+          /* @__PURE__ */ u$1("h2", { children: "当前作用域还没有生成记录" }),
+          /* @__PURE__ */ u$1("p", { children: "先从插件面板生成一组数据，再回到这里进行复制或收藏。" })
+        ] });
+      }
+      return /* @__PURE__ */ u$1(
+        HistoryTable,
+        {
+          entries: records.history,
+          onFavorite: function(id) {
+            void handleHistoryFavorite(id);
+          },
+          onCopy: function(id) {
+            const entry = records.history.find(function(item) {
+              return item.id === id;
+            });
+            if (entry) void copyProfile(entry.profile);
+          }
+        }
+      );
+    }
+    if (!records.favorites.length) {
+      return /* @__PURE__ */ u$1("section", { class: "dm-empty-state", children: [
+        /* @__PURE__ */ u$1("h2", { children: "当前作用域还没有常用数据" }),
+        /* @__PURE__ */ u$1("p", { children: "你可以手动新增一组数据，或者稍后从生成记录里收藏一组数据。" }),
+        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-primary-btn", onClick: function() {
+          setEditor({ open: true, id: null });
+        }, children: "新增第一组数据" })
+      ] });
+    }
+    return /* @__PURE__ */ u$1(
+      FavoritesTable,
+      {
+        entries: records.favorites,
+        onEdit: function(id) {
+          setEditor({ open: true, id });
+        },
+        onDelete: function(id) {
+          void handleDelete(id);
+        },
+        onReorder: function(orderedIds) {
+          void handleReorder(orderedIds);
+        }
+      }
+    );
+  }
+  return /* @__PURE__ */ u$1("div", { class: "dm-app", children: [
+    /* @__PURE__ */ u$1("div", { class: "dm-ambient dm-ambient-top", "aria-hidden": "true" }),
+    /* @__PURE__ */ u$1("div", { class: "dm-ambient dm-ambient-bottom", "aria-hidden": "true" }),
+    /* @__PURE__ */ u$1("div", { class: "dm-shell", children: [
+      /* @__PURE__ */ u$1("header", { class: "dm-topbar", children: [
+        /* @__PURE__ */ u$1("h1", { class: "dm-topbar-title", children: VIEW_LABELS[view] }),
+        /* @__PURE__ */ u$1("div", { class: "dm-topbar-actions", children: view === "favorites" ? /* @__PURE__ */ u$1("button", { type: "button", class: "dm-primary-btn", onClick: function() {
+          setEditor({ open: true, id: null });
+        }, children: "新增常用数据" }) : null })
+      ] }),
+      /* @__PURE__ */ u$1("nav", { class: "dm-tabs", role: "tablist", "aria-label": "数据管理视图", children: Object.keys(VIEW_LABELS).map(function(item) {
+        const active = item === view;
+        return /* @__PURE__ */ u$1(
+          "button",
+          {
+            type: "button",
+            class: "dm-tab",
+            role: "tab",
+            "data-view": item,
+            "data-active": active ? "true" : "false",
+            "aria-selected": active,
+            tabIndex: active ? 0 : -1,
+            onClick: function() {
+              setView(normalizeDataManagerView(item));
+              void records.reload();
+            },
+            children: VIEW_LABELS[item]
+          },
+          item
+        );
+      }) }),
+      /* @__PURE__ */ u$1("main", { class: "dm-workspace", children: /* @__PURE__ */ u$1("section", { class: "dm-view", "aria-label": VIEW_LABELS[view], children: records.loaded ? renderWorkspace() : null }) }),
+      toast ? /* @__PURE__ */ u$1("div", { class: "dm-toast", "data-tone": toast.tone, children: toast.message }, toast.id) : null,
+      editor.open ? /* @__PURE__ */ u$1(
+        FavoriteModal,
+        {
+          entry: editingEntry,
+          onClose: function() {
+            setEditor({ open: false });
+          },
+          onSubmit: function(input) {
+            void handleSubmit(input);
+          }
+        },
+        editor.id || "new"
+      ) : null
+    ] })
+  ] });
+}
+const mountNode = document.getElementById("app");
+if (mountNode) G$1(/* @__PURE__ */ u$1(App, {}), mountNode);

@@ -23,12 +23,16 @@ function createBaseBuildConfig() {
 const buildConfigs = [
   {
     ...createBaseBuildConfig(),
+    esbuild: {
+      jsx: "automatic",
+      jsxImportSource: "preact"
+    },
     build: {
       ...createBaseBuildConfig().build,
       cssCodeSplit: false,
       lib: {
         cssFileName: "data-manager",
-        entry: resolve(process.cwd(), "extension/src-ts/pages/data-manager/main.ts"),
+        entry: resolve(process.cwd(), "extension/src-ts/pages/data-manager/main.tsx"),
         fileName() {
           return "data-manager.js";
         },
