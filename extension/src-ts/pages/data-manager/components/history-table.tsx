@@ -6,6 +6,10 @@ import { IconButton } from "./icon-button";
 export function HistoryTable(props: {
   entries: HistoryEntry[];
   columns: ProfileFieldKey[];
+  query: string;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onCopyField: (fieldKey: ProfileFieldKey, value: string) => void;
   onFavorite: (id: string) => void;
   onCopy: (id: string) => void;
 }) {
@@ -24,12 +28,20 @@ export function HistoryTable(props: {
         <tbody>
           {props.entries.map(function (entry) {
             return (
-              <tr key={entry.id}>
+              <tr
+                key={entry.id}
+                tabIndex={0}
+                class={"dm-row" + (props.selectedId === entry.id ? " is-selected" : "")}
+                onClick={function () { props.onSelect(entry.id); }}
+                onKeyDown={function (event) {
+                  if (event.key === "Enter" && event.target === event.currentTarget) props.onSelect(entry.id);
+                }}
+              >
                 <td class="dm-cell-time">{formatDisplayTime(entry.createdAt)}</td>
                 {props.columns.map(function (fieldKey) {
                   return (
                     <td key={fieldKey}>
-                      <FieldCell fieldKey={fieldKey} value={entry.profile[fieldKey]} />
+                      <FieldCell fieldKey={fieldKey} value={entry.profile[fieldKey]} query={props.query} onCopy={props.onCopyField} />
                     </td>
                   );
                 })}

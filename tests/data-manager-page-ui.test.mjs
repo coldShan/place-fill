@@ -75,6 +75,15 @@ test("data manager shows the current site and guides users without a scope", () 
   assert.match(pageSource, /未指定站点/);
 });
 
+test("records open in a detail drawer with per-field copy and search", () => {
+  assert.match(pageSource, /class="dm-drawer"/);
+  assert.match(pageSource, /FIELD_GROUPS\.map/);
+  assert.match(pageSource, /dm-copy-cell/);
+  assert.match(pageSource, /matchesQuery/);
+  assert.match(pageSource, /type="search"/);
+  assert.match(pageSource, /COLUMN_PREFERENCES_STORAGE_KEY = "ctdp\.dataManagerColumns\.v1"/);
+});
+
 test("data manager keeps top tabs instead of a left sidebar layout", () => {
   assert.match(pageSource, /role="tablist"/);
   assert.match(pageSource, /role="tab"/);
