@@ -89,6 +89,7 @@ test("favorites are edited in the drawer with advisory validation and an unsaved
   assert.match(pageSource, /getFieldWarning/);
   assert.match(pageSource, /generateFieldValue/);
   assert.match(pageSource, /放弃未保存的修改/);
+  assert.match(pageSource, /addEventListener\("beforeunload"/);
   assert.match(pageSource, /已存在相同数据/);
   assert.doesNotMatch(pageSource, /class="dm-modal/);
 });

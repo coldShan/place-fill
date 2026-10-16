@@ -474,6 +474,18 @@ function normalizeId(value) {
 function createId(now, random) {
   return String(now) + "-" + Math.floor(random() * 1e6).toString(36);
 }
+function createUniqueId(now, random, usedIds) {
+  const baseId = createId(now, random);
+  let id = baseId;
+  for (let suffix = 1; usedIds.has(id); suffix += 1) id = baseId + "-" + suffix;
+  usedIds.add(id);
+  return id;
+}
+function collectIds(entries) {
+  return new Set(entries.map(function(entry) {
+    return entry.id;
+  }));
+}
 function normalizeScopeKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
   if (!normalized) return "";
@@ -678,7 +690,7 @@ async function copyFavoriteToScopes(scope, favoriteId, targetScopes, env) {
     if (exists) return { scope: target, status: "duplicate" };
     const copied = {
       createdAt: String(now),
-      id: createId(now, random),
+      id: createUniqueId(now, random, collectIds(currentEntries)),
       name: source.name,
       note: source.note,
       profile: normalizeProfile(source.profile),
@@ -702,6 +714,7 @@ async function importFavoriteProfiles(scope, inputs, env) {
   const now = Date.now();
   const random = Math.random;
   const created = [];
+  const usedIds = collectIds(currentEntries);
   let skipped = 0;
   inputs.forEach(function(input) {
     const profile = normalizeProfile(input.profile);
@@ -714,7 +727,7 @@ async function importFavoriteProfiles(scope, inputs, env) {
     }
     created.push({
       createdAt: String(now),
-      id: createId(now, random),
+      id: createUniqueId(now, random, usedIds),
       name: String(input.name || "").trim() || "常用数据",
       note: String(input.note || "").trim(),
       profile,
@@ -2291,6 +2304,17 @@ function App() {
       document.removeEventListener("keydown", handleKeydown);
     };
   });
+  A(function() {
+    function handleBeforeUnload(event) {
+      if (!editorDirtyRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return function() {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
   async function runSafely(task) {
     try {
       await task();
