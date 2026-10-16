@@ -2,11 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  copyFavoriteToScopes,
   createFavoriteFromHistory,
   createFavoriteProfile,
   deleteFavoriteProfile,
   findFavoriteProfile,
   hasFavoriteProfile,
+  listScopeSummaries,
   normalizeScopeKey,
   readFavoriteProfiles,
   readGeneratedProfiles,
@@ -187,7 +189,7 @@ test("findFavoriteProfile and hasFavoriteProfile use normalized profile deduplic
   assert.equal(await hasFavoriteProfile("beta.example.com", buildProfile(1), { storageArea }), false);
 });
 
-test("createFavoriteFromHistory moves one generated record into favorites without duplicates", async () => {
+test("createFavoriteFromHistory keeps the generated record and reuses the favorite on repeat", async () => {
   const storageArea = createStorageArea();
   const scope = "alpha.example.com";
   const [historyEntry] = await recordGeneratedProfile(scope, buildProfile(1), {
@@ -209,9 +211,11 @@ test("createFavoriteFromHistory moves one generated record into favorites withou
   });
 
   assert.equal(firstFavorite?.profile.fullName, "测试用户1");
-  assert.equal(duplicateFavorite, null);
+  assert.equal(duplicateFavorite?.id, firstFavorite?.id);
   assert.equal((await readFavoriteProfiles(scope, { storageArea })).length, 1);
-  assert.deepEqual(await readGeneratedProfiles(scope, { storageArea }), []);
+  assert.deepEqual((await readGeneratedProfiles(scope, { storageArea })).map(function (entry) {
+    return entry.id;
+  }), [historyEntry.id]);
 });
 
 test("createFavoriteFromHistory reuses an existing favorite with the same profile", async () => {
@@ -239,5 +243,48 @@ test("createFavoriteFromHistory reuses an existing favorite with the same profil
   assert.equal(favorite?.id, existing.id);
   assert.equal(favorites.length, 1);
   assert.equal(favorites[0]?.name, "已有常用数据");
-  assert.deepEqual(await readGeneratedProfiles(scope, { storageArea }), []);
+  assert.equal((await readGeneratedProfiles(scope, { storageArea })).length, 1);
+});
+
+test("copyFavoriteToScopes copies one favorite into other scopes and skips duplicates", async () => {
+  const storageArea = createStorageArea();
+  const source = await createFavoriteProfile("alpha.example.com", { name: "主账号", note: "备注", profile: buildProfile(1) }, {
+    storageArea,
+    now: () => 1000,
+    random: () => 0
+  });
+  await createFavoriteProfile("gamma.example.com", { profile: buildProfile(1) }, {
+    storageArea,
+    now: () => 1100,
+    random: () => 0.1
+  });
+  await recordGeneratedProfile("delta.example.com", buildProfile(5), { storageArea, now: () => 1150, random: () => 0.15 });
+
+  const results = await copyFavoriteToScopes(
+    "alpha.example.com",
+    source.id,
+    ["Beta.Example.com", "beta.example.com", "gamma.example.com", "alpha.example.com", "https://bad.example.com/x"],
+    { storageArea, now: () => 1200, random: () => 0.2 }
+  );
+
+  assert.deepEqual(results, [
+    { scope: "beta.example.com", status: "created" },
+    { scope: "gamma.example.com", status: "duplicate" }
+  ]);
+  const [copied] = await readFavoriteProfiles("beta.example.com", { storageArea });
+  assert.equal(copied?.name, "主账号");
+  assert.equal(copied?.note, "备注");
+  assert.equal(copied?.createdAt, "1200");
+  assert.notEqual(copied?.id, source.id);
+  assert.deepEqual(copied?.profile, source.profile);
+  assert.equal((await readFavoriteProfiles("gamma.example.com", { storageArea })).length, 1);
+  assert.equal((await readFavoriteProfiles("alpha.example.com", { storageArea })).length, 1);
+  assert.equal(await copyFavoriteToScopes("alpha.example.com", "missing", ["beta.example.com"], { storageArea }), null);
+
+  assert.deepEqual(await listScopeSummaries({ storageArea }), [
+    { favorites: 1, history: 0, scope: "alpha.example.com" },
+    { favorites: 1, history: 0, scope: "beta.example.com" },
+    { favorites: 0, history: 1, scope: "delta.example.com" },
+    { favorites: 1, history: 0, scope: "gamma.example.com" }
+  ]);
 });

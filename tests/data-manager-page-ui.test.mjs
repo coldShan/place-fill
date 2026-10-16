@@ -93,6 +93,13 @@ test("favorites are edited in the drawer with advisory validation and an unsaved
   assert.doesNotMatch(pageSource, /class="dm-modal/);
 });
 
+test("history marks favorited records and only favorites can be copied to other sites", () => {
+  assert.match(pageSource, /已收藏/);
+  assert.match(pageSource, /copyFavoriteToScopes/);
+  assert.match(pageSource, /复制到其他站点/);
+  assert.doesNotMatch(readPageFile("components/history-table.tsx"), /复制到其他站点|onCopyToSites/);
+});
+
 test("data manager keeps top tabs instead of a left sidebar layout", () => {
   assert.match(pageSource, /role="tablist"/);
   assert.match(pageSource, /role="tab"/);

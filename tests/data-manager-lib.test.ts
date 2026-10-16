@@ -12,6 +12,7 @@ import { getFavoriteTitle, moveId, shiftId } from "../extension/src-ts/pages/dat
 import { getFieldWarning } from "../extension/src-ts/pages/data-manager/lib/field-validation";
 import { generateRandomProfile, type GeneratorsApi } from "../extension/src-ts/pages/data-manager/lib/generators";
 import { DISPLAY_FIELD_ORDER, FIELD_GROUPS } from "../extension/src-ts/pages/data-manager/lib/field-groups";
+import { parseScopeInput, summarizeCopyResults } from "../extension/src-ts/pages/data-manager/lib/scope-input";
 import { matchesQuery, splitHighlight } from "../extension/src-ts/pages/data-manager/lib/record-search";
 import { FIELD_KEYS, normalizeProfile } from "../extension/src-ts/shared/data-records";
 
@@ -103,4 +104,30 @@ test("generateRandomProfile fills every field through the generators api", () =>
     });
   }
   assert.deepEqual(generateRandomProfile({}), normalizeProfile({}));
+});
+
+test("parseScopeInput accepts hostnames or full urls and rejects the current site", () => {
+  assert.deepEqual(parseScopeInput(" Test.Example.com ", "example.com"), { scope: "test.example.com", error: "" });
+  assert.deepEqual(parseScopeInput("https://staging.example.com:8443/login?x=1", "example.com"), { scope: "staging.example.com", error: "" });
+  assert.deepEqual(parseScopeInput("uat.example.com/path", "example.com"), { scope: "uat.example.com", error: "" });
+  assert.equal(parseScopeInput("example.com", "example.com").error, "不能复制到当前站点");
+  assert.notEqual(parseScopeInput("", "example.com").error, "");
+  assert.notEqual(parseScopeInput("不是域名 ", "example.com").error, "");
+  assert.deepEqual(parseScopeInput("http://localhost:5173/form", "example.com"), { scope: "localhost", error: "" });
+});
+
+test("summarizeCopyResults reports created and skipped target sites", () => {
+  assert.deepEqual(summarizeCopyResults([{ scope: "a.com", status: "created" }]), { message: "已复制到 1 个站点", tone: "success" });
+  assert.deepEqual(
+    summarizeCopyResults([{ scope: "a.com", status: "created" }, { scope: "b.com", status: "duplicate" }]),
+    { message: "已复制到 1 个站点；b.com 已存在相同数据，已跳过", tone: "success" }
+  );
+  assert.deepEqual(
+    summarizeCopyResults([
+      { scope: "a.com", status: "duplicate" },
+      { scope: "b.com", status: "duplicate" },
+      { scope: "c.com", status: "duplicate" }
+    ]),
+    { message: "a.com、b.com 等 3 个站点 已存在相同数据，未重复复制", tone: "warning" }
+  );
 });

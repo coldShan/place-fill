@@ -276,18 +276,60 @@ var ChromeTestDataDataRecordsBundle = (function() {
   async function createFavoriteFromHistory(scope, historyId, name = "", env) {
     const normalizedScope = normalizeScopeKey(scope);
     if (!normalizedScope || !historyId) return null;
-    const recordsMap = await readGeneratedProfilesMap(env);
-    const records = recordsMap[normalizedScope] ? recordsMap[normalizedScope].slice() : [];
+    const records = await readGeneratedProfiles(normalizedScope, env);
     const historyEntry = records.find(function(entry) {
       return entry.id === historyId;
     });
     if (!historyEntry) return null;
-    recordsMap[normalizedScope] = records.filter(function(entry) {
-      return entry.id !== historyId;
+    return createFavoriteProfile(normalizedScope, { name, profile: historyEntry.profile }, env);
+  }
+  async function listScopeSummaries(env) {
+    const generatedMap = await readGeneratedProfilesMap(env);
+    const favoriteMap = await readFavoriteProfilesMap(env);
+    return Array.from(new Set(Object.keys(generatedMap).concat(Object.keys(favoriteMap)))).sort().map(function(scope) {
+      return {
+        favorites: (favoriteMap[scope] || []).length,
+        history: (generatedMap[scope] || []).length,
+        scope
+      };
     });
-    const favorite = await createFavoriteProfile(normalizedScope, { name, profile: historyEntry.profile }, env);
-    await writeGeneratedProfilesMap(recordsMap, env);
-    return favorite;
+  }
+  async function copyFavoriteToScopes(scope, favoriteId, targetScopes, env) {
+    const normalizedScope = normalizeScopeKey(scope);
+    if (!normalizedScope || !favoriteId) return null;
+    const favoritesMap = await readFavoriteProfilesMap(env);
+    const source = (favoritesMap[normalizedScope] || []).find(function(entry) {
+      return entry.id === favoriteId;
+    });
+    if (!source) return null;
+    const targets = Array.from(new Set(targetScopes.map(normalizeScopeKey))).filter(function(target) {
+      return !!target && target !== normalizedScope;
+    });
+    const now = env && typeof env.now === "function" ? env.now() : Date.now();
+    const random = env && typeof env.random === "function" ? env.random : Math.random;
+    const results = targets.map(function(target) {
+      const currentEntries = favoritesMap[target] ? favoritesMap[target].slice() : [];
+      const exists = currentEntries.some(function(entry) {
+        return isSameProfile(entry.profile, source.profile);
+      });
+      if (exists) return { scope: target, status: "duplicate" };
+      const copied = {
+        createdAt: String(now),
+        id: createId(now, random),
+        name: source.name,
+        note: source.note,
+        profile: normalizeProfile(source.profile),
+        updatedAt: String(now)
+      };
+      favoritesMap[target] = [copied].concat(currentEntries);
+      return { scope: target, status: "created" };
+    });
+    if (results.some(function(result) {
+      return result.status === "created";
+    })) {
+      await writeFavoriteProfilesMap(favoritesMap, env);
+    }
+    return results;
   }
   const dataRecordsApi = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
@@ -295,6 +337,7 @@ var ChromeTestDataDataRecordsBundle = (function() {
     FIELD_KEYS,
     GENERATED_PROFILES_STORAGE_KEY,
     MAX_GENERATED_RECORDS,
+    copyFavoriteToScopes,
     createFavoriteFromHistory,
     createFavoriteProfile,
     deleteFavoriteProfile,
@@ -303,6 +346,7 @@ var ChromeTestDataDataRecordsBundle = (function() {
     hasFavoriteProfile,
     isSameProfile,
     listKnownScopes,
+    listScopeSummaries,
     normalizeProfile,
     normalizeScopeKey,
     readFavoriteProfiles,

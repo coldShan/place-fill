@@ -10,6 +10,7 @@ export function HistoryTable(props: {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onCopyField: (fieldKey: ProfileFieldKey, value: string) => void;
+  favoritedIds: Set<string>;
   onFavorite: (id: string) => void;
   onCopy: (id: string) => void;
 }) {
@@ -37,7 +38,10 @@ export function HistoryTable(props: {
                   if (event.key === "Enter" && event.target === event.currentTarget) props.onSelect(entry.id);
                 }}
               >
-                <td class="dm-cell-time">{formatDisplayTime(entry.createdAt)}</td>
+                <td class="dm-cell-time">
+                  {formatDisplayTime(entry.createdAt)}
+                  {props.favoritedIds.has(entry.id) ? <span class="dm-badge">已收藏</span> : null}
+                </td>
                 {props.columns.map(function (fieldKey) {
                   return (
                     <td key={fieldKey}>
@@ -47,7 +51,11 @@ export function HistoryTable(props: {
                 })}
                 <td class="dm-col-actions">
                   <div class="dm-row-actions">
-                    <IconButton icon="star" label="收藏" onClick={function () { props.onFavorite(entry.id); }} />
+                    {props.favoritedIds.has(entry.id) ? (
+                      <IconButton icon="star" label="已收藏，查看常用数据" tone="accent" onClick={function () { props.onFavorite(entry.id); }} />
+                    ) : (
+                      <IconButton icon="star" label="收藏" onClick={function () { props.onFavorite(entry.id); }} />
+                    )}
                     <IconButton icon="copy" label="复制整组" onClick={function () { props.onCopy(entry.id); }} />
                   </div>
                 </td>

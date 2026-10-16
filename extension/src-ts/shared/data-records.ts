@@ -344,20 +344,79 @@ export async function createFavoriteFromHistory(
   const normalizedScope = normalizeScopeKey(scope);
   if (!normalizedScope || !historyId) return null;
 
-  const recordsMap = await readGeneratedProfilesMap(env);
-  const records = recordsMap[normalizedScope] ? recordsMap[normalizedScope].slice() : [];
+  const records = await readGeneratedProfiles(normalizedScope, env);
   const historyEntry = records.find(function (entry) {
     return entry.id === historyId;
   });
   if (!historyEntry) return null;
 
-  recordsMap[normalizedScope] = records.filter(function (entry) {
-    return entry.id !== historyId;
+  return createFavoriteProfile(normalizedScope, { name, profile: historyEntry.profile }, env);
+}
+
+export interface ScopeSummary {
+  scope: ScopeKey;
+  favorites: number;
+  history: number;
+}
+
+export async function listScopeSummaries(env?: DataRecordsEnv): Promise<ScopeSummary[]> {
+  const generatedMap = await readGeneratedProfilesMap(env);
+  const favoriteMap = await readFavoriteProfilesMap(env);
+  return Array.from(new Set(Object.keys(generatedMap).concat(Object.keys(favoriteMap))))
+    .sort()
+    .map(function (scope) {
+      return {
+        favorites: (favoriteMap[scope] || []).length,
+        history: (generatedMap[scope] || []).length,
+        scope
+      };
+    });
+}
+
+export type CopyFavoriteResult = { scope: ScopeKey; status: "created" | "duplicate" };
+
+export async function copyFavoriteToScopes(
+  scope: string,
+  favoriteId: string,
+  targetScopes: string[],
+  env?: DataRecordsEnv
+): Promise<CopyFavoriteResult[] | null> {
+  const normalizedScope = normalizeScopeKey(scope);
+  if (!normalizedScope || !favoriteId) return null;
+
+  const favoritesMap = await readFavoriteProfilesMap(env);
+  const source = (favoritesMap[normalizedScope] || []).find(function (entry) {
+    return entry.id === favoriteId;
+  });
+  if (!source) return null;
+
+  const targets = Array.from(new Set(targetScopes.map(normalizeScopeKey))).filter(function (target) {
+    return !!target && target !== normalizedScope;
+  });
+  const now = env && typeof env.now === "function" ? env.now() : Date.now();
+  const random = env && typeof env.random === "function" ? env.random : Math.random;
+  const results: CopyFavoriteResult[] = targets.map(function (target) {
+    const currentEntries = favoritesMap[target] ? favoritesMap[target].slice() : [];
+    const exists = currentEntries.some(function (entry) {
+      return isSameProfile(entry.profile, source.profile);
+    });
+    if (exists) return { scope: target, status: "duplicate" };
+    const copied: FavoriteEntry = {
+      createdAt: String(now),
+      id: createId(now, random),
+      name: source.name,
+      note: source.note,
+      profile: normalizeProfile(source.profile),
+      updatedAt: String(now)
+    };
+    favoritesMap[target] = [copied].concat(currentEntries);
+    return { scope: target, status: "created" };
   });
 
-  const favorite = await createFavoriteProfile(normalizedScope, { name, profile: historyEntry.profile }, env);
-  await writeGeneratedProfilesMap(recordsMap, env);
-  return favorite;
+  if (results.some(function (result) { return result.status === "created"; })) {
+    await writeFavoriteProfilesMap(favoritesMap, env);
+  }
+  return results;
 }
 
 export { FIELD_KEYS, formatProfileForCopy, normalizeProfile, type ProfileFieldMap };

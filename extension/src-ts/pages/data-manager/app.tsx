@@ -5,11 +5,13 @@ import {
   type DataManagerView
 } from "../../shared/data-manager-routing";
 import {
+  copyFavoriteToScopes,
   createFavoriteFromHistory,
   createFavoriteProfile,
   deleteFavoriteProfile,
   formatProfileForCopy,
   getFieldLabel,
+  isSameProfile,
   MAX_GENERATED_RECORDS,
   reorderFavoriteProfiles,
   updateFavoriteProfile,
@@ -20,13 +22,16 @@ import { copyText } from "./lib/clipboard";
 import { DEFAULT_COLUMNS } from "./lib/columns";
 import { formatDisplayTime, getFavoriteTitle } from "./lib/display";
 import { matchesQuery } from "./lib/record-search";
+import { summarizeCopyResults } from "./lib/scope-input";
 import { ColumnPicker } from "./components/column-picker";
+import { CopyToSitesDialog } from "./components/copy-to-sites-dialog";
 import { EmptyState } from "./components/empty-state";
 import { FavoriteEditor, type FavoriteDraft } from "./components/favorite-editor";
 import { FavoritesTable } from "./components/favorites-table";
 import { Header } from "./components/header";
 import { HistoryTable } from "./components/history-table";
 import { Icon } from "./components/icon";
+import { IconButton } from "./components/icon-button";
 import { DrawerShell, ProfileDetails } from "./components/record-drawer";
 import { SearchBox } from "./components/search-box";
 import { Toolbar, VIEW_LABELS } from "./components/toolbar";
@@ -49,6 +54,7 @@ export function App() {
   const [view, setView] = useState<DataManagerView>(route.view);
   const [query, setQuery] = useState("");
   const [drawer, setDrawer] = useState<DrawerState>(null);
+  const [copyTargetId, setCopyTargetId] = useState<string | null>(null);
   const editorDirtyRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const records = useRecords(scope);
@@ -62,6 +68,17 @@ export function App() {
   const visibleHistory = records.history.filter(function (entry) {
     return matchesQuery(entry.profile, [formatDisplayTime(entry.createdAt)], query);
   });
+  const favoriteIdByHistoryId = new Map<string, string>();
+  records.history.forEach(function (historyEntry) {
+    const favorite = records.favorites.find(function (entry) {
+      return isSameProfile(entry.profile, historyEntry.profile);
+    });
+    if (favorite) favoriteIdByHistoryId.set(historyEntry.id, favorite.id);
+  });
+  const favoritedHistoryIds = new Set(favoriteIdByHistoryId.keys());
+  const copyTarget = copyTargetId
+    ? records.favorites.find(function (entry) { return entry.id === copyTargetId; }) || null
+    : null;
   const drawerFavoriteId = drawer && (drawer.mode === "edit" || (drawer.mode === "view" && drawer.view === "favorites"))
     ? drawer.id
     : null;
@@ -79,7 +96,7 @@ export function App() {
 
   useEffect(function () {
     function handleKeydown(event: KeyboardEvent): void {
-      if (event.defaultPrevented || confirmDialog) return;
+      if (event.defaultPrevented || confirmDialog || copyTarget) return;
       const target = event.target as HTMLElement | null;
       const typing = !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
       if (event.key === "/" && !typing && scope) {
@@ -190,10 +207,33 @@ export function App() {
   }
 
   async function handleHistoryFavorite(id: string): Promise<void> {
+    const favoriteId = favoriteIdByHistoryId.get(id);
+    if (favoriteId) {
+      if (!(await changeDrawer({ mode: "view", view: "favorites", id: favoriteId }))) return;
+      setQuery("");
+      setView("favorites");
+      return;
+    }
     const created = await createFavoriteFromHistory(scope, id);
     if (!created) return;
     await records.reload();
-    showToast("已从生成记录加入常用数据", "success");
+    showToast("已收藏为常用数据", "success");
+  }
+
+  async function handleCopyToSites(targetScopes: string[]): Promise<void> {
+    if (!copyTarget) return;
+    try {
+      const results = await copyFavoriteToScopes(scope, copyTarget.id, targetScopes);
+      if (!results) {
+        showToast("这组常用数据已不存在", "warning");
+      } else {
+        const summary = summarizeCopyResults(results);
+        showToast(summary.message, summary.tone);
+      }
+      setCopyTargetId(null);
+    } catch (_error) {
+      showToast("复制失败，请重试", "danger");
+    }
   }
 
   function openCreate(): void {
@@ -245,15 +285,17 @@ export function App() {
                 <Icon name="pencil" />
                 编辑
               </button>
-              <span class="dm-drawer-foot-spacer" />
-              <button
-                type="button"
-                class="dm-ghost-btn is-danger"
-                onClick={function () { void runSafely(function () { return handleDelete(entry.id); }); }}
-              >
-                <Icon name="trash-2" />
-                删除
+              <button type="button" class="dm-secondary-btn" onClick={function () { setCopyTargetId(entry.id); }}>
+                <Icon name="copy-plus" />
+                复制到其他站点
               </button>
+              <span class="dm-drawer-foot-spacer" />
+              <IconButton
+                icon="trash-2"
+                label="删除"
+                tone="danger"
+                onClick={function () { void runSafely(function () { return handleDelete(entry.id); }); }}
+              />
             </>
           }
         >
@@ -263,9 +305,11 @@ export function App() {
     }
     if (drawerHistory) {
       const entry = drawerHistory;
+      const favorited = favoritedHistoryIds.has(entry.id);
       return (
         <DrawerShell
           eyebrow="生成记录"
+          badge={favorited ? "已收藏" : ""}
           title={entry.profile.fullName || "生成记录"}
           subtitle={"生成于 " + formatDisplayTime(entry.createdAt)}
           onClose={function () { void changeDrawer(null); }}
@@ -281,7 +325,7 @@ export function App() {
                 onClick={function () { void runSafely(function () { return handleHistoryFavorite(entry.id); }); }}
               >
                 <Icon name="star" />
-                收藏
+                {favorited ? "查看常用数据" : "收藏"}
               </button>
             </>
           }
@@ -323,6 +367,7 @@ export function App() {
           selectedId={drawerHistory ? drawerHistory.id : null}
           onSelect={function (id) { toggleRow("history", id); }}
           onCopyField={handleCopyField}
+          favoritedIds={favoritedHistoryIds}
           onFavorite={function (id) { void runSafely(function () { return handleHistoryFavorite(id); }); }}
           onCopy={function (id) {
             const entry = records.history.find(function (item) { return item.id === id; });
@@ -360,6 +405,7 @@ export function App() {
           if (entry) void copyProfile(entry.profile);
         }}
         onEdit={function (id) { void changeDrawer({ mode: "edit", id }); }}
+        onCopyToSites={setCopyTargetId}
         onDelete={function (id) { void runSafely(function () { return handleDelete(id); }); }}
         onReorder={function (orderedIds) { void runSafely(function () { return handleReorder(orderedIds); }); }}
       />
@@ -406,6 +452,14 @@ export function App() {
       </div>
       {toast ? (
         <div class="dm-toast" role="status" data-tone={toast.tone} key={toast.id}>{toast.message}</div>
+      ) : null}
+      {copyTarget ? (
+        <CopyToSitesDialog
+          scope={scope}
+          title={getFavoriteTitle(copyTarget)}
+          onClose={function () { setCopyTargetId(null); }}
+          onConfirm={handleCopyToSites}
+        />
       ) : null}
       {confirmDialog}
     </div>
