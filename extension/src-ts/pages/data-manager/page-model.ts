@@ -9,7 +9,6 @@ export {
   importFavoriteProfiles,
   isSameProfile,
   formatProfileForCopy,
-  listKnownScopes,
   listScopeSummaries,
   MAX_GENERATED_RECORDS,
   normalizeProfile,

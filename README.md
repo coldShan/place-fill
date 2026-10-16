@@ -17,7 +17,7 @@
 - **智能识别**：支持原生及 Element UI / Element Plus 常见表单控件；跳过已有值和密码、验证码等敏感字段，有活动弹窗时只填充弹窗表单。
 - **随机日期**：原生日期时间控件遵守 `min`、`max`、`step`，未设置边界时默认在当前日期前后一年内随机；Element UI / Element Plus 从当前日历面板未禁用的日期中随机选择，当前面板无可选项时跳过。组件未公开的业务或服务端校验仍需页面验证。
 - **字段标注**：输入框旁快捷填充，支持右键手动标注，标注按域名和一级路径复用；可选配 OpenAI-compatible 接口辅助识别。
-- **常用数据**：收藏页面数据、维护常用值和备注、查看生成记录，自定义显示字段。
+- **数据管理**：按站点管理常用数据与生成记录，支持全字段搜索、点击字段即复制、详情抽屉内编辑（名称备注、格式提示、单字段或整组随机生成），可将常用数据复制到其他站点，并按站点导入导出常用数据；页面实时同步并跟随系统暗色模式。
 - **备份恢复**：支持全部数据导出与恢复、每周备份提醒；Chrome 122+ 可授权本地目录自动备份。
 
 ## 安装与使用
@@ -52,7 +52,7 @@ pnpm test          # 全部测试
 
 本地调试：在 `chrome://extensions` 加载 `extension/`。手动验证页面见 [mock-form/](mock-form/)，包含原生、Element UI 和 Element Plus 示例。
 
-主要目录：`extension/src/` 为 JavaScript 模块，`extension/src-ts/` 为 TypeScript 源码，`extension/generated/` 为构建产物，`tests/` 为自动化测试。修改 TypeScript 后需重新构建，不要手动编辑构建产物。
+主要目录：`extension/src/` 为 JavaScript 模块，`extension/src-ts/` 为 TypeScript 源码（数据管理页位于 `extension/src-ts/pages/data-manager/`，使用 Preact + TSX），`extension/generated/` 为构建产物，`tests/` 为自动化测试。修改 TypeScript 后需重新构建，不要手动编辑构建产物。
 
 打包与发布：
 

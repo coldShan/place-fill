@@ -21,7 +21,7 @@
 - `extension/generated/`: committed Vite output (`data-manager.js`, `data-manager.css`, `data-manager-bridge.js`, `data-records-api.js`, `offline-form-snapshot-api.js`)
 - `extension/src-ts/shared/`: shared TypeScript logic (data records, data-manager routing, field meta, offline form snapshots)
 - `extension/src-ts/bridges/`: IIFE entry points that expose shared TypeScript logic as globals
-- `extension/src-ts/pages/data-manager/`: data manager page sources and styles
+- `extension/src-ts/pages/data-manager/`: data manager page (Preact + TSX) — `main.tsx` entry, `app.tsx` page state, `components/`, `state/` hooks, `lib/` pure helpers, and `style.css`
 - `extension/*.html`: extension pages — `data-manager.html`, `ai-permission.html` (AI host permission grant), `local-annotation-permission.html` (local directory backup grant)
 - `extension/assets/`: Lucide icons (`icons/lucide/`) and app icons (`app-icons/`)
 - `extension/scripts/`: icon, version-sync, packaging, and release scripts
@@ -95,7 +95,9 @@ pnpm release:verify
 - Content scripts are loaded sequentially by Chrome from `extension/manifest.json`.
 - Plain-JS modules under `extension/src/` use IIFE wrappers; shared modules expose `ChromeTestData*` globals for browser use and CommonJS exports for Node.js tests.
 - TypeScript is bundled by `scripts/build-extension.mjs` (Vite library mode) into `extension/generated/`, targeting `chrome109` without minification or source maps. The build clears `extension/generated/` first.
-- `extension/data-manager.html` loads `src/theme.css`, `generated/data-manager.css`, `src/icon-assets.js`, and `src/data-manager-page.js`, which dynamically imports `generated/data-manager.js?v=<manifest version>` to bust caches after updates.
+- The data manager page is written in Preact TSX (`jsxImportSource: "preact"` in both the Vite build and `tsconfig.json`). `preact` is the only runtime dependency and is bundled into `generated/data-manager.js`; the IIFE bridges stay framework-free.
+- `extension/data-manager.html` loads `src/theme.css`, `generated/data-manager.css`, `src/icon-assets.js`, `src/generators.js` (field generators and validators), and `src/data-manager-page.js`, which dynamically imports `generated/data-manager.js?v=<manifest version>` to bust caches after updates. The app mounts into `#app`.
+- Keep data manager logic that does not touch the DOM in `pages/data-manager/lib/` so it stays testable with `tsx --test` (see `tests/data-manager-lib.test.ts`); `tests/data-manager-page-ui.test.mjs` guards page structure and styling conventions.
 - Generated IIFE bridges expose shared TypeScript logic to content scripts and the background worker.
 - `background.js` runs as the extension service worker (context menus, action click, backup reminder alarms, GitHub update check, data-manager bridge, opening permission pages).
 - Content scripts run in all frames (`all_frames: true`) at `document_idle` on `<all_urls>`.
@@ -147,7 +149,7 @@ When adding a background dependency, keep this list, `tests/background-runtime.t
 
 ### Extension Pages
 
-- `data-manager.html`: favorites and generated-history management (TypeScript, `generated/data-manager.js`).
+- `data-manager.html`: per-site favorites and generated-history management (Preact TSX, `generated/data-manager.js`): search, per-field copy, detail drawer editing, copying favorites to other sites, favorites JSON import/export, and live refresh through `chrome.storage.onChanged`.
 - `ai-permission.html` + `src/ai-permission-page.js`: requests optional host permission for the configured AI endpoint origin.
 - `local-annotation-permission.html` + `src/local-annotation-permission-page.js`: picks and grants the persistent backup directory (Chrome `122+`), using `storage-mirror.js` and `local-annotation-file.js`.
 
@@ -158,6 +160,7 @@ When adding a background dependency, keep this list, `tests/background-runtime.t
 - Site feature toggles (`ctdp.siteFeatureEnabled.v1`) are keyed by domain and default to disabled until the user enables smart-fill and right-click annotation for that site.
 - AI recognition config (`ctdp.aiRecognitionConfig.v1`) and AI field mappings (`ctdp.aiFieldMappings.v1`) are managed by `ai-recognition.js`; never log or export the API key.
 - Global preferences (floating icon, focus style, dock position, etc.) use flat keys read and written directly with `chrome.storage.local.get/set`; no dedicated API module is needed.
+- Data manager column choices (`ctdp.dataManagerColumns.v1`) are a per-browser UI preference and are intentionally not part of full backup.
 - Full backup/restore covers the `STORAGE_KEYS` list in `storage-mirror.js`. When adding a user-data key that should survive backup, add it there and update `tests/storage-mirror.test.mjs`.
 - Persistent local-directory backup stores its directory handle in IndexedDB (`local-annotation-file.js`) and the JSON file `place-fill-data/place-fill-user-data.json`.
 
