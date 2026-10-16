@@ -317,3 +317,23 @@ test("importFavoriteProfiles appends new favorites in one write and skips duplic
   assert.deepEqual(favorites.map(function (entry) { return entry.name; }), [existing.name, "导入一", "导入二"]);
   assert.equal(favorites[1]?.note, "说明");
 });
+
+test("importFavoriteProfiles keeps ids unique when timestamps and random values repeat", async () => {
+  const storageArea = createStorageArea();
+  const scope = "alpha.example.com";
+  const existing = await createFavoriteProfile(scope, { profile: buildProfile(1) }, { storageArea, now: () => 3000, random: () => 0 });
+  await importFavoriteProfiles(scope, [
+    { profile: buildProfile(2) },
+    { profile: buildProfile(3) },
+    { profile: buildProfile(4) }
+  ], { storageArea, now: () => 3000, random: () => 0 });
+  const ids = (await readFavoriteProfiles(scope, { storageArea })).map(function (entry) { return entry.id; });
+  assert.equal(ids.length, 4);
+  assert.equal(new Set(ids).size, 4);
+  assert.equal(ids[0], existing.id);
+
+  await createFavoriteProfile("beta.example.com", { profile: buildProfile(5) }, { storageArea, now: () => 3000, random: () => 0 });
+  await copyFavoriteToScopes(scope, existing.id, ["beta.example.com"], { storageArea, now: () => 3000, random: () => 0 });
+  const betaIds = (await readFavoriteProfiles("beta.example.com", { storageArea })).map(function (entry) { return entry.id; });
+  assert.equal(new Set(betaIds).size, 2);
+});

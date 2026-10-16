@@ -72,6 +72,20 @@ function createId(now: number, random: () => number): string {
   return String(now) + "-" + Math.floor(random() * 1e6).toString(36);
 }
 
+function createUniqueId(now: number, random: () => number, usedIds: Set<string>): string {
+  const baseId = createId(now, random);
+  let id = baseId;
+  for (let suffix = 1; usedIds.has(id); suffix += 1) id = baseId + "-" + suffix;
+  usedIds.add(id);
+  return id;
+}
+
+function collectIds(entries: { id: string }[]): Set<string> {
+  return new Set(entries.map(function (entry) {
+    return entry.id;
+  }));
+}
+
 export function normalizeScopeKey(value: string): ScopeKey {
   const normalized = String(value || "").trim().toLowerCase();
   if (!normalized) return "";
@@ -403,7 +417,7 @@ export async function copyFavoriteToScopes(
     if (exists) return { scope: target, status: "duplicate" };
     const copied: FavoriteEntry = {
       createdAt: String(now),
-      id: createId(now, random),
+      id: createUniqueId(now, random, collectIds(currentEntries)),
       name: source.name,
       note: source.note,
       profile: normalizeProfile(source.profile),
@@ -434,6 +448,7 @@ export async function importFavoriteProfiles(
   const now = env && typeof env.now === "function" ? env.now() : Date.now();
   const random = env && typeof env.random === "function" ? env.random : Math.random;
   const created: FavoriteEntry[] = [];
+  const usedIds = collectIds(currentEntries);
   let skipped = 0;
 
   inputs.forEach(function (input) {
@@ -447,7 +462,7 @@ export async function importFavoriteProfiles(
     }
     created.push({
       createdAt: String(now),
-      id: createId(now, random),
+      id: createUniqueId(now, random, usedIds),
       name: String(input.name || "").trim() || "常用数据",
       note: String(input.note || "").trim(),
       profile,

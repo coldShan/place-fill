@@ -134,6 +134,18 @@ export function App() {
     };
   });
 
+  useEffect(function () {
+    function handleBeforeUnload(event: BeforeUnloadEvent): void {
+      if (!editorDirtyRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return function () {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+
   async function runSafely(task: () => Promise<void>): Promise<void> {
     try {
       await task();
