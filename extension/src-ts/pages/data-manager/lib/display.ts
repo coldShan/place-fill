@@ -24,3 +24,14 @@ export function shiftId(ids: string[], id: string, offset: number): string[] | n
   next.splice(nextIndex, 0, id);
   return next;
 }
+
+export const DEFAULT_FAVORITE_NAME = "常用数据";
+
+export function getCustomFavoriteName(name: string): string {
+  const trimmed = String(name || "").trim();
+  return trimmed === DEFAULT_FAVORITE_NAME ? "" : trimmed;
+}
+
+export function getFavoriteTitle(entry: { name: string; profile: { fullName: string } }): string {
+  return getCustomFavoriteName(entry.name) || entry.profile.fullName || "未命名数据";
+}
