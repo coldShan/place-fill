@@ -36,6 +36,8 @@ function isSameDraft(left: FavoriteDraft, right: FavoriteDraft): boolean {
 
 export function FavoriteEditor(props: {
   entry: FavoriteEntry | null;
+  liveEntry?: FavoriteEntry | null;
+  onLoadLatest?: () => void;
   favorites: FavoriteEntry[];
   onCancel: () => void;
   onSave: (draft: FavoriteDraft) => Promise<void>;
@@ -144,6 +146,21 @@ export function FavoriteEditor(props: {
         class="dm-editor"
         onSubmit={function (event) { void handleSubmit(event); }}
       >
+        {props.entry && props.liveEntry === null ? (
+          <div class="dm-banner is-warning" role="status">
+            <Icon name="circle-alert" />
+            <span class="dm-banner-text">这组数据已在其他页面被删除，保存后将重新创建。</span>
+          </div>
+        ) : null}
+        {props.entry && props.liveEntry && props.liveEntry.updatedAt !== props.entry.updatedAt ? (
+          <div class="dm-banner is-info" role="status">
+            <Icon name="circle-alert" />
+            <span class="dm-banner-text">这组数据已在其他页面更新，保存将覆盖那次修改。</span>
+            {props.onLoadLatest ? (
+              <button type="button" class="dm-link-btn" onClick={props.onLoadLatest}>载入最新</button>
+            ) : null}
+          </div>
+        ) : null}
         {duplicate ? (
           <div ref={bannerRef} class="dm-banner is-warning" role="alert">
             <Icon name="circle-alert" />

@@ -759,6 +759,7 @@ textarea:focus-visible,
 }
 
 .dm-link-btn {
+  flex: 0 0 auto;
   padding: 2px 4px;
   border-radius: 4px;
   color: var(--dm-accent-ink);
@@ -767,6 +768,11 @@ textarea:focus-visible,
 
 .dm-link-btn:hover {
   text-decoration: underline;
+}
+
+.dm-link-btn,
+.dm-banner .dm-link-btn {
+  white-space: nowrap;
 }
 
 .dm-menu {
@@ -901,6 +907,82 @@ textarea:focus-visible,
 
 .dm-inline-form .dm-secondary-btn {
   height: 34px;
+}
+
+.dm-table tbody tr.is-fresh td {
+  animation: dm-row-fresh 2400ms ease;
+}
+
+@keyframes dm-row-fresh {
+  from {
+    background: var(--dm-success-soft);
+  }
+
+  to {
+    background: transparent;
+  }
+}
+
+.dm-import-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dm-import-summary .dm-banner {
+  margin: 0;
+}
+
+.dm-import-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.dm-import-meta span:first-child {
+  flex: 0 0 auto;
+  color: var(--dm-ink-3);
+}
+
+.dm-import-meta-value {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--dm-font-mono);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dm-import-preview {
+  margin: 0;
+  padding: 4px 0;
+  border: 1px solid var(--dm-line);
+  border-radius: var(--dm-radius);
+  list-style: none;
+}
+
+.dm-import-preview li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.dm-import-preview-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dm-import-preview-meta,
+.dm-import-preview-more {
+  color: var(--dm-ink-3);
+  font-family: var(--dm-font-mono);
+  font-size: 12px;
 }
 
 /* ── Drawer ─────────────────────────────── */

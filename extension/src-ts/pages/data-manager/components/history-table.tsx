@@ -11,6 +11,7 @@ export function HistoryTable(props: {
   onSelect: (id: string) => void;
   onCopyField: (fieldKey: ProfileFieldKey, value: string) => void;
   favoritedIds: Set<string>;
+  freshIds: Set<string>;
   onFavorite: (id: string) => void;
   onCopy: (id: string) => void;
 }) {
@@ -32,7 +33,7 @@ export function HistoryTable(props: {
               <tr
                 key={entry.id}
                 tabIndex={0}
-                class={"dm-row" + (props.selectedId === entry.id ? " is-selected" : "")}
+                class={"dm-row" + (props.selectedId === entry.id ? " is-selected" : "") + (props.freshIds.has(entry.id) ? " is-fresh" : "")}
                 onClick={function () { props.onSelect(entry.id); }}
                 onKeyDown={function (event) {
                   if (event.key === "Enter" && event.target === event.currentTarget) props.onSelect(entry.id);

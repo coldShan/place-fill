@@ -12,6 +12,13 @@ import { getFavoriteTitle, moveId, shiftId } from "../extension/src-ts/pages/dat
 import { getFieldWarning } from "../extension/src-ts/pages/data-manager/lib/field-validation";
 import { generateRandomProfile, type GeneratorsApi } from "../extension/src-ts/pages/data-manager/lib/generators";
 import { DISPLAY_FIELD_ORDER, FIELD_GROUPS } from "../extension/src-ts/pages/data-manager/lib/field-groups";
+import {
+  buildExportFileName,
+  buildExportPayload,
+  EXPORT_FILE_TYPE,
+  parseImportPayload,
+  planImport
+} from "../extension/src-ts/pages/data-manager/lib/import-export";
 import { parseScopeInput, summarizeCopyResults } from "../extension/src-ts/pages/data-manager/lib/scope-input";
 import { matchesQuery, splitHighlight } from "../extension/src-ts/pages/data-manager/lib/record-search";
 import { FIELD_KEYS, normalizeProfile } from "../extension/src-ts/shared/data-records";
@@ -130,4 +137,47 @@ test("summarizeCopyResults reports created and skipped target sites", () => {
     ]),
     { message: "a.com、b.com 等 3 个站点 已存在相同数据，未重复复制", tone: "warning" }
   );
+});
+
+test("export payload only carries favorites and round-trips through import parsing", () => {
+  const favorites = [
+    { id: "a", name: "主账号", note: "备注", createdAt: "1", updatedAt: "1", profile: normalizeProfile({ fullName: "张三", mobile: "13800138000" }) }
+  ];
+  const now = new Date(2026, 9, 16, 9, 30);
+  const payload = buildExportPayload("example.com", favorites, now);
+  assert.equal(payload.type, EXPORT_FILE_TYPE);
+  assert.equal(payload.version, 1);
+  assert.deepEqual(Object.keys(payload).sort(), ["exportedAt", "favorites", "scope", "type", "version"]);
+  assert.deepEqual(payload.favorites, [{ name: "主账号", note: "备注", profile: favorites[0]?.profile }]);
+  assert.equal(buildExportFileName("example.com", now), "place-fill-example.com-favorites-20261016.json");
+
+  const parsed = parseImportPayload("\uFEFF" + JSON.stringify({ ...payload, history: [{ profile: { fullName: "忽略" } }] }));
+  assert.ok(parsed.ok);
+  if (parsed.ok) {
+    assert.equal(parsed.sourceScope, "example.com");
+    assert.deepEqual(parsed.favorites, payload.favorites);
+  }
+});
+
+test("parseImportPayload rejects invalid files and empty records", () => {
+  assert.deepEqual(parseImportPayload("{oops"), { ok: false, error: "文件不是有效的 JSON" });
+  assert.equal(parseImportPayload("[]").ok, false);
+  assert.equal(parseImportPayload(JSON.stringify({ type: "other", favorites: [] })).ok, false);
+  assert.deepEqual(
+    parseImportPayload(JSON.stringify({ type: EXPORT_FILE_TYPE, favorites: [{ profile: {} }, null, "x"] })),
+    { ok: false, error: "文件中没有可导入的常用数据" }
+  );
+});
+
+test("planImport skips records that already exist or repeat inside the file", () => {
+  const existing = [
+    { id: "a", name: "常用数据", note: "", createdAt: "1", updatedAt: "1", profile: normalizeProfile({ fullName: "张三" }) }
+  ];
+  const plan = planImport(existing, [
+    { name: "", note: "", profile: normalizeProfile({ fullName: "张三" }) },
+    { name: "", note: "", profile: normalizeProfile({ fullName: "李四" }) },
+    { name: "重复", note: "", profile: normalizeProfile({ fullName: "李四" }) }
+  ]);
+  assert.equal(plan.duplicates, 2);
+  assert.deepEqual(plan.toCreate.map(function (item) { return item.profile.fullName; }), ["李四"]);
 });

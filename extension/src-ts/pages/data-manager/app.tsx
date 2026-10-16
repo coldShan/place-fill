@@ -11,10 +11,12 @@ import {
   deleteFavoriteProfile,
   formatProfileForCopy,
   getFieldLabel,
+  importFavoriteProfiles,
   isSameProfile,
   MAX_GENERATED_RECORDS,
   reorderFavoriteProfiles,
   updateFavoriteProfile,
+  type FavoriteEntry,
   type ProfileFieldKey,
   type ProfileFieldMap
 } from "./page-model";
@@ -22,6 +24,13 @@ import { copyText } from "./lib/clipboard";
 import { DEFAULT_COLUMNS } from "./lib/columns";
 import { formatDisplayTime, getFavoriteTitle } from "./lib/display";
 import { matchesQuery } from "./lib/record-search";
+import {
+  buildExportFileName,
+  buildExportPayload,
+  parseImportPayload,
+  planImport,
+  type ImportedFavorite
+} from "./lib/import-export";
 import { summarizeCopyResults } from "./lib/scope-input";
 import { ColumnPicker } from "./components/column-picker";
 import { CopyToSitesDialog } from "./components/copy-to-sites-dialog";
@@ -30,6 +39,7 @@ import { FavoriteEditor, type FavoriteDraft } from "./components/favorite-editor
 import { FavoritesTable } from "./components/favorites-table";
 import { Header } from "./components/header";
 import { HistoryTable } from "./components/history-table";
+import { ImportDialog } from "./components/import-dialog";
 import { Icon } from "./components/icon";
 import { IconButton } from "./components/icon-button";
 import { DrawerShell, ProfileDetails } from "./components/record-drawer";
@@ -40,10 +50,17 @@ import { useConfirm } from "./state/use-confirm";
 import { useRecords } from "./state/use-records";
 import { useToast } from "./state/use-toast";
 
+type ImportPreview = {
+  fileName: string;
+  sourceScope: string;
+  toCreate: ImportedFavorite[];
+  duplicates: number;
+};
+
 type DrawerState =
   | null
   | { mode: "view"; view: DataManagerView; id: string }
-  | { mode: "edit"; id: string }
+  | { mode: "edit"; id: string; snapshot: FavoriteEntry }
   | { mode: "create" };
 
 export function App() {
@@ -55,6 +72,8 @@ export function App() {
   const [query, setQuery] = useState("");
   const [drawer, setDrawer] = useState<DrawerState>(null);
   const [copyTargetId, setCopyTargetId] = useState<string | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const editorDirtyRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const records = useRecords(scope);
@@ -96,7 +115,7 @@ export function App() {
 
   useEffect(function () {
     function handleKeydown(event: KeyboardEvent): void {
-      if (event.defaultPrevented || confirmDialog || copyTarget) return;
+      if (event.defaultPrevented || confirmDialog || copyTarget || importPreview) return;
       const target = event.target as HTMLElement | null;
       const typing = !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
       if (event.key === "/" && !typing && scope) {
@@ -168,11 +187,11 @@ export function App() {
   async function handleSave(draft: FavoriteDraft): Promise<void> {
     if (!drawer || (drawer.mode !== "edit" && drawer.mode !== "create")) return;
     try {
-      if (drawer.mode === "edit") {
-        await updateFavoriteProfile(scope, drawer.id, draft);
+      const updated = drawer.mode === "edit" ? await updateFavoriteProfile(scope, drawer.id, draft) : null;
+      if (updated) {
         showToast("常用数据已更新", "success");
         editorDirtyRef.current = false;
-        setDrawer({ mode: "view", view: "favorites", id: drawer.id });
+        setDrawer({ mode: "view", view: "favorites", id: updated.id });
       } else {
         const created = await createFavoriteProfile(scope, draft);
         showToast("已新增常用数据", "success");
@@ -236,6 +255,52 @@ export function App() {
     }
   }
 
+  function handleExport(): void {
+    if (!records.favorites.length) return;
+    const now = new Date();
+    const blob = new Blob([JSON.stringify(buildExportPayload(scope, records.favorites, now), null, 2)], {
+      type: "application/json"
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = buildExportFileName(scope, now);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    showToast("已导出 " + records.favorites.length + " 条常用数据", "success");
+  }
+
+  async function handleImportFile(file: File): Promise<void> {
+    const parsed = parseImportPayload(await file.text());
+    if (!parsed.ok) {
+      showToast(parsed.error, "danger");
+      return;
+    }
+    const plan = planImport(records.favorites, parsed.favorites);
+    setImportPreview({ fileName: file.name, sourceScope: parsed.sourceScope, ...plan });
+  }
+
+  async function confirmImport(): Promise<void> {
+    if (!importPreview) return;
+    try {
+      const result = await importFavoriteProfiles(scope, importPreview.toCreate);
+      setImportPreview(null);
+      await records.reload();
+      showToast(
+        "已导入 " + result.created.length + " 条常用数据" + (result.skipped ? "，跳过 " + result.skipped + " 条重复数据" : ""),
+        "success"
+      );
+    } catch (_error) {
+      showToast("导入失败，请重试", "danger");
+    }
+  }
+
+  function startEdit(entry: FavoriteEntry): void {
+    void changeDrawer({ mode: "edit", id: entry.id, snapshot: entry });
+  }
+
   function openCreate(): void {
     void changeDrawer({ mode: "create" });
   }
@@ -250,11 +315,19 @@ export function App() {
 
   function renderDrawer() {
     if (!drawer) return null;
-    if (drawer.mode === "create" || (drawer.mode === "edit" && drawerFavorite)) {
+    if (drawer.mode === "create" || drawer.mode === "edit") {
+      const snapshot = drawer.mode === "edit" ? drawer.snapshot : null;
       return (
         <FavoriteEditor
-          key={drawer.mode === "edit" ? "edit-" + drawer.id : "create"}
-          entry={drawer.mode === "edit" ? drawerFavorite : null}
+          key={snapshot ? "edit-" + snapshot.id + "-" + snapshot.updatedAt : "create"}
+          entry={snapshot}
+          liveEntry={snapshot ? drawerFavorite : undefined}
+          onLoadLatest={function () {
+            if (drawerFavorite) {
+              editorDirtyRef.current = false;
+              setDrawer({ mode: "edit", id: drawerFavorite.id, snapshot: drawerFavorite });
+            }
+          }}
           favorites={records.favorites}
           onCancel={function () {
             void changeDrawer(drawer.mode === "edit" ? { mode: "view", view: "favorites", id: drawer.id } : null);
@@ -281,7 +354,7 @@ export function App() {
                 <Icon name="copy" />
                 复制整组
               </button>
-              <button type="button" class="dm-secondary-btn" onClick={function () { void changeDrawer({ mode: "edit", id: entry.id }); }}>
+              <button type="button" class="dm-secondary-btn" onClick={function () { startEdit(entry); }}>
                 <Icon name="pencil" />
                 编辑
               </button>
@@ -368,6 +441,7 @@ export function App() {
           onSelect={function (id) { toggleRow("history", id); }}
           onCopyField={handleCopyField}
           favoritedIds={favoritedHistoryIds}
+          freshIds={records.freshHistoryIds}
           onFavorite={function (id) { void runSafely(function () { return handleHistoryFavorite(id); }); }}
           onCopy={function (id) {
             const entry = records.history.find(function (item) { return item.id === id; });
@@ -404,7 +478,10 @@ export function App() {
           const entry = records.favorites.find(function (item) { return item.id === id; });
           if (entry) void copyProfile(entry.profile);
         }}
-        onEdit={function (id) { void changeDrawer({ mode: "edit", id }); }}
+        onEdit={function (id) {
+          const entry = records.favorites.find(function (item) { return item.id === id; });
+          if (entry) startEdit(entry);
+        }}
         onCopyToSites={setCopyTargetId}
         onDelete={function (id) { void runSafely(function () { return handleDelete(id); }); }}
         onReorder={function (orderedIds) { void runSafely(function () { return handleReorder(orderedIds); }); }}
@@ -416,10 +493,43 @@ export function App() {
     <div class="dm-app">
       <Header scope={scope}>
         {scope && view === "favorites" ? (
-          <button type="button" class="dm-primary-btn" onClick={openCreate}>
-            <Icon name="plus" />
-            新增
-          </button>
+          <>
+            <button
+              type="button"
+              class="dm-ghost-btn"
+              title="从导出的 JSON 文件导入常用数据"
+              onClick={function () { importInputRef.current?.click(); }}
+            >
+              <Icon name="upload" />
+              导入
+            </button>
+            <button
+              type="button"
+              class="dm-ghost-btn"
+              title="导出当前站点的常用数据"
+              disabled={!records.favorites.length}
+              onClick={handleExport}
+            >
+              <Icon name="download" />
+              导出
+            </button>
+            <button type="button" class="dm-primary-btn" onClick={openCreate}>
+              <Icon name="plus" />
+              新增
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".json,application/json"
+              hidden
+              onChange={function (event) {
+                const input = event.currentTarget;
+                const file = input.files && input.files[0];
+                input.value = "";
+                if (file) void runSafely(function () { return handleImportFile(file); });
+              }}
+            />
+          </>
         ) : null}
       </Header>
       {scope ? (
@@ -459,6 +569,14 @@ export function App() {
           title={getFavoriteTitle(copyTarget)}
           onClose={function () { setCopyTargetId(null); }}
           onConfirm={handleCopyToSites}
+        />
+      ) : null}
+      {importPreview ? (
+        <ImportDialog
+          scope={scope}
+          {...importPreview}
+          onClose={function () { setImportPreview(null); }}
+          onConfirm={confirmImport}
         />
       ) : null}
       {confirmDialog}

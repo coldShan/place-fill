@@ -8,6 +8,7 @@ import {
   deleteFavoriteProfile,
   findFavoriteProfile,
   hasFavoriteProfile,
+  importFavoriteProfiles,
   listScopeSummaries,
   normalizeScopeKey,
   readFavoriteProfiles,
@@ -287,4 +288,32 @@ test("copyFavoriteToScopes copies one favorite into other scopes and skips dupli
     { favorites: 0, history: 1, scope: "delta.example.com" },
     { favorites: 1, history: 0, scope: "gamma.example.com" }
   ]);
+});
+
+test("importFavoriteProfiles appends new favorites in one write and skips duplicates", async () => {
+  const storageArea = createStorageArea();
+  const scope = "alpha.example.com";
+  const existing = await createFavoriteProfile(scope, { profile: buildProfile(1) }, { storageArea, now: () => 1000, random: () => 0 });
+  let writes = 0;
+  const countingArea = {
+    get: storageArea.get,
+    set(value: Record<string, unknown>, callback?: () => void) {
+      writes += 1;
+      storageArea.set(value, callback);
+    }
+  };
+
+  const result = await importFavoriteProfiles(scope, [
+    { name: "导入一", note: "说明", profile: buildProfile(2) },
+    { profile: buildProfile(1) },
+    { profile: buildProfile(2) },
+    { name: "导入二", profile: buildProfile(3) }
+  ], { storageArea: countingArea, now: () => 2000, random: () => 0.3 });
+
+  assert.equal(writes, 1);
+  assert.equal(result.skipped, 2);
+  assert.deepEqual(result.created.map(function (entry) { return entry.name; }), ["导入一", "导入二"]);
+  const favorites = await readFavoriteProfiles(scope, { storageArea });
+  assert.deepEqual(favorites.map(function (entry) { return entry.name; }), [existing.name, "导入一", "导入二"]);
+  assert.equal(favorites[1]?.note, "说明");
 });
