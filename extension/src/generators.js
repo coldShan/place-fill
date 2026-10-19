@@ -42,8 +42,9 @@
   const COMPANY_SUFFIXES = ["有限公司", "有限责任公司", "集团有限公司", "科技有限公司"];
   const FAMILY_NAMES = ["赵", "钱", "孙", "李", "周", "吴", "郑", "王", "冯", "陈", "褚", "卫", "蒋", "沈", "韩", "杨", "朱", "秦", "许", "何", "吕", "张", "孔", "曹", "严", "华", "金", "魏", "陶", "姜"];
   const GIVEN_NAME_CHARS = ["安", "北", "晨", "岱", "恩", "帆", "歌", "禾", "嘉", "岚", "朗", "铭", "宁", "沛", "清", "然", "舒", "童", "唯", "熙", "言", "予", "舟", "知", "子", "远", "修", "祺", "衡", "悦"];
-  const ID_CARD_BIRTH_YEAR_START = 1940;
-  const ID_CARD_BIRTH_YEAR_END = 2010;
+  const ID_CARD_MIN_AGE = 16;
+  const ID_CARD_MAX_AGE = 65;
+  const DAY_MS = 24 * 60 * 60 * 1000;
   const fieldMetaApi = getFieldMetaApi();
   const GeneratedFieldLabels = Object.freeze(
     Object.fromEntries(
@@ -142,13 +143,28 @@
     return getIdCheckChar(idNumber.slice(0, 17)) === idNumber.slice(17);
   }
 
-  function generateChineseIdNumber(rng) {
+  function shiftYearsUtc(date, years) {
+    const year = date.getFullYear() - years;
+    const month = date.getMonth() + 1;
+    const day = Math.min(date.getDate(), daysInMonth(year, month));
+    return Date.UTC(year, month - 1, day);
+  }
+
+  // 出生日期范围：截至 now 年龄满 ID_CARD_MIN_AGE 岁且未满 ID_CARD_MAX_AGE + 1 岁
+  function pickIdCardBirthDate(rng, now) {
+    const today = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
+    const latest = shiftYearsUtc(today, ID_CARD_MIN_AGE);
+    const earliest = shiftYearsUtc(today, ID_CARD_MAX_AGE + 1) + DAY_MS;
+    const totalDays = Math.round((latest - earliest) / DAY_MS) + 1;
+    const birth = new Date(earliest + randomInt(totalDays, rng) * DAY_MS);
+    return String(birth.getUTCFullYear()) + pad2(birth.getUTCMonth() + 1) + pad2(birth.getUTCDate());
+  }
+
+  function generateChineseIdNumber(rng, now) {
     const region = pick(REGION_CODES, rng);
-    const year = ID_CARD_BIRTH_YEAR_START + randomInt(ID_CARD_BIRTH_YEAR_END - ID_CARD_BIRTH_YEAR_START + 1, rng);
-    const month = 1 + randomInt(12, rng);
-    const day = 1 + randomInt(daysInMonth(year, month), rng);
+    const birthDate = pickIdCardBirthDate(rng, now);
     const serial = String(100 + randomInt(900, rng));
-    const base17 = region + year + pad2(month) + pad2(day) + serial;
+    const base17 = region + birthDate + serial;
     return base17 + getIdCheckChar(base17);
   }
 

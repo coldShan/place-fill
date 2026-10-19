@@ -70,19 +70,30 @@ test("generateChineseIdNumber returns legal birthday and checksum", () => {
   const month = Number(birth.slice(4, 6));
   const day = Number(birth.slice(6, 8));
 
-  assert.equal(year >= 1940 && year <= 2010, true);
+  const currentYear = new Date().getFullYear();
+  assert.equal(year >= currentYear - 66 && year <= currentYear - 16, true);
   assert.equal(month >= 1 && month <= 12, true);
   assert.equal(day >= 1 && day <= 31, true);
 });
 
-test("generateChineseIdNumber uses the configured birth year boundaries", () => {
-  const minYearIdNumber = generateChineseIdNumber(createRng([0, 0, 0, 0]));
-  const maxYearIdNumber = generateChineseIdNumber(createRng([0, 0.999999, 0, 0]));
+test("generateChineseIdNumber keeps age between 16 and 65 as of now", () => {
+  const now = new Date(2026, 9, 19);
+  const oldestIdNumber = generateChineseIdNumber(createRng([0, 0, 0]), now);
+  const youngestIdNumber = generateChineseIdNumber(createRng([0, 0.999999, 0]), now);
 
-  assert.equal(minYearIdNumber.slice(6, 10), "1940");
-  assert.equal(maxYearIdNumber.slice(6, 10), "2010");
-  assert.equal(validateChineseIdNumber(minYearIdNumber), true);
-  assert.equal(validateChineseIdNumber(maxYearIdNumber), true);
+  assert.equal(oldestIdNumber.slice(6, 14), "19601020");
+  assert.equal(youngestIdNumber.slice(6, 14), "20101019");
+  assert.equal(validateChineseIdNumber(oldestIdNumber), true);
+  assert.equal(validateChineseIdNumber(youngestIdNumber), true);
+});
+
+test("generateChineseIdNumber clamps leap-day birthdays to a valid date", () => {
+  const now = new Date(2024, 1, 29);
+  const youngestIdNumber = generateChineseIdNumber(createRng([0, 0.999999, 0]), now);
+  const oldestIdNumber = generateChineseIdNumber(createRng([0, 0, 0]), now);
+
+  assert.equal(youngestIdNumber.slice(6, 14), "20080229");
+  assert.equal(oldestIdNumber.slice(6, 14), "19580301");
 });
 
 test("generateBankCardNumber returns number with luhn checksum", () => {
