@@ -8,7 +8,7 @@
 ## Project Overview
 
 - `place-fill` is a Chrome Manifest V3 extension for generating Chinese-standard test data for QA, regression testing, and demo recording.
-- Current manifest version: `0.9.8` (source: `extension/manifest.json`).
+- Current manifest version: `0.9.9` (source: `extension/manifest.json`).
 - The runtime combines plain JavaScript under `extension/src/` with committed bundles generated from `extension/src-ts/`.
 - Chrome loads content scripts from `extension/manifest.json`; the data manager page is `extension/data-manager.html`, which loads generated assets through a versioned loader.
 - There is no build step for plain JS: Chrome executes committed files directly, so `extension/generated/` must always be committed in sync with `extension/src-ts/`.
