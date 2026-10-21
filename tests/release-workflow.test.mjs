@@ -4,10 +4,15 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-const carrier = Buffer.concat([
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-  Buffer.from("carrier")
-]);
+const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const pngEndChunk = Buffer.from([0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]);
+
+function createPng(body) {
+  return Buffer.concat([pngSignature, Buffer.from(body), pngEndChunk]);
+}
+
+const carrier = createPng("carrier");
+const poster = createPng("update poster");
 
 function createReleaseFixture() {
   const repoDir = mkdtempSync(join(tmpdir(), "ctdp-release-workflow-"));
@@ -34,9 +39,19 @@ function createReleaseFixture() {
   return { extensionDir, releasesDir, repoDir };
 }
 
-function writeReleaseArtifacts(repoDir, zip = Buffer.from("zip")) {
+function writeReleaseArtifacts(repoDir, zip = Buffer.from("zip"), imageCarrier = carrier) {
   writeFileSync(join(repoDir, "releases", "place-fill-v0.7.4.zip"), zip);
-  writeFileSync(join(repoDir, "releases", "place-fill.png"), Buffer.concat([carrier, zip]));
+  writeFileSync(join(repoDir, "releases", "place-fill.png"), Buffer.concat([imageCarrier, zip]));
+}
+
+function runCommandWithoutRemoteTag(command, args) {
+  if (command === "git" && args.join(" ") === "rev-parse refs/tags/v0.7.4") {
+    return { stdout: "abc\n" };
+  }
+  if (command === "git" && args.join(" ") === "show v0.7.4:extension/manifest.json") {
+    return { stdout: JSON.stringify({ name: "place-fill", version: "0.7.4" }) };
+  }
+  return { stdout: "" };
 }
 
 test("releaseVersion commits, tags, pushes, and verifies the requested version", async () => {
@@ -141,6 +156,91 @@ test("releaseVersion requires non-empty authored release notes", async () => {
   assert.throws(
     () => releaseVersion({ notesFile: emptyNotesFile, repoDir, version: "0.7.5" }),
     /release notes file must not be empty/
+  );
+});
+
+test("releaseVersion packages with the requested carrier image", async () => {
+  const { repoDir } = createReleaseFixture();
+  const notesFile = join(repoDir, "release-notes.md");
+  const posterPath = join(repoDir, "update-poster.png");
+  writeFileSync(notesFile, "## 更新内容\n");
+  writeFileSync(posterPath, poster);
+  const { releaseVersion } = await import("../extension/scripts/release-version.mjs");
+
+  let packageOptions = null;
+  releaseVersion({
+    carrier: "update-poster.png",
+    notesFile,
+    repoDir,
+    version: "0.7.5",
+    runCommand(command, args) {
+      if (command === "git" && args.join(" ") === "branch --show-current") return { stdout: "main\n" };
+      if (command === "git" && args[0] === "rev-parse") return { stdout: "", status: 1 };
+      if (command === "git" && args.join(" ") === "ls-remote --tags origin v0.7.5") {
+        return { stdout: packageOptions ? "abc\trefs/tags/v0.7.5\n" : "" };
+      }
+      if (command === "gh" && args[1] === "view") {
+        return { stdout: JSON.stringify({ tagName: "v0.7.5", assets: [{ name: "place-fill-v0.7.5.zip" }] }) };
+      }
+      return { stdout: "" };
+    },
+    packageRelease(options) {
+      packageOptions = options;
+      return {
+        fileName: "place-fill-v0.7.5.zip",
+        imageFileName: "place-fill.png",
+        imageOutputPath: join(repoDir, "releases", "place-fill.png"),
+        outputPath: join(repoDir, "releases", "place-fill-v0.7.5.zip")
+      };
+    }
+  });
+
+  assert.equal(packageOptions.carrierPath, posterPath);
+});
+
+test("releaseVersion rejects an invalid carrier before changing the manifest", async () => {
+  const { repoDir } = createReleaseFixture();
+  const notesFile = join(repoDir, "release-notes.md");
+  writeFileSync(notesFile, "## 更新内容\n");
+  writeFileSync(join(repoDir, "poster.jpg"), Buffer.from([0xff, 0xd8, 0xff, 0xe0]));
+  const { releaseVersion } = await import("../extension/scripts/release-version.mjs");
+
+  assert.throws(
+    () => releaseVersion({ carrier: "poster.jpg", notesFile, repoDir, version: "0.7.5" }),
+    /release image carrier must be a complete PNG/
+  );
+  const manifest = JSON.parse(readFileSync(join(repoDir, "extension", "manifest.json"), "utf8"));
+  assert.equal(manifest.version, "0.7.4");
+});
+
+test("verifyRelease accepts a disguised image built on any complete PNG carrier", async () => {
+  const { repoDir } = createReleaseFixture();
+  const verifyScript = await import("../extension/scripts/verify-release.mjs");
+  writeReleaseArtifacts(repoDir, Buffer.from("zip"), poster);
+
+  // Getting past the image check to the remote tag check means the poster carrier was accepted.
+  assert.throws(
+    () => verifyScript.verifyRelease({ repoDir, runCommand: runCommandWithoutRemoteTag }),
+    /remote tag v0\.7\.4 not found/
+  );
+});
+
+test("verifyRelease checks the disguised image against an explicit carrier", async () => {
+  const { repoDir } = createReleaseFixture();
+  const verifyScript = await import("../extension/scripts/verify-release.mjs");
+  const posterPath = join(repoDir, "update-poster.png");
+  writeFileSync(posterPath, poster);
+  writeReleaseArtifacts(repoDir);
+
+  assert.throws(
+    () => verifyScript.verifyRelease({ carrierPath: posterPath, repoDir, runCommand: runCommandWithoutRemoteTag }),
+    /disguised release image does not use carrier/
+  );
+
+  writeReleaseArtifacts(repoDir, Buffer.from("zip"), poster);
+  assert.throws(
+    () => verifyScript.verifyRelease({ carrierPath: posterPath, repoDir, runCommand: runCommandWithoutRemoteTag }),
+    /remote tag v0\.7\.4 not found/
   );
 });
 

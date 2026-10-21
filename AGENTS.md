@@ -30,7 +30,7 @@
 - `mock-form/`: local manual verification pages (`index.html`, `element-ui-demo.html`, `element-plus-demo.html`)
 - `tests/`: `*.test.mjs` (node:test) and `*.test.ts` (tsx) tests
 - `releases/`: local release artifacts output directory
-- `nodata.png`: PNG carrier prepended to each release zip to create `releases/place-fill.png`
+- `nodata.png`: default PNG carrier prepended to each release zip to create `releases/place-fill.png`
 - `*.zip`: exported delivery artifacts, kept local and ignored by Git
 - `task_plan.md`, `findings.md`, `progress.md`: planning artifacts, kept local and ignored by Git
 
@@ -70,14 +70,14 @@ node extension/scripts/localize-icons.mjs --force
 # Sync README and AGENTS.md version references to manifest.json
 node extension/scripts/sync-readme-version.mjs
 
-# Package release zip
-node extension/scripts/package-release.mjs
+# Package release zip (optional --carrier PNG for the disguised image; defaults to nodata.png)
+node extension/scripts/package-release.mjs --carrier /tmp/place-fill-update.png
 
 # Publish with manually authored notes; this commits, tags, pushes, and creates a GitHub Release
-pnpm release <version> --notes-file /tmp/place-fill-release-notes.md
+pnpm release <version> --notes-file /tmp/place-fill-release-notes.md --carrier /tmp/place-fill-update.png
 
-# Verify the current manifest version and its release artifacts
-pnpm release:verify
+# Verify the current manifest version and its release artifacts (optional --carrier for an exact carrier match)
+pnpm release:verify --carrier /tmp/place-fill-update.png
 ```
 
 ## Working Rules
@@ -196,14 +196,16 @@ When adding a background dependency, keep this list, `tests/background-runtime.t
 - Treat `extension/manifest.json` as the version source of truth. Keep the current-version line in `Project Overview` machine-readable for the release script.
 - Before releasing, review this file against current commands, paths, architecture, compatibility, and verification requirements; include necessary updates in the same release change set.
 - Before releasing, analyze the relevant Git commits in `<current-version-tag>..HEAD`; do not analyze the code diff. Write user-facing Markdown notes to a temporary file outside the repository so the clean-worktree check still passes. Consolidate internal refactors and intermediate implementation commits into their related user-facing change instead of listing them separately.
-- Use `pnpm release <version> --notes-file /tmp/place-fill-release-notes.md` only when the user explicitly requests a release. The notes file must be written from that commit analysis; the release script uploads it verbatim and never generates notes from commit subjects. The command updates the manifest, README, and AGENTS.md, runs checks and tests, packages the zip, creates local-only `releases/place-fill.png`, commits, tags, pushes, and uploads only the zip to the GitHub Release.
+- Use `pnpm release <version> --notes-file /tmp/place-fill-release-notes.md [--carrier <png>]` only when the user explicitly requests a release. The notes file must be written from that commit analysis; the release script uploads it verbatim and never generates notes from commit subjects. The command updates the manifest, README, and AGENTS.md, runs checks and tests, packages the zip, creates local-only `releases/place-fill.png`, commits, tags, pushes, and uploads only the zip to the GitHub Release.
 - Use `pnpm release:verify` to verify the README, AGENTS.md, local zip, disguised PNG, local and remote tag, and GitHub Release for the current manifest version.
 - Release zip archives must contain only the contents of `extension/`, not the parent project directory.
 - Create release archives from inside `extension/` so the zip root is the extension files themselves.
 - Place release zip files under `releases/`.
 - Name the release zip `place-fill-v<version>.zip`, where `<version>` comes from `extension/manifest.json`.
 - Use `node extension/scripts/package-release.mjs` to create the release zip and `releases/place-fill.png`.
-- Build `releases/place-fill.png` by concatenating the unchanged root `nodata.png` bytes with the current release zip bytes, equivalent to `cat nodata.png place-fill-v<version>.zip > place-fill.png`.
+- Build `releases/place-fill.png` by concatenating the unchanged carrier PNG bytes with the current release zip bytes, equivalent to `cat <carrier>.png place-fill-v<version>.zip > place-fill.png`.
+- The carrier defaults to the root `nodata.png`; pass `--carrier <png>` to `package-release.mjs` or `pnpm release` to use another image, such as the version update poster, so one image serves as both announcement and download. The carrier must be a complete PNG (signature through `IEND`); keep it outside the repository so the clean-worktree check still passes.
+- `pnpm release:verify` accepts any complete PNG carrier followed by the current zip; pass `--carrier <png>` to also require that exact carrier.
 - Keep generated release zip and disguised PNG files local only and do not commit or upload `releases/place-fill.png`.
 
 ## Development

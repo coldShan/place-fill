@@ -57,14 +57,14 @@ pnpm test          # 全部测试
 打包与发布：
 
 ```bash
-# 生成 ZIP 和图片载体到 releases/，仅保留在本地
-node extension/scripts/package-release.mjs
+# 生成 ZIP 和伪装图片到 releases/，仅保留在本地；--carrier 可选，默认使用 nodata.png
+node extension/scripts/package-release.mjs --carrier /tmp/place-fill-update.png
 
 # 根据上一版本标签后的提交编写更新日志，再发布（提交、打标签、推送并创建 GitHub Release）
-pnpm release <version> --notes-file /tmp/place-fill-release-notes.md
+pnpm release <version> --notes-file /tmp/place-fill-release-notes.md --carrier /tmp/place-fill-update.png
 
-# 验证当前版本的文档、产物及远程发布
-pnpm release:verify
+# 验证当前版本的文档、产物及远程发布；传入 --carrier 时额外校验伪装图片使用的是该载体
+pnpm release:verify --carrier /tmp/place-fill-update.png
 ```
 
-GitHub Release 仅上传 ZIP，`releases/place-fill.png` 保留在本地。完整开发与发布约定见 [AGENTS.md](AGENTS.md)。
+`releases/place-fill.png` 由载体 PNG 与 ZIP 拼接而成，可当图片查看也可直接解压。载体可以是版本更新图，实现一图两用；需为完整 PNG，并放在仓库外以保持工作区干净。GitHub Release 仅上传 ZIP，`releases/place-fill.png` 保留在本地。完整开发与发布约定见 [AGENTS.md](AGENTS.md)。

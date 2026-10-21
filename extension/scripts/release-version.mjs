@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { packageRelease as packageReleaseImpl } from "./package-release.mjs";
+import { packageRelease as packageReleaseImpl, readCarrierPng, readCliOption } from "./package-release.mjs";
 import { syncVersionReferences } from "./sync-readme-version.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
@@ -61,6 +61,16 @@ function resolveReleaseNotesFile({ notesFile, repoDir }) {
     throw new Error("release notes file must not be empty");
   }
   return notesPath;
+}
+
+function resolveCarrierFile({ carrier, repoDir }) {
+  const inputPath = String(carrier || "").trim();
+  if (!inputPath) {
+    return "";
+  }
+  const carrierPath = resolve(repoDir, inputPath);
+  readCarrierPng(carrierPath);
+  return carrierPath;
 }
 
 function assertCleanWorktree({ repoDir, runCommand }) {
@@ -135,6 +145,7 @@ function assertGitHubRelease({ repoDir, runCommand, tagName, zipName }) {
 }
 
 export function releaseVersion({
+  carrier,
   notesFile,
   packageRelease = packageReleaseImpl,
   repoDir = defaultRepoDir,
@@ -144,6 +155,7 @@ export function releaseVersion({
   const nextVersion = normalizeVersion(version);
   const tagName = `v${nextVersion}`;
   const releaseNotesPath = resolveReleaseNotesFile({ notesFile, repoDir });
+  const carrierPath = resolveCarrierFile({ carrier, repoDir });
   const extensionDir = join(repoDir, "extension");
   const manifestPath = join(extensionDir, "manifest.json");
   const readmePath = join(repoDir, "README.md");
@@ -160,7 +172,9 @@ export function releaseVersion({
 
   runChecked(runCommand, "pnpm", ["run", "check"], { cwd: repoDir, stdio: "inherit" });
   runChecked(runCommand, "pnpm", ["test"], { cwd: repoDir, stdio: "inherit" });
-  const releaseAsset = packageRelease({ extensionDir, releasesDir });
+  const releaseAsset = packageRelease(
+    carrierPath ? { carrierPath, extensionDir, releasesDir } : { extensionDir, releasesDir }
+  );
 
   runChecked(runCommand, "git", ["add", "extension/manifest.json", "README.md", "AGENTS.md"], { cwd: repoDir });
   runChecked(runCommand, "git", ["commit", "-m", `chore: 发布 ${nextVersion} 版本`], { cwd: repoDir });
@@ -208,9 +222,9 @@ export function releaseVersion({
 
 if (resolve(process.argv[1] || "") === scriptPath) {
   const args = process.argv.slice(2);
-  const notesFileIndex = args.indexOf("--notes-file");
   const result = releaseVersion({
-    notesFile: notesFileIndex >= 0 ? args[notesFileIndex + 1] : "",
+    carrier: readCliOption(args, "--carrier"),
+    notesFile: readCliOption(args, "--notes-file"),
     version: args[0]
   });
   console.log(`released ${result.tagName} on ${result.branch}`);

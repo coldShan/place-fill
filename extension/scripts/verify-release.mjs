@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isCompletePng, readCarrierPng, readCliOption } from "./package-release.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const scriptsDir = dirname(scriptPath);
@@ -57,15 +58,20 @@ function assertDisguisedImage({ carrierPath, imagePath, zipPath }) {
     throw new Error(`disguised release image not found: ${imagePath}`);
   }
 
-  const carrier = readFileSync(carrierPath);
   const image = readFileSync(imagePath);
   const zip = readFileSync(zipPath);
+  const carrierLength = image.length - zip.length;
   if (
-    image.length !== carrier.length + zip.length
-    || !image.subarray(0, carrier.length).equals(carrier)
-    || !image.subarray(carrier.length).equals(zip)
+    carrierLength <= 0
+    || !image.subarray(carrierLength).equals(zip)
+    || !isCompletePng(image.subarray(0, carrierLength))
   ) {
     throw new Error("disguised release image does not contain the current release zip");
+  }
+
+  // Any complete PNG may carry the zip; a given carrier must match byte for byte.
+  if (carrierPath && !image.subarray(0, carrierLength).equals(readCarrierPng(carrierPath))) {
+    throw new Error(`disguised release image does not use carrier ${carrierPath}`);
   }
 }
 
@@ -89,7 +95,7 @@ function assertGitHubRelease({ repoDir, runCommand, tagName, zipName }) {
   }
 }
 
-export function verifyRelease({ repoDir = defaultRepoDir, runCommand = defaultRunCommand } = {}) {
+export function verifyRelease({ carrierPath = "", repoDir = defaultRepoDir, runCommand = defaultRunCommand } = {}) {
   const extensionDir = join(repoDir, "extension");
   const manifestPath = join(extensionDir, "manifest.json");
   const readmePath = join(repoDir, "README.md");
@@ -101,7 +107,6 @@ export function verifyRelease({ repoDir = defaultRepoDir, runCommand = defaultRu
   const zipPath = join(repoDir, "releases", zipName);
   const imageName = `${manifest.name}.png`;
   const imagePath = join(repoDir, "releases", imageName);
-  const carrierPath = join(repoDir, "nodata.png");
 
   if (!version || !manifest.name) {
     throw new Error("manifest name and version are required");
@@ -139,7 +144,8 @@ function readJsonFromGit({ repoDir, runCommand, tagName }) {
 }
 
 if (resolve(process.argv[1] || "") === scriptPath) {
-  const result = verifyRelease();
+  const carrierPath = readCliOption(process.argv.slice(2), "--carrier");
+  const result = verifyRelease(carrierPath ? { carrierPath: resolve(process.cwd(), carrierPath) } : {});
   console.log(`verified ${result.tagName}`);
   console.log(result.zipPath);
   console.log(result.imagePath);

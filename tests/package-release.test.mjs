@@ -4,6 +4,13 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
+const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const pngEndChunk = Buffer.from([0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]);
+
+function createPng(body) {
+  return Buffer.concat([pngSignature, Buffer.from(body), pngEndChunk]);
+}
+
 async function loadPackageReleaseModule() {
   try {
     return await import("../extension/scripts/package-release.mjs");
@@ -28,10 +35,7 @@ test("packageRelease targets the releases directory with a versioned zip filenam
   const extensionDir = join(rootDir, "extension");
   const releasesDir = join(rootDir, "releases");
   const carrierPath = join(rootDir, "nodata.png");
-  const carrier = Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    Buffer.from("carrier")
-  ]);
+  const carrier = createPng("carrier");
   const zip = Buffer.from("zip");
   mkdirSync(extensionDir, { recursive: true });
   writeFileSync(carrierPath, carrier);
@@ -90,6 +94,53 @@ test("packageRelease runs README version sync before packaging when provided", a
   });
 
   assert.equal(synced, 1);
+});
+
+test("packageRelease uses a custom carrier image such as a version update poster", async () => {
+  const releaseScript = await loadPackageReleaseModule();
+  const rootDir = mkdtempSync(join(tmpdir(), "ctdp-release-carrier-"));
+  const extensionDir = join(rootDir, "extension");
+  const releasesDir = join(rootDir, "releases");
+  const posterPath = join(rootDir, "update-poster.png");
+  const poster = createPng("update poster");
+  const zip = Buffer.from("zip");
+  mkdirSync(extensionDir, { recursive: true });
+  writeFileSync(posterPath, poster);
+  writeFileSync(
+    join(extensionDir, "manifest.json"),
+    JSON.stringify({ name: "place-fill", version: "1.2.3" }, null, 2)
+  );
+
+  releaseScript?.packageRelease({
+    carrierPath: posterPath,
+    extensionDir,
+    releasesDir,
+    runZip(args) {
+      writeFileSync(args.outputPath, zip);
+    }
+  });
+
+  assert.deepEqual(readFileSync(join(releasesDir, "place-fill.png")), Buffer.concat([poster, zip]));
+});
+
+test("createDisguisedReleaseImage rejects carriers that are not complete PNG files", async () => {
+  const releaseScript = await loadPackageReleaseModule();
+  const rootDir = mkdtempSync(join(tmpdir(), "ctdp-release-bad-carrier-"));
+  const zipPath = join(rootDir, "release.zip");
+  const outputPath = join(rootDir, "place-fill.png");
+  const jpegPath = join(rootDir, "poster.jpg");
+  const truncatedPath = join(rootDir, "truncated.png");
+  writeFileSync(zipPath, "zip");
+  writeFileSync(jpegPath, Buffer.from([0xff, 0xd8, 0xff, 0xe0]));
+  writeFileSync(truncatedPath, Buffer.concat([pngSignature, Buffer.from("no end chunk")]));
+
+  for (const carrierPath of [jpegPath, truncatedPath]) {
+    assert.throws(
+      () => releaseScript?.createDisguisedReleaseImage({ carrierPath, outputPath, zipPath }),
+      /release image carrier must be a complete PNG/
+    );
+  }
+  assert.equal(existsSync(outputPath), false);
 });
 
 test("repository keeps tests outside the packaged extension directory", () => {
