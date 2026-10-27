@@ -7,6 +7,7 @@ import {
   getFallbackScope,
   isGenericTitle,
   parseScopeKey,
+  stableTitleSegment,
   type PageInfo,
   type SessionMarker,
   type SystemAnomaly,
@@ -17,9 +18,10 @@ import {
 export const SYSTEM_PROFILES_STORAGE_KEY = "ctdp.systemProfiles.v1";
 export const SITE_FEATURE_STORAGE_KEY = "ctdp.siteFeatureEnabled.v1";
 
-export const OVERRIDES_STORAGE_KEY ="ctdp.smartFillOverrides.v1";
+export const OVERRIDES_STORAGE_KEY = "ctdp.smartFillOverrides.v1";
 const AI_MAPPINGS_STORAGE_KEY = "ctdp.aiFieldMappings.v1";
 const MAX_ANOMALIES = 20;
+const MAX_TITLE_TEXT_LENGTH = 200;
 
 interface StorageAreaLike {
   get(keys: string[] | string, callback: (result: Record<string, unknown>) => void): void;
@@ -116,7 +118,7 @@ function normalizeAnomaly(raw: unknown): SystemAnomaly | null {
   return { titleSystemId, url, at: Number(record.at) || 0 };
 }
 
-function normalizeSystem(raw: unknown): SystemProfile | null {
+export function normalizeSystemProfile(raw: unknown): SystemProfile | null {
   const record = asRecord(raw);
   const id = text(record.id).trim();
   if (!id) return null;
@@ -146,7 +148,7 @@ function normalizeSystem(raw: unknown): SystemProfile | null {
 export async function readSystems(env?: RegistryEnv): Promise<SystemProfile[]> {
   const stored = await readStorageValue(env, SYSTEM_PROFILES_STORAGE_KEY);
   if (!Array.isArray(stored)) return [];
-  return stored.map(normalizeSystem).filter(function (item): item is SystemProfile {
+  return stored.map(normalizeSystemProfile).filter(function (item): item is SystemProfile {
     return item !== null;
   });
 }
@@ -171,11 +173,20 @@ export function validateSystems(systems: SystemProfile[]): { ok: true } | { ok: 
   return { ok: true };
 }
 
+function environmentFallbackScope(environment: SystemEnvironment): string {
+  return getFallbackScope({ protocol: "", hostname: environment.hostname, port: environment.port });
+}
+
+/**
+ * Saves a system (new or edited). Every environment that was not part of the stored system adopts
+ * its fallback scope's data, like recognition does when it creates or auto-joins a system.
+ */
 export async function saveSystem(system: SystemProfile, env?: RegistryEnv): Promise<{ ok: boolean; message?: string }> {
   const systems = await readSystems(env);
   const index = systems.findIndex(function (item) {
     return item.id === system.id;
   });
+  const previousScopes = (index === -1 ? [] : (systems[index] as SystemProfile).environments).map(environmentFallbackScope);
   const others = systems.filter(function (item) {
     return item.id !== system.id;
   });
@@ -187,6 +198,13 @@ export async function saveSystem(system: SystemProfile, env?: RegistryEnv): Prom
   if (index === -1) systems.push(next);
   else systems[index] = next;
   await writeSystems(systems, env);
+  const adopted: string[] = [];
+  for (const environment of system.environments) {
+    const fallbackScope = environmentFallbackScope(environment);
+    if (previousScopes.indexOf(fallbackScope) !== -1 || adopted.indexOf(fallbackScope) !== -1) continue;
+    adopted.push(fallbackScope);
+    await adoptFallbackScope(fallbackScope, system.id, env);
+  }
   return { ok: true };
 }
 
@@ -249,6 +267,10 @@ export async function deleteSystem(id: string, targetScope: string, env?: Regist
   );
 }
 
+function isLocalFallbackScope(scope: string): boolean {
+  return legacyKeyForFallbackScope(scope) !== "";
+}
+
 /** Returns the legacy local-host key (`legacy:<hostname>`) for a `host:<local host>[:port]` scope. */
 function legacyKeyForFallbackScope(scope: string): string {
   const parsed = parseScopeKey(scope);
@@ -280,14 +302,19 @@ export async function writeScopeEnabled(scope: string, enabled: boolean, env?: R
 
 /**
  * Moves a fallback scope's data into a system and makes sure the system scope carries the
- * effective switch value (which may only have come from the legacy local-host default).
+ * effective switch value (which may only have come from the legacy local-host default). A local
+ * host:port fallback switch is then pinned off: the legacy default applies once per port, and the
+ * next project on that port is not turned into a system without the user enabling it.
  */
 async function adoptFallbackScope(fallbackScope: string, systemId: string, env?: RegistryEnv): Promise<void> {
   const systemScope = buildSystemScope(systemId);
   const enabled = await readScopeEnabled(fallbackScope, env);
   await moveScopeData(fallbackScope, systemScope, env);
   const stored = asRecord(await readStorageValue(env, SITE_FEATURE_STORAGE_KEY));
-  if (!recordHasOwn(stored, systemScope)) await writeScopeEnabled(systemScope, enabled, env);
+  const next = { ...stored };
+  if (!recordHasOwn(next, systemScope)) next[systemScope] = enabled;
+  if (isLocalFallbackScope(fallbackScope)) next[fallbackScope] = false;
+  await writeStorageValue(env, SITE_FEATURE_STORAGE_KEY, next);
 }
 
 function buildEnvironment(info: PageInfo, autoAdded: boolean, env?: RegistryEnv): SystemEnvironment {
@@ -365,13 +392,14 @@ export async function resolvePageScope(
     return resolved(target, fallbackScope, marker);
   }
 
-  const title = String(info.title || "").trim();
-  const generic = isGenericTitle(title);
+  // Route-specific prefixes ("用户列表 - 客户管理") would make every SPA route a new system.
+  const keyword = stableTitleSegment(info.title).slice(0, MAX_TITLE_TEXT_LENGTH);
+  const generic = isGenericTitle(keyword);
   const now = currentTime(env);
   const created: SystemProfile = {
     id: generateId(env),
-    name: generic ? fallbackScope.replace(/^host:/, "") : title,
-    titles: generic ? [] : [title],
+    name: generic ? fallbackScope.replace(/^host:/, "") : keyword,
+    titles: generic ? [] : [keyword],
     environments: [buildEnvironment(info, false, env)],
     anomalies: [],
     createdAt: now,

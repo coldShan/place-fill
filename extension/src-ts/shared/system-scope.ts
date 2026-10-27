@@ -125,6 +125,23 @@ export function isGenericTitle(title: string): boolean {
   return normalized === "" || GENERIC_TITLES.indexOf(normalized) !== -1;
 }
 
+// " - " needs spaces (a bare hyphen is part of words like "e-commerce"); the others split as is.
+const TITLE_SEPARATOR_PATTERN = /\s+-\s+|\s*[|_—–]\s*/;
+
+/**
+ * Stable part of a page title used as a new system's default name and keyword: SPA titles such as
+ * "用户列表 - 客户管理" change per route, so the last non-generic segment is kept. A title without
+ * separators is returned whole (trimmed); "" when no segment is usable.
+ */
+export function stableTitleSegment(title: string): string {
+  const segments = String(title || "").split(TITLE_SEPARATOR_PATTERN);
+  for (let index = segments.length - 1; index >= 0; index -= 1) {
+    const segment = String(segments[index] || "").trim();
+    if (!isGenericTitle(segment)) return segment;
+  }
+  return "";
+}
+
 function usableKeywords(system: SystemProfile): string[] {
   return (system.titles || [])
     .map(function (item) {
@@ -236,7 +253,9 @@ function findLocalEnvironmentMatch(systems: SystemProfile[], info: PageInfo): Sy
   let bestKeywordLength = -1;
   for (const candidate of systems) {
     const keyword = titleMatchesSystem(candidate, info.title);
-    if (usableKeywords(candidate).length > 0 && !keyword) {
+    // Keyword systems need a title hit; keyword-less systems would otherwise capture every project
+    // on their port, so they only match pages whose own title is generic or blank.
+    if (usableKeywords(candidate).length > 0 ? !keyword : !isGenericTitle(info.title)) {
       continue;
     }
     for (const environment of candidate.environments) {
@@ -254,14 +273,23 @@ function findLocalEnvironmentMatch(systems: SystemProfile[], info: PageInfo): Sy
   return best;
 }
 
-function isMarkerStillValid(system: SystemProfile, info: PageInfo): boolean {
+/**
+ * A non-manual marker on a local host survives SPA route titles: it is dropped only when the new
+ * title matches a different system (switch to it), or matches nothing while host:port is not one of
+ * the marker system's environments. Another project on the same port is therefore detected only by
+ * a title hit or in a new tab (the marker lives in per-tab sessionStorage).
+ */
+function isMarkerStillValid(system: SystemProfile, systems: SystemProfile[], info: PageInfo): boolean {
   if (isGenericTitle(info.title)) {
     return true;
   }
-  if (usableKeywords(system).length > 0) {
-    return titleMatchesSystem(system, info.title) !== "";
+  if (titleMatchesSystem(system, info.title) !== "") {
+    return true;
   }
-  return hasHostPort(system, info);
+  const otherSystemMatches = systems.some(function (candidate) {
+    return candidate.id !== system.id && titleMatchesSystem(candidate, info.title) !== "";
+  });
+  return !otherSystemMatches && hasHostPort(system, info);
 }
 
 export function decideScope(input: {
@@ -281,7 +309,7 @@ export function decideScope(input: {
     const markerSystem = systems.find(function (item) {
       return item.id === marker.id;
     });
-    if (markerSystem && (marker.manual || !isLocal || isMarkerStillValid(markerSystem, info))) {
+    if (markerSystem && (marker.manual || !isLocal || isMarkerStillValid(markerSystem, systems, info))) {
       return { action: "use", systemId: markerSystem.id, anomaly: null };
     }
   }

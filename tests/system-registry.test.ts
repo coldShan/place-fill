@@ -5,6 +5,7 @@ import {
   deleteSystem,
   dismissAnomalies,
   moveScopeData,
+  normalizeSystemProfile,
   readScopeEnabled,
   readSystems,
   resolvePageScope,
@@ -168,6 +169,56 @@ test("saveSystem refuses invalid lists without writing, and treats unknown ids a
   assert.deepEqual((await readSystems(env)).map((item) => item.id), ["a", "c"]);
 });
 
+test("saveSystem adopts the fallback data of newly added environments only", async () => {
+  const existing = system("A", "CRM", [environment("prod.crm.com")], ["CRM"]);
+  const { env, storageArea } = createEnv({
+    [SYSTEM_PROFILES_STORAGE_KEY]: [existing],
+    [SITE_FEATURE_STORAGE_KEY]: { "host:staging.crm.com": true },
+    [FAVORITE_PROFILES_STORAGE_KEY]: {
+      "host:staging.crm.com": [{ id: "f1", name: "常用", note: "", createdAt: "10", updatedAt: "10", profile: profile(1) }],
+      "host:prod.crm.com": [{ id: "f2", name: "旧", note: "", createdAt: "10", updatedAt: "10", profile: profile(2) }]
+    },
+    [OVERRIDES_KEY]: { "host:staging.crm.com::top::fp1": "mobile" }
+  });
+
+  const result = await saveSystem({ ...existing, environments: existing.environments.concat([environment("staging.crm.com")]) }, env);
+  assert.deepEqual(result, { ok: true });
+  assert.equal((await readFavoriteProfiles("system:A", env)).length, 1);
+  assert.equal((await readFavoriteProfiles("host:staging.crm.com", env)).length, 0);
+  // The environment that was already part of the system is not re-adopted.
+  assert.equal((await readFavoriteProfiles("host:prod.crm.com", env)).length, 1);
+  assert.deepEqual(storageArea.state[OVERRIDES_KEY], { "system:A::top::fp1": "mobile" });
+  assert.deepEqual(storageArea.state[SITE_FEATURE_STORAGE_KEY], { "system:A": true });
+
+  // A brand-new system adopts its local environment and pins the port's fallback switch off.
+  const local = createEnv({
+    [SITE_FEATURE_STORAGE_KEY]: { "legacy:localhost": true },
+    [OVERRIDES_KEY]: { "host:localhost:5173::top::fp1": "email" }
+  });
+  await saveSystem(system("B", "后台", [environment("localhost", "5173")]), local.env);
+  assert.deepEqual(local.storageArea.state[OVERRIDES_KEY], { "system:B::top::fp1": "email" });
+  assert.deepEqual(local.storageArea.state[SITE_FEATURE_STORAGE_KEY], {
+    "legacy:localhost": true,
+    "system:B": true,
+    "host:localhost:5173": false
+  });
+
+  // A rejected save moves nothing.
+  const conflict = createEnv({
+    [SYSTEM_PROFILES_STORAGE_KEY]: [existing],
+    [OVERRIDES_KEY]: { "host:prod.crm.com::top::fp1": "mobile" }
+  });
+  assert.equal((await saveSystem(system("C", "C", [environment("prod.crm.com")]), conflict.env)).ok, false);
+  assert.deepEqual(conflict.storageArea.state[OVERRIDES_KEY], { "host:prod.crm.com::top::fp1": "mobile" });
+});
+
+test("normalizeSystemProfile accepts stored-shape systems and rejects garbage", () => {
+  const valid = system("A", "CRM", [environment("prod.crm.com")], ["CRM"]);
+  assert.deepEqual(normalizeSystemProfile(JSON.parse(JSON.stringify(valid))), valid);
+  assert.equal(normalizeSystemProfile(null), null);
+  assert.equal(normalizeSystemProfile({ name: "no id" }), null);
+});
+
 test("resolvePageScope creates a system from the page title and migrates fallback data", async () => {
   const fallback = "host:localhost:5173";
   const { env, storageArea } = createEnv(
@@ -213,8 +264,9 @@ test("resolvePageScope creates a system from the page title and migrates fallbac
     "host:other.com::top::fp2": "email"
   });
   assert.deepEqual(storageArea.state[AI_MAPPINGS_KEY], { "system:sys1::top::fp3": { fieldKey: "email" } });
-  assert.deepEqual(storageArea.state[SITE_FEATURE_STORAGE_KEY], { "system:sys1": true });
-  const generated = storageArea.state[GENERATED_PROFILES_STORAGE_KEY] as Record<string, unknown>;
+  // The local fallback scope is pinned off so the port does not keep creating systems.
+  assert.deepEqual(storageArea.state[SITE_FEATURE_STORAGE_KEY], { "system:sys1": true, [fallback]: false });
+  const generated =storageArea.state[GENERATED_PROFILES_STORAGE_KEY] as Record<string, unknown>;
   assert.equal(Object.prototype.hasOwnProperty.call(generated, fallback), false);
 });
 
@@ -227,6 +279,55 @@ test("resolvePageScope names a system after the host when the title is generic",
   assert.equal(created!.name, "localhost:5173");
   assert.deepEqual(created!.titles, []);
 });
+
+test("resolvePageScope names a new system and its keyword after the stable title segment, capped at 200", async () => {
+  const { env } = createEnv({ [SITE_FEATURE_STORAGE_KEY]: { "host:localhost:5173": true } }, ["sys1", "env1"]);
+  const result = await resolvePageScope({ info: pageInfo({ title: "用户列表 - 客户管理" }), marker: null }, env);
+  assert.deepEqual(result.system, { id: "sys1", name: "客户管理" });
+  const [created] = await readSystems(env);
+  assert.equal(created!.name, "客户管理");
+  assert.deepEqual(created!.titles, ["客户管理"]);
+
+  const long = createEnv({ [SITE_FEATURE_STORAGE_KEY]: { "host:localhost:5173": true } }, ["sys2", "env2"]);
+  await resolvePageScope({ info: pageInfo({ title: "页 - " + "长".repeat(250) }), marker: null }, long.env);
+  const [capped] = await readSystems(long.env);
+  assert.equal(capped!.name, "长".repeat(200));
+  assert.deepEqual(capped!.titles, ["长".repeat(200)]);
+});
+
+for (const withLegacy of [false, true]) {
+  test(
+    "SPA route titles on one local port resolve to a single system (" + (withLegacy ? "legacy localhost:true" : "port switch on") + ")",
+    async () => {
+      const toggles = withLegacy ? { "legacy:localhost": true } : { "host:localhost:5173": true };
+      const { env, storageArea } = createEnv({ [SITE_FEATURE_STORAGE_KEY]: toggles }, ["sys1", "env1", "sys2", "env2", "sys3", "env3"]);
+      const routes = ["用户列表 - 客户管理", "订单列表 - 客户管理", "客户详情 - 客户管理", "客户管理"];
+
+      // Same tab: the marker is carried between routes.
+      let marker = null as Awaited<ReturnType<typeof resolvePageScope>>["marker"];
+      for (const title of routes) {
+        const result = await resolvePageScope({ info: pageInfo({ title }), marker }, env);
+        assert.equal(result.scope, "system:sys1", title);
+        marker = result.marker;
+      }
+      // A route title without the stable segment keeps the tab's marker (host:port is known).
+      assert.equal((await resolvePageScope({ info: pageInfo({ title: "登录" }), marker }, env)).scope, "system:sys1");
+
+      // New tabs (no marker) land on the same system for every route.
+      for (const title of routes) {
+        assert.equal((await resolvePageScope({ info: pageInfo({ title }), marker: null }, env)).scope, "system:sys1", title);
+      }
+      assert.equal((await readSystems(env)).length, 1);
+
+      // The legacy per-port default applied once: the port's own fallback switch is now off, so an
+      // unrelated project on the same port is not turned into a system automatically.
+      assert.equal((storageArea.state[SITE_FEATURE_STORAGE_KEY] as Record<string, unknown>)["host:localhost:5173"], false);
+      const other = await resolvePageScope({ info: pageInfo({ title: "办公平台" }), marker: null }, env);
+      assert.equal(other.scope, "host:localhost:5173");
+      assert.equal((await readSystems(env)).length, 1);
+    }
+  );
+}
 
 test("resolvePageScope falls back when the fallback switch is off", async () => {
   const { env } = createEnv();

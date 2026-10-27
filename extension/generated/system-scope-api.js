@@ -249,6 +249,15 @@ var ChromeTestDataSystemScopeBundle = (function() {
     const normalized = String(title || "").trim().toLowerCase();
     return normalized === "" || GENERIC_TITLES.indexOf(normalized) !== -1;
   }
+  const TITLE_SEPARATOR_PATTERN = /\s+-\s+|\s*[|_—–]\s*/;
+  function stableTitleSegment(title) {
+    const segments = String(title || "").split(TITLE_SEPARATOR_PATTERN);
+    for (let index = segments.length - 1; index >= 0; index -= 1) {
+      const segment = String(segments[index] || "").trim();
+      if (!isGenericTitle(segment)) return segment;
+    }
+    return "";
+  }
   function usableKeywords(system) {
     return (system.titles || []).map(function(item) {
       return String(item || "").trim();
@@ -342,7 +351,7 @@ var ChromeTestDataSystemScopeBundle = (function() {
     let bestKeywordLength = -1;
     for (const candidate of systems) {
       const keyword = titleMatchesSystem(candidate, info.title);
-      if (usableKeywords(candidate).length > 0 && !keyword) {
+      if (usableKeywords(candidate).length > 0 ? !keyword : !isGenericTitle(info.title)) {
         continue;
       }
       for (const environment of candidate.environments) {
@@ -359,14 +368,17 @@ var ChromeTestDataSystemScopeBundle = (function() {
     }
     return best;
   }
-  function isMarkerStillValid(system, info) {
+  function isMarkerStillValid(system, systems, info) {
     if (isGenericTitle(info.title)) {
       return true;
     }
-    if (usableKeywords(system).length > 0) {
-      return titleMatchesSystem(system, info.title) !== "";
+    if (titleMatchesSystem(system, info.title) !== "") {
+      return true;
     }
-    return hasHostPort(system, info);
+    const otherSystemMatches = systems.some(function(candidate) {
+      return candidate.id !== system.id && titleMatchesSystem(candidate, info.title) !== "";
+    });
+    return !otherSystemMatches && hasHostPort(system, info);
   }
   function decideScope(input) {
     const { systems, info, marker, fallbackEnabled } = input;
@@ -379,7 +391,7 @@ var ChromeTestDataSystemScopeBundle = (function() {
       const markerSystem = systems.find(function(item) {
         return item.id === marker.id;
       });
-      if (markerSystem && (marker.manual || !isLocal || isMarkerStillValid(markerSystem, info))) {
+      if (markerSystem && (marker.manual || !isLocal || isMarkerStillValid(markerSystem, systems, info))) {
         return { action: "use", systemId: markerSystem.id, anomaly: null };
       }
     }
@@ -427,12 +439,14 @@ var ChromeTestDataSystemScopeBundle = (function() {
     normalizeSessionMarker,
     parseScopeKey,
     readPageInfo,
+    stableTitleSegment,
     titleMatchesSystem
   }, Symbol.toStringTag, { value: "Module" }));
   const SYSTEM_PROFILES_STORAGE_KEY = "ctdp.systemProfiles.v1";
   const SITE_FEATURE_STORAGE_KEY = "ctdp.siteFeatureEnabled.v1";
   const OVERRIDES_STORAGE_KEY$1 = "ctdp.smartFillOverrides.v1";
   const AI_MAPPINGS_STORAGE_KEY$1 = "ctdp.aiFieldMappings.v1";
+  const MAX_TITLE_TEXT_LENGTH = 200;
   function getStorageArea(env) {
     if (env && Object.prototype.hasOwnProperty.call(env, "storageArea")) return env.storageArea || null;
     try {
@@ -503,7 +517,7 @@ var ChromeTestDataSystemScopeBundle = (function() {
     if (!titleSystemId || !url) return null;
     return { titleSystemId, url, at: Number(record.at) || 0 };
   }
-  function normalizeSystem(raw) {
+  function normalizeSystemProfile(raw) {
     const record = asRecord(raw);
     const id = text(record.id).trim();
     if (!id) return null;
@@ -528,7 +542,7 @@ var ChromeTestDataSystemScopeBundle = (function() {
   async function readSystems(env) {
     const stored = await readStorageValue(env, SYSTEM_PROFILES_STORAGE_KEY);
     if (!Array.isArray(stored)) return [];
-    return stored.map(normalizeSystem).filter(function(item) {
+    return stored.map(normalizeSystemProfile).filter(function(item) {
       return item !== null;
     });
   }
@@ -550,11 +564,15 @@ var ChromeTestDataSystemScopeBundle = (function() {
     }
     return { ok: true };
   }
+  function environmentFallbackScope(environment) {
+    return getFallbackScope({ hostname: environment.hostname, port: environment.port });
+  }
   async function saveSystem(system, env) {
     const systems = await readSystems(env);
     const index = systems.findIndex(function(item) {
       return item.id === system.id;
     });
+    const previousScopes = (index === -1 ? [] : systems[index].environments).map(environmentFallbackScope);
     const others = systems.filter(function(item) {
       return item.id !== system.id;
     });
@@ -564,6 +582,13 @@ var ChromeTestDataSystemScopeBundle = (function() {
     if (index === -1) systems.push(next);
     else systems[index] = next;
     await writeSystems(systems, env);
+    const adopted = [];
+    for (const environment of system.environments) {
+      const fallbackScope = environmentFallbackScope(environment);
+      if (previousScopes.indexOf(fallbackScope) !== -1 || adopted.indexOf(fallbackScope) !== -1) continue;
+      adopted.push(fallbackScope);
+      await adoptFallbackScope(fallbackScope, system.id, env);
+    }
     return { ok: true };
   }
   function recordHasOwn(record, key) {
@@ -615,6 +640,9 @@ var ChromeTestDataSystemScopeBundle = (function() {
       env
     );
   }
+  function isLocalFallbackScope(scope) {
+    return legacyKeyForFallbackScope(scope) !== "";
+  }
   function legacyKeyForFallbackScope(scope) {
     const parsed = parseScopeKey(scope);
     if (!parsed || parsed.kind !== "host") return "";
@@ -645,7 +673,10 @@ var ChromeTestDataSystemScopeBundle = (function() {
     const enabled = await readScopeEnabled(fallbackScope, env);
     await moveScopeData(fallbackScope, systemScope2, env);
     const stored = asRecord(await readStorageValue(env, SITE_FEATURE_STORAGE_KEY));
-    if (!recordHasOwn(stored, systemScope2)) await writeScopeEnabled(systemScope2, enabled, env);
+    const next = { ...stored };
+    if (!recordHasOwn(next, systemScope2)) next[systemScope2] = enabled;
+    if (isLocalFallbackScope(fallbackScope)) next[fallbackScope] = false;
+    await writeStorageValue(env, SITE_FEATURE_STORAGE_KEY, next);
   }
   function buildEnvironment(info, autoAdded, env) {
     return {
@@ -710,13 +741,13 @@ var ChromeTestDataSystemScopeBundle = (function() {
       await adoptFallbackScope(fallbackScope, target.id, env);
       return resolved(target, fallbackScope, marker);
     }
-    const title = String(info.title || "").trim();
-    const generic = isGenericTitle(title);
+    const keyword = stableTitleSegment(info.title).slice(0, MAX_TITLE_TEXT_LENGTH);
+    const generic = isGenericTitle(keyword);
     const now = currentTime(env);
     const created = {
       id: generateId(env),
-      name: generic ? fallbackScope.replace(/^host:/, "") : title,
-      titles: generic ? [] : [title],
+      name: generic ? fallbackScope.replace(/^host:/, "") : keyword,
+      titles: generic ? [] : [keyword],
       environments: [buildEnvironment(info, false, env)],
       anomalies: [],
       createdAt: now,
@@ -745,6 +776,7 @@ var ChromeTestDataSystemScopeBundle = (function() {
     dismissAnomalies,
     generateId,
     moveScopeData,
+    normalizeSystemProfile,
     readScopeEnabled,
     readStorageValue,
     readSystems,

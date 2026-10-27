@@ -1236,7 +1236,7 @@ function normalizeAnomaly(raw) {
   if (!titleSystemId || !url) return null;
   return { titleSystemId, url, at: Number(record.at) || 0 };
 }
-function normalizeSystem(raw) {
+function normalizeSystemProfile(raw) {
   const record = asRecord(raw);
   const id = text(record.id).trim();
   if (!id) return null;
@@ -1261,7 +1261,7 @@ function normalizeSystem(raw) {
 async function readSystems(env) {
   const stored = await readStorageValue(env, SYSTEM_PROFILES_STORAGE_KEY);
   if (!Array.isArray(stored)) return [];
-  return stored.map(normalizeSystem).filter(function(item) {
+  return stored.map(normalizeSystemProfile).filter(function(item) {
     return item !== null;
   });
 }
@@ -1283,11 +1283,15 @@ function validateSystems(systems) {
   }
   return { ok: true };
 }
+function environmentFallbackScope(environment) {
+  return getFallbackScope({ hostname: environment.hostname, port: environment.port });
+}
 async function saveSystem(system, env) {
   const systems = await readSystems(env);
   const index = systems.findIndex(function(item) {
     return item.id === system.id;
   });
+  const previousScopes = (index === -1 ? [] : systems[index].environments).map(environmentFallbackScope);
   const others = systems.filter(function(item) {
     return item.id !== system.id;
   });
@@ -1297,6 +1301,13 @@ async function saveSystem(system, env) {
   if (index === -1) systems.push(next);
   else systems[index] = next;
   await writeSystems(systems, env);
+  const adopted = [];
+  for (const environment of system.environments) {
+    const fallbackScope = environmentFallbackScope(environment);
+    if (previousScopes.indexOf(fallbackScope) !== -1 || adopted.indexOf(fallbackScope) !== -1) continue;
+    adopted.push(fallbackScope);
+    await adoptFallbackScope(fallbackScope, system.id, env);
+  }
   return { ok: true };
 }
 function recordHasOwn(record, key) {
@@ -1347,6 +1358,40 @@ async function deleteSystem(id, targetScope, env) {
     }),
     env
   );
+}
+function isLocalFallbackScope(scope) {
+  return legacyKeyForFallbackScope(scope) !== "";
+}
+function legacyKeyForFallbackScope(scope) {
+  const parsed = parseScopeKey(scope);
+  if (!parsed || parsed.kind !== "host") return "";
+  const value = parsed.value;
+  let hostname = value;
+  if (value.startsWith("v6-")) {
+    const lastDash = value.lastIndexOf(":");
+    const bare = (lastDash === -1 ? value : value.slice(0, lastDash)).slice(3).replace(/-/g, ":");
+    hostname = "[" + bare + "]";
+  } else {
+    const colon = value.indexOf(":");
+    if (colon !== -1) hostname = value.slice(0, colon);
+  }
+  return classifyHost(hostname) === "local" ? "legacy:" + hostname : "";
+}
+async function readScopeEnabled(scope, env) {
+  const stored = asRecord(await readStorageValue(env, SITE_FEATURE_STORAGE_KEY));
+  if (recordHasOwn(stored, scope)) return stored[scope] === true;
+  const legacyKey = legacyKeyForFallbackScope(scope);
+  return legacyKey ? stored[legacyKey] === true : false;
+}
+async function adoptFallbackScope(fallbackScope, systemId, env) {
+  const systemScope = buildSystemScope(systemId);
+  const enabled = await readScopeEnabled(fallbackScope, env);
+  await moveScopeData(fallbackScope, systemScope, env);
+  const stored = asRecord(await readStorageValue(env, SITE_FEATURE_STORAGE_KEY));
+  const next = { ...stored };
+  if (!recordHasOwn(next, systemScope)) next[systemScope] = enabled;
+  if (isLocalFallbackScope(fallbackScope)) next[fallbackScope] = false;
+  await writeStorageValue(env, SITE_FEATURE_STORAGE_KEY, next);
 }
 async function dismissAnomalies(systemId, env) {
   const systems = await readSystems(env);

@@ -12,6 +12,7 @@ import {
   normalizeSessionMarker,
   parseScopeKey,
   readPageInfo,
+  stableTitleSegment,
   titleMatchesSystem,
   type PageInfo,
   type SystemEnvironment,
@@ -120,6 +121,24 @@ test("titleMatchesSystem returns the matched keyword and ignores generic keyword
   assert.equal(titleMatchesSystem(multi, "客户管理"), "客户管理");
 });
 
+test("stableTitleSegment keeps the last non-generic segment of a route title", () => {
+  assert.equal(stableTitleSegment("用户列表 - 客户管理"), "客户管理");
+  assert.equal(stableTitleSegment("订单列表 | 客户管理"), "客户管理");
+  assert.equal(stableTitleSegment("订单列表|客户管理"), "客户管理");
+  assert.equal(stableTitleSegment("订单_客户管理"), "客户管理");
+  assert.equal(stableTitleSegment("订单 — 客户管理"), "客户管理");
+  assert.equal(stableTitleSegment("订单—客户管理"), "客户管理");
+  assert.equal(stableTitleSegment("订单 – 客户管理"), "客户管理");
+  assert.equal(stableTitleSegment("订单–客户管理"), "客户管理");
+  assert.equal(stableTitleSegment("客户管理 - Vite App"), "客户管理");
+  assert.equal(stableTitleSegment("用户列表 - 客户管理 - "), "客户管理");
+  // No separator: the whole (trimmed) title; a plain hyphen is not a separator.
+  assert.equal(stableTitleSegment("  e-commerce 后台 "), "e-commerce 后台");
+  // Only generic or blank segments: nothing usable.
+  assert.equal(stableTitleSegment("Document | Vite App"), "");
+  assert.equal(stableTitleSegment("   "), "");
+});
+
 test("readPageInfo parses query, last path and passes through origin", () => {
   const info = readPageInfo(
     {
@@ -186,18 +205,33 @@ test("decideScope 2/3: local marker is kept for blank title or title hit", () =>
   );
 });
 
-test("decideScope 4: local marker is discarded when the title misses and evaluation continues", () => {
+test("decideScope 4: a local marker is dropped only when the title hits another system or the port is unknown", () => {
   const a = system("A", ["客户管理"], [env()]);
   const b = system("B", ["办公平台"], [env()]);
   const marker = { id: "A", name: "A", manual: false };
+  // The new title matches a different system: switch to it.
   assert.deepEqual(decideScope({ systems: [a, b], info: page({ title: "办公平台" }), marker, fallbackEnabled: true }), {
     action: "use",
     systemId: "B",
     anomaly: null
   });
-  assert.deepEqual(decideScope({ systems: [a], info: page({ title: "别的东西" }), marker, fallbackEnabled: false }), {
-    action: "fallback"
+  // A route title that matches nothing keeps the marker while host:port is one of its environments.
+  assert.deepEqual(decideScope({ systems: [a, b], info: page({ title: "登录" }), marker, fallbackEnabled: false }), {
+    action: "use",
+    systemId: "A",
+    anomaly: null
   });
+  // Same title on a port the marker system does not know: the marker is dropped.
+  assert.deepEqual(
+    decideScope({ systems: [a], info: page({ title: "别的东西", port: "8080" }), marker, fallbackEnabled: false }),
+    { action: "fallback" }
+  );
+  // A title that also matches the marker system keeps it even if another system matches too.
+  const broad = system("BROAD", ["管理"], [env()]);
+  assert.deepEqual(
+    decideScope({ systems: [a, broad], info: page({ title: "订单列表 - 客户管理" }), marker, fallbackEnabled: true }),
+    { action: "use", systemId: "A", anomaly: null }
+  );
 });
 
 test("decideScope 5: marker to a system without keywords is kept when host:port is a known environment", () => {
@@ -262,7 +296,7 @@ test("decideScope 9: more conditions win, then longer keyword", () => {
   assert.deepEqual(
     decideScope({
       systems: [fewer, moreConditions],
-      info: page({ title: "x", query: { app: "crm" }, lastPath: "login" }),
+      info: page({ title: "Vite App", query: { app: "crm" }, lastPath: "login" }),
       marker: null,
       fallbackEnabled: true
     }),
@@ -284,6 +318,25 @@ test("decideScope 9: more conditions win, then longer keyword", () => {
     }),
     { action: "fallback" }
   );
+});
+
+test("decideScope 9b: a keyword-less system only matches pages whose own title is generic or blank", () => {
+  const hostOnly = system("HOST", [], [env()]);
+  assert.deepEqual(
+    decideScope({ systems: [hostOnly], info: page({ title: "客户管理" }), marker: null, fallbackEnabled: true }),
+    { action: "create" }
+  );
+  assert.deepEqual(
+    decideScope({ systems: [hostOnly], info: page({ title: "客户管理" }), marker: null, fallbackEnabled: false }),
+    { action: "fallback" }
+  );
+  for (const title of ["Vite App", "", "  "]) {
+    assert.deepEqual(decideScope({ systems: [hostOnly], info: page({ title }), marker: null, fallbackEnabled: true }), {
+      action: "use",
+      systemId: "HOST",
+      anomaly: null
+    });
+  }
 });
 
 test("decideScope 10: non-local host keeps its own system and reports an anomaly", () => {
