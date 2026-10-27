@@ -266,7 +266,11 @@ export function decideScope(input: {
   fallbackEnabled: boolean;
 }): ScopeDecision {
   const { systems, info, marker, fallbackEnabled } = input;
-  const isLocal = classifyHost(info.hostname) === "local";
+  const hostKind = classifyHost(info.hostname);
+  if (hostKind === "none") {
+    return { action: "fallback" };
+  }
+  const isLocal = hostKind === "local";
 
   if (marker) {
     const markerSystem = systems.find(function (item) {

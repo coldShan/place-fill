@@ -339,3 +339,16 @@ test("decideScope 13: local host with blank title and no marker never creates", 
     { action: "use", systemId: "E", anomaly: null }
   );
 });
+
+test("decideScope: hostless pages (file:) always fall back, even with a title hit or a marker", () => {
+  const a = system("A", ["客户管理"], [env()]);
+  const info = page({ protocol: "file:", hostname: "", port: "", origin: "null", pathname: "/tmp/form.html", title: "客户管理" });
+  assert.deepEqual(decideScope({ systems: [a], info, marker: null, fallbackEnabled: true }), { action: "fallback" });
+  assert.deepEqual(decideScope({ systems: [], info: { ...info, title: "无关" }, marker: null, fallbackEnabled: true }), {
+    action: "fallback"
+  });
+  assert.deepEqual(
+    decideScope({ systems: [a], info, marker: { id: "A", name: "A", manual: true }, fallbackEnabled: true }),
+    { action: "fallback" }
+  );
+});
