@@ -14,6 +14,7 @@
     "ctdp.generatedProfiles.v1",
     "ctdp.smartFillOverrides.v1",
     "ctdp.siteFeatureEnabled.v1",
+    "ctdp.systemProfiles.v1",
     "ctdp.floatingIconEnabled.v1",
     "ctdp.floatingIconSize.v1",
     "ctdp.focusStyle.v1",

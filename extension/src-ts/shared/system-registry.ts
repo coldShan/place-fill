@@ -47,7 +47,7 @@ function getStorageArea(env?: RegistryEnv): StorageAreaLike | null {
   return null;
 }
 
-function readStorageValue(env: RegistryEnv | undefined, key: string): Promise<unknown> {
+export function readStorageValue(env: RegistryEnv | undefined, key: string): Promise<unknown> {
   const storageArea = getStorageArea(env);
   if (!storageArea) return Promise.resolve(undefined);
   return new Promise(function (resolve) {
@@ -57,7 +57,7 @@ function readStorageValue(env: RegistryEnv | undefined, key: string): Promise<un
   });
 }
 
-function writeStorageValue(env: RegistryEnv | undefined, key: string, value: unknown): Promise<void> {
+export function writeStorageValue(env: RegistryEnv | undefined, key: string, value: unknown): Promise<void> {
   const storageArea = getStorageArea(env);
   if (!storageArea) return Promise.resolve();
   return new Promise(function (resolve) {
@@ -81,7 +81,7 @@ function generateId(env?: RegistryEnv): string {
   return raw.toLowerCase().replace(/[^a-z0-9-]/g, "");
 }
 
-function asRecord(value: unknown): Record<string, unknown> {
+export function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
@@ -190,7 +190,7 @@ export async function saveSystem(system: SystemProfile, env?: RegistryEnv): Prom
   return { ok: true };
 }
 
-function recordHasOwn(record: Record<string, unknown>, key: string): boolean {
+export function recordHasOwn(record: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(record, key);
 }
 

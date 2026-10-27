@@ -73,6 +73,20 @@ const buildConfigs = [
     build: {
       ...createBaseBuildConfig().build,
       lib: {
+        entry: resolve(process.cwd(), "extension/src-ts/bridges/system-scope-global.ts"),
+        fileName() {
+          return "system-scope-api.js";
+        },
+        formats: ["iife"],
+        name: "ChromeTestDataSystemScopeBundle"
+      }
+    }
+  },
+  {
+    ...createBaseBuildConfig(),
+    build: {
+      ...createBaseBuildConfig().build,
+      lib: {
         entry: resolve(process.cwd(), "extension/src-ts/bridges/data-manager-bridge.ts"),
         fileName() {
           return "data-manager-bridge.js";

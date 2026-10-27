@@ -68,6 +68,7 @@ test("local file and manual export share the full backup shape", () => {
     removeKeys: [
       "ctdp.generatedProfiles.v1",
       "ctdp.siteFeatureEnabled.v1",
+      "ctdp.systemProfiles.v1",
       "ctdp.floatingIconEnabled.v1",
       "ctdp.floatingIconSize.v1",
       "ctdp.focusStyle.v1",
@@ -131,4 +132,8 @@ test("storage mirror keeps the existing indexeddb snapshot when chrome local is 
 
   assert.equal(snapshot, existingSnapshot);
   assert.equal(await storageMirror.readIndexedDbSnapshot({ mirrorStore }), existingSnapshot);
+});
+
+test("STORAGE_KEYS includes the system registry key", () => {
+  assert.ok(storageMirror.STORAGE_KEYS.includes("ctdp.systemProfiles.v1"));
 });
