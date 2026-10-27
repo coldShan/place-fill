@@ -1,24 +1,10 @@
 import { useEffect, useState } from "preact/hooks";
 import { listScopeSummaries, type ScopeSummary } from "../page-model";
-import { parseScopeKey, type SystemProfile } from "../../../shared/system-scope";
-import { parseScopeInput } from "../lib/scope-input";
+import type { SystemProfile } from "../../../shared/system-scope";
+import { buildCopyTargets, parseScopeInput } from "../lib/scope-input";
 import { formatScopeLabel } from "../lib/scope-label";
 import { Dialog } from "./dialog";
 import { Icon } from "./icon";
-
-const TARGET_KIND_ORDER = ["system", "host", "file"];
-
-/** Legacy groups only hold un-migrated data; they are never a copy target. */
-function isCopyTarget(scope: string): boolean {
-  const parsed = parseScopeKey(scope);
-  return !parsed || parsed.kind !== "legacy";
-}
-
-function compareTargets(left: ScopeSummary, right: ScopeSummary): number {
-  const leftKind = TARGET_KIND_ORDER.indexOf(parseScopeKey(left.scope)?.kind || "host");
-  const rightKind = TARGET_KIND_ORDER.indexOf(parseScopeKey(right.scope)?.kind || "host");
-  return leftKind - rightKind;
-}
 
 export function CopyToSitesDialog(props: {
   scope: string;
@@ -36,13 +22,9 @@ export function CopyToSitesDialog(props: {
 
   useEffect(function () {
     void listScopeSummaries().then(function (summaries) {
-      setSites(
-        summaries
-          .filter(function (summary) { return summary.scope !== props.scope && isCopyTarget(summary.scope); })
-          .sort(compareTargets)
-      );
+      setSites(buildCopyTargets(summaries, props.systems, props.scope));
     }, function () {
-      setSites([]);
+      setSites(buildCopyTargets([], props.systems, props.scope));
     });
   }, [props.scope]);
 
@@ -62,7 +44,7 @@ export function CopyToSitesDialog(props: {
   }
 
   function addManualSite(): void {
-    const parsed = parseScopeInput(manualInput, props.scope);
+    const parsed = parseScopeInput(manualInput, props.scope, props.systems);
     if (parsed.error) {
       setManualError(parsed.error);
       return;

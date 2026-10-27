@@ -19,7 +19,7 @@ import {
   parseImportPayload,
   planImport
 } from "../extension/src-ts/pages/data-manager/lib/import-export";
-import { parseScopeInput, summarizeCopyResults } from "../extension/src-ts/pages/data-manager/lib/scope-input";
+import { buildCopyTargets, parseScopeInput, summarizeCopyResults } from "../extension/src-ts/pages/data-manager/lib/scope-input";
 import { formatScopeLabel } from "../extension/src-ts/pages/data-manager/lib/scope-label";
 import {
   buildSystemFromDraft,
@@ -151,6 +151,48 @@ test("summarizeCopyResults reports created and skipped target sites", () => {
     ]),
     { message: "a.com、b.com 等 3 个站点 已存在相同数据，未重复复制", tone: "warning" }
   );
+});
+
+function ownerSystem(id: string, name: string, hostname: string, port: string): SystemProfile {
+  return {
+    id,
+    name,
+    titles: [],
+    environments: [{ id: id + "-e", hostname, port, query: {}, lastPath: "", autoAdded: false, createdAt: 1 }],
+    anomalies: [],
+    createdAt: 1,
+    updatedAt: 1
+  };
+}
+
+test("parseScopeInput maps a host owned by a system to that system's scope", () => {
+  const crm = ownerSystem("crm", "客户管理", "crm.example.com", "");
+  const dev = ownerSystem("dev", "开发", "localhost", "5173");
+  const systems = [crm, dev];
+  assert.deepEqual(parseScopeInput("https://crm.example.com/login", "host:example.com", systems), { scope: "system:crm", error: "" });
+  assert.deepEqual(parseScopeInput("CRM.example.com:8443", "host:example.com", systems), { scope: "system:crm", error: "" });
+  assert.deepEqual(parseScopeInput("localhost:5173", "host:example.com", systems), { scope: "system:dev", error: "" });
+  assert.deepEqual(parseScopeInput("localhost:5174", "host:example.com", systems), { scope: "host:localhost:5174", error: "" });
+  assert.deepEqual(parseScopeInput("other.example.com", "host:example.com", systems), { scope: "host:other.example.com", error: "" });
+  const twin = ownerSystem("dev2", "开发二", "localhost", "5173");
+  assert.deepEqual(parseScopeInput("localhost:5173", "host:example.com", systems.concat([twin])), { scope: "host:localhost:5173", error: "" });
+  assert.equal(parseScopeInput("crm.example.com", "system:crm", systems).error, "不能复制到当前站点");
+});
+
+test("buildCopyTargets merges systems without data and drops the current and legacy scopes", () => {
+  const systems = [ownerSystem("crm", "客户管理", "crm.example.com", ""), ownerSystem("empty", "空系统", "a.example.com", "")];
+  const summaries = [
+    { scope: "host:b.example.com", favorites: 1, history: 0 },
+    { scope: "legacy:localhost", favorites: 2, history: 1 },
+    { scope: "system:crm", favorites: 3, history: 4 },
+    { scope: "system:cur", favorites: 1, history: 1 }
+  ];
+  assert.deepEqual(buildCopyTargets(summaries, systems, "system:cur"), [
+    { scope: "system:crm", favorites: 3, history: 4 },
+    { scope: "system:empty", favorites: 0, history: 0 },
+    { scope: "host:b.example.com", favorites: 1, history: 0 }
+  ]);
+  assert.deepEqual(buildCopyTargets([], systems, "system:crm").map(function (item) { return item.scope; }), ["system:empty"]);
 });
 
 test("summarizeCopyResults names target scopes through an optional label formatter", () => {

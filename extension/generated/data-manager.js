@@ -1079,7 +1079,17 @@ function isGenericTitle(title) {
   const normalized = String(title || "").trim().toLowerCase();
   return normalized === "" || GENERIC_TITLES.indexOf(normalized) !== -1;
 }
-function parseScopeInput(input, currentScope) {
+function findOwningSystem(systems, hostname, port) {
+  const local = classifyHost(hostname) === "local";
+  const encoded = encodeHostname(hostname);
+  const owners = systems.filter(function(system) {
+    return system.environments.some(function(environment) {
+      return encodeHostname(environment.hostname) === encoded && (!local || (environment.port || "") === port);
+    });
+  });
+  return owners.length === 1 ? owners[0] : null;
+}
+function parseScopeInput(input, currentScope, systems = []) {
   const raw = String(input || "").trim();
   if (!raw) return { scope: "", error: "请输入域名或网址" };
   let url = null;
@@ -1092,9 +1102,30 @@ function parseScopeInput(input, currentScope) {
   if (!url || !hostname || !hostname.includes(".") && classifyHost(hostname) !== "local") {
     return { scope: "", error: "请输入有效的域名，例如 test.example.com" };
   }
-  const scope = getFallbackScope({ protocol: url.protocol, hostname, port: url.port });
+  const owner = findOwningSystem(systems, hostname, url.port);
+  const scope = owner ? buildSystemScope(owner.id) : getFallbackScope({ protocol: url.protocol, hostname, port: url.port });
   if (scope === normalizeScopeKey(currentScope)) return { scope: "", error: "不能复制到当前站点" };
   return { scope, error: "" };
+}
+const TARGET_KIND_ORDER = ["system", "host", "file"];
+function targetKindRank(scope) {
+  const rank = TARGET_KIND_ORDER.indexOf(parseScopeKey(scope)?.kind || "host");
+  return rank === -1 ? TARGET_KIND_ORDER.length : rank;
+}
+function buildCopyTargets(summaries, systems, currentScope) {
+  const byScope = /* @__PURE__ */ new Map();
+  summaries.forEach(function(summary) {
+    byScope.set(summary.scope, summary);
+  });
+  systems.forEach(function(system) {
+    const scope = buildSystemScope(system.id);
+    if (!byScope.has(scope)) byScope.set(scope, { scope, favorites: 0, history: 0 });
+  });
+  return Array.from(byScope.values()).filter(function(summary) {
+    return summary.scope !== currentScope && parseScopeKey(summary.scope)?.kind !== "legacy";
+  }).sort(function(left, right) {
+    return targetKindRank(left.scope) - targetKindRank(right.scope);
+  });
 }
 function summarizeCopyResults(results, formatLabel = function(scope) {
   return scope;
@@ -1676,16 +1707,6 @@ function Dialog(props) {
     }
   );
 }
-const TARGET_KIND_ORDER = ["system", "host", "file"];
-function isCopyTarget(scope) {
-  const parsed = parseScopeKey(scope);
-  return !parsed || parsed.kind !== "legacy";
-}
-function compareTargets(left, right) {
-  const leftKind = TARGET_KIND_ORDER.indexOf(parseScopeKey(left.scope)?.kind || "host");
-  const rightKind = TARGET_KIND_ORDER.indexOf(parseScopeKey(right.scope)?.kind || "host");
-  return leftKind - rightKind;
-}
 function CopyToSitesDialog(props) {
   const [sites, setSites] = d(null);
   const [selected, setSelected] = d([]);
@@ -1695,13 +1716,9 @@ function CopyToSitesDialog(props) {
   const [submitting, setSubmitting] = d(false);
   A(function() {
     void listScopeSummaries().then(function(summaries) {
-      setSites(
-        summaries.filter(function(summary) {
-          return summary.scope !== props.scope && isCopyTarget(summary.scope);
-        }).sort(compareTargets)
-      );
+      setSites(buildCopyTargets(summaries, props.systems, props.scope));
     }, function() {
-      setSites([]);
+      setSites(buildCopyTargets([], props.systems, props.scope));
     });
   }, [props.scope]);
   const keyword = filter.trim().toLowerCase();
@@ -1716,7 +1733,7 @@ function CopyToSitesDialog(props) {
     });
   }
   function addManualSite() {
-    const parsed = parseScopeInput(manualInput, props.scope);
+    const parsed = parseScopeInput(manualInput, props.scope, props.systems);
     if (parsed.error) {
       setManualError(parsed.error);
       return;
