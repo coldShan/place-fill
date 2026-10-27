@@ -768,7 +768,7 @@ function createScopeHarness(options = {}) {
   }
 
   const harness = {
-    chrome, local, session, tabs, importedScripts, sentMessages, localSets, menuUpdates, listeners, send,
+    chrome, local, session, tabs, importedScripts, sentMessages, localSets, menuUpdates, listeners, send, sandbox,
     changeListeners, removedListeners, createdTab: null,
     topFrame(tabId) { return { tab: { id: tabId }, frameId: 0 }; },
     async settle() {
@@ -1115,4 +1115,143 @@ test("hostless frames use the tab URL for the context menu and click guard", asy
   );
   assert.equal(harness.sentMessages.length, 1);
   assert.equal(harness.sentMessages[0].message.type, "clear-smart-fill-override");
+});
+
+test("set-site-feature-enabled and select-system reject iframe senders", async () => {
+  const harness = createScopeHarness({
+    local: { [SYSTEMS_KEY]: [seedSystem("sys-a", "系统A", ["系统A"], [{ port: "5173" }])] }
+  });
+  await harness.settle();
+  harness.localSets.length = 0;
+  const info = pageInfo("http://localhost:5173/x", "客户管理");
+  const iframe = { tab: { id: 1 }, frameId: 2 };
+  assert.equal(
+    await harness.send({ type: "set-site-feature-enabled", enabled: true, scope: "host:localhost:5173", info, marker: null }, iframe),
+    null
+  );
+  assert.equal(await harness.send({ type: "select-system", systemId: "sys-a", info }, iframe), null);
+  assert.deepEqual(harness.localSets, []);
+  assert.equal(await harness.send({ type: "get-tab-scope" }, iframe), null);
+});
+
+test("tabs.onUpdated complete asks the top frame to re-resolve only when the tab has no fresh scope", async () => {
+  const harness = createScopeHarness();
+  const url = "https://example.com/a";
+  await harness.send({ type: "resolve-page-scope", info: pageInfo(url, "A"), marker: null }, harness.topFrame(6));
+  harness.sentMessages.length = 0;
+
+  harness.listeners.tabsUpdated(6, { status: "complete" }, { id: 6, url });
+  await harness.settle();
+  assert.equal(harness.sentMessages.some(function (item) { return item.message.type === "request-page-scope"; }), false);
+
+  // The "loading" clear can land after the new document already resolved; "complete" repairs it.
+  harness.listeners.tabsUpdated(6, { status: "loading" }, { id: 6, url });
+  harness.listeners.tabsUpdated(6, { status: "complete" }, { id: 6, url });
+  await harness.settle();
+  const requests = harness.sentMessages.filter(function (item) { return item.message.type === "request-page-scope"; });
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].tabId, 6);
+  assert.deepEqual(plain(requests[0].options), { frameId: 0 });
+});
+
+const DATA_MANAGER_SENDER = { url: "chrome-extension://testing/data-manager.html?view=systems", tab: { id: 50 } };
+
+test("save-system runs in the registry queue, adopts new environments and reports conflicts", async () => {
+  const crm = seedSystem("crm", "CRM", ["CRM"], [{ hostname: "prod.crm.com" }]);
+  const oa = seedSystem("oa", "OA", ["OA"], [{ hostname: "oa.com" }]);
+  const harness = createScopeHarness({
+    local: {
+      [SYSTEMS_KEY]: [crm, oa],
+      [FAVORITES_KEY]: { "host:staging.crm.com": [favoriteRecord("s1")] }
+    }
+  });
+  await harness.settle();
+
+  const edited = Object.assign({}, crm, {
+    environments: crm.environments.concat([{ id: "e2", hostname: "staging.crm.com", port: "", query: {}, lastPath: "", autoAdded: false, createdAt: 2 }])
+  });
+  const [saved] = await Promise.all([
+    harness.send({ type: "save-system", system: edited }, DATA_MANAGER_SENDER),
+    harness.send({ type: "resolve-page-scope", info: pageInfo("https://oa.com/x", "CRM 首页"), marker: null }, harness.topFrame(1))
+  ]);
+  assert.deepEqual(saved, { ok: true });
+  const systems = harness.local[SYSTEMS_KEY];
+  assert.equal(systems.find(function (item) { return item.id === "crm"; }).environments.length, 2);
+  // The concurrent resolution's anomaly write was not lost to the save.
+  assert.equal(systems.find(function (item) { return item.id === "oa"; }).anomalies.length, 1);
+  assert.deepEqual(Object.keys(harness.local[FAVORITES_KEY]), ["system:crm"]);
+
+  const conflict = await harness.send(
+    { type: "save-system", system: seedSystem("x", "X", [], [{ hostname: "oa.com" }]) },
+    DATA_MANAGER_SENDER
+  );
+  assert.deepEqual(conflict, { ok: false, message: "oa.com 已属于系统「OA」" });
+  assert.deepEqual(await harness.send({ type: "save-system", system: { name: "无 ID" } }, DATA_MANAGER_SENDER), {
+    ok: false,
+    message: "系统数据无效"
+  });
+});
+
+test("delete-system and dismiss-anomalies run through background messages", async () => {
+  const crm = seedSystem("crm", "CRM", ["CRM"], [{ hostname: "prod.crm.com" }]);
+  crm.anomalies = [{ titleSystemId: "oa", url: "https://prod.crm.com/x", at: 1 }];
+  const oa = seedSystem("oa", "OA", ["OA"], [{ hostname: "oa.com" }]);
+  const harness = createScopeHarness({
+    local: { [SYSTEMS_KEY]: [crm, oa], [FAVORITES_KEY]: { "system:oa": [favoriteRecord("o1")] } }
+  });
+  await harness.settle();
+
+  assert.deepEqual(await harness.send({ type: "dismiss-anomalies", systemId: "crm" }, DATA_MANAGER_SENDER), { ok: true });
+  assert.deepEqual(harness.local[SYSTEMS_KEY][0].anomalies, []);
+
+  assert.deepEqual(
+    await harness.send({ type: "delete-system", id: "oa", targetScope: "host:oa.com" }, DATA_MANAGER_SENDER),
+    { ok: true }
+  );
+  assert.deepEqual(harness.local[SYSTEMS_KEY].map(function (item) { return item.id; }), ["crm"]);
+  assert.deepEqual(Object.keys(harness.local[FAVORITES_KEY]), ["host:oa.com"]);
+
+  assert.deepEqual(await harness.send({ type: "delete-system", id: "crm", targetScope: "" }, DATA_MANAGER_SENDER), {
+    ok: false,
+    message: "删除参数无效"
+  });
+  assert.equal(harness.local[SYSTEMS_KEY].length, 1);
+});
+
+test("system registry messages from content scripts are rejected", async () => {
+  const harness = createScopeHarness({
+    local: { [SYSTEMS_KEY]: [seedSystem("crm", "CRM", ["CRM"], [{ hostname: "prod.crm.com" }])] }
+  });
+  await harness.settle();
+  harness.localSets.length = 0;
+  const contentScript = { url: "https://prod.crm.com/x", tab: { id: 1 }, frameId: 0 };
+  assert.equal(await harness.send({ type: "delete-system", id: "crm", targetScope: "host:prod.crm.com" }, contentScript), null);
+  assert.equal(await harness.send({ type: "dismiss-anomalies", systemId: "crm" }, contentScript), null);
+  assert.equal(await harness.send({ type: "save-system", system: seedSystem("n", "N", [], [{ hostname: "n.com" }]) }, contentScript), null);
+  assert.deepEqual(harness.localSets, []);
+});
+
+test("storage changes queue the migration only for legacy-shaped values", async () => {
+  const harness = createScopeHarness();
+  await harness.settle();
+  const api = harness.sandbox.ChromeTestDataSystemScope;
+  const original = api.migrateLegacyScopes;
+  let calls = 0;
+  api.migrateLegacyScopes = function () {
+    calls += 1;
+    return original.apply(this, arguments);
+  };
+  function change(key, value) {
+    harness.changeListeners.forEach(function (listener) { listener({ [key]: { newValue: value } }, "local"); });
+  }
+
+  change(FAVORITES_KEY, { "system:a": [favoriteRecord("r1")] });
+  change(SITE_KEY, { "host:localhost:5173": true });
+  change("ctdp.smartFillOverrides.v1", { "system:a::top::fp": "mobile" });
+  await harness.settle();
+  assert.equal(calls, 0);
+
+  change(FAVORITES_KEY, { "legacy.example.com": [favoriteRecord("r2")] });
+  await harness.settle();
+  assert.equal(calls, 1);
 });

@@ -196,10 +196,44 @@ function getSenderTabId(sender) {
   return sender && sender.tab && typeof sender.tab.id === "number" ? sender.tab.id : 0;
 }
 
-// Only the top frame is recognized; recording is skipped for iframe senders so a frame's own URL
-// never overwrites the tab's scope.
-function canRecordTabScope(sender) {
-  return getSenderTabId(sender) > 0 && (sender.frameId === undefined || sender.frameId === 0);
+// Only the top frame is recognized and may change the tab's scope; iframe senders are rejected so a
+// frame's own URL never overwrites it.
+function isTopFrameSender(sender) {
+  return getSenderTabId(sender) > 0 && sender.frameId === 0;
+}
+
+// Registry edits (save/delete systems, dismiss anomalies) come from the data manager page only,
+// never from content scripts.
+function isExtensionPageSender(sender) {
+  if (!sender || typeof sender.url !== "string") return false;
+  if (!chrome.runtime || typeof chrome.runtime.getURL !== "function") return false;
+  return sender.url.startsWith(chrome.runtime.getURL(""));
+}
+
+function runRegistryCommand(sendResponse, task) {
+  enqueueRegistryTask(task).then(sendResponse, function (error) {
+    sendResponse({ message: error && error.message ? error.message : "操作失败", ok: false });
+  });
+  return true;
+}
+
+// The top frame resolves at document_idle; if that record raced the navigation's "loading" clear
+// (or never arrived), ask the top frame to resolve again once the page is complete.
+function requestPageScopeIfMissing(tabId, topUrl) {
+  return loadTabScopes().then(function () {
+    if (getFreshTabScope(tabId, topUrl)) return;
+    if (!chrome.tabs || typeof chrome.tabs.sendMessage !== "function") return;
+    chrome.tabs.sendMessage(tabId, { type: "request-page-scope" }, { frameId: 0 }, function () {
+      void chrome.runtime.lastError;
+    });
+  });
+}
+
+function hasLegacyScopeChange(changes) {
+  if (!systemScopeApi || typeof systemScopeApi.hasLegacyScopeData !== "function") return false;
+  return LEGACY_MIGRATION_TRIGGER_KEYS.some(function (key) {
+    return Object.prototype.hasOwnProperty.call(changes, key) && systemScopeApi.hasLegacyScopeData(key, changes[key] && changes[key].newValue);
+  });
 }
 
 function recordResolution(tabId, resolution, record) {
@@ -713,9 +747,9 @@ if (chrome.storage && chrome.storage.onChanged) {
       syncRootMenuVisibilityForActiveTab();
       syncBackupReminderForActiveTab();
     }
-    if (LEGACY_MIGRATION_TRIGGER_KEYS.some(function (key) { return Object.prototype.hasOwnProperty.call(changes, key); })) {
-      // The migration is idempotent: once nothing is legacy it writes nothing, so the onChanged
-      // events caused by its own writes end after one extra no-op pass.
+    if (hasLegacyScopeChange(changes)) {
+      // Only legacy-shaped writes (old backups, older extension code) queue the migration; its own
+      // writes contain no legacy keys, so they never trigger it again.
       runLegacyMigration();
     }
     mirrorStorageLocal().catch(function () {});
@@ -748,6 +782,11 @@ if (chrome.tabs && chrome.tabs.onUpdated) {
     if (changeInfo.status === "loading") {
       enqueueRegistryTask(function () {
         return clearTabScope(tabId);
+      }).catch(function () {});
+    }
+    if (changeInfo.status === "complete") {
+      enqueueRegistryTask(function () {
+        return requestPageScopeIfMissing(tabId, tab && tab.url);
       }).catch(function () {});
     }
     syncRootMenuVisibilityForTab(tabId, (tab && tab.url) || changeInfo.url);
@@ -831,14 +870,13 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   if (message.type === "set-site-feature-enabled") {
     const input = normalizeResolveInput(message.info, message.marker);
     const scope = typeof message.scope === "string" ? message.scope.trim() : "";
-    if (!input || !scope) {
+    if (!input || !scope || !isTopFrameSender(sender)) {
       sendResponse(null);
       return;
     }
     const tabId = getSenderTabId(sender);
-    const record = canRecordTabScope(sender);
     enqueueRegistryTask(function () {
-      return setSiteFeatureEnabledForScope(tabId, scope, message.enabled, input, record);
+      return setSiteFeatureEnabledForScope(tabId, scope, message.enabled, input, true);
     }).then(sendResponse, function () {
       sendResponse(null);
     });
@@ -847,18 +885,52 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   if (message.type === "select-system") {
     const input = normalizeResolveInput(message.info, null);
     const systemId = typeof message.systemId === "string" && message.systemId ? message.systemId : null;
-    if (!input) {
+    if (!input || !isTopFrameSender(sender)) {
       sendResponse(null);
       return;
     }
     const tabId = getSenderTabId(sender);
-    const record = canRecordTabScope(sender);
     enqueueRegistryTask(function () {
-      return selectSystemForTab(tabId, systemId, input.info, record);
+      return selectSystemForTab(tabId, systemId, input.info, true);
     }).then(sendResponse, function () {
       sendResponse(null);
     });
     return true;
+  }
+  if (message.type === "save-system" || message.type === "delete-system" || message.type === "dismiss-anomalies") {
+    if (!systemScopeApi || !isExtensionPageSender(sender)) {
+      sendResponse(null);
+      return;
+    }
+    if (message.type === "save-system") {
+      const system = systemScopeApi.normalizeSystemProfile(message.system);
+      if (!system) {
+        sendResponse({ message: "系统数据无效", ok: false });
+        return;
+      }
+      return runRegistryCommand(sendResponse, function () {
+        return systemScopeApi.saveSystem(system);
+      });
+    }
+    if (message.type === "delete-system") {
+      const id = typeof message.id === "string" ? message.id.trim() : "";
+      const targetScope = typeof message.targetScope === "string" ? message.targetScope.trim() : "";
+      if (!id || !targetScope) {
+        sendResponse({ message: "删除参数无效", ok: false });
+        return;
+      }
+      return runRegistryCommand(sendResponse, function () {
+        return systemScopeApi.deleteSystem(id, targetScope).then(function () {
+          return { ok: true };
+        });
+      });
+    }
+    const systemId = typeof message.systemId === "string" ? message.systemId.trim() : "";
+    return runRegistryCommand(sendResponse, function () {
+      return systemScopeApi.dismissAnomalies(systemId).then(function () {
+        return { ok: true };
+      });
+    });
   }
   if (message.type === "list-systems") {
     if (!systemScopeApi) {

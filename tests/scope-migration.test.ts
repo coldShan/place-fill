@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { migrateLegacyScopes } from "../extension/src-ts/shared/scope-migration";
+import { hasLegacyScopeData, migrateLegacyScopes } from "../extension/src-ts/shared/scope-migration";
 import { SITE_FEATURE_STORAGE_KEY } from "../extension/src-ts/shared/system-registry";
 import {
   FAVORITE_PROFILES_STORAGE_KEY,
@@ -294,4 +294,16 @@ test("does nothing on empty storage or without a storage area", async () => {
   assert.deepEqual(await migrateLegacyScopes(empty.env), { changed: false });
   assert.equal(empty.storageArea.setCalls.length, 0);
   assert.deepEqual(await migrateLegacyScopes({ storageArea: null }), { changed: false });
+});
+
+test("hasLegacyScopeData spots legacy-shaped keys in a changed storage value", () => {
+  assert.equal(hasLegacyScopeData(FAVORITE_PROFILES_STORAGE_KEY, { "example.com": [] }), true);
+  assert.equal(hasLegacyScopeData(GENERATED_PROFILES_STORAGE_KEY, { "host:example.com": [], "system:a": [] }), false);
+  assert.equal(hasLegacyScopeData(SITE_FEATURE_STORAGE_KEY, { localhost: true }), true);
+  assert.equal(hasLegacyScopeData(SITE_FEATURE_STORAGE_KEY, { "legacy:localhost": true, "host:localhost:5173": false }), false);
+  assert.equal(hasLegacyScopeData(OVERRIDES_KEY, { "https://a.com/app::top::fp": "mobile" }), true);
+  assert.equal(hasLegacyScopeData(OVERRIDES_KEY, { "system:a::top::fp": "mobile" }), false);
+  assert.equal(hasLegacyScopeData(AI_MAPPINGS_KEY, { "http://localhost:5173::top::fp": {} }), true);
+  assert.equal(hasLegacyScopeData(AI_MAPPINGS_KEY, undefined), false);
+  assert.equal(hasLegacyScopeData("ctdp.dockTop.v1", { "example.com": 1 }), false);
 });

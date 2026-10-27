@@ -888,6 +888,22 @@ var ChromeTestDataSystemScopeBundle = (function() {
     }
     return changed;
   }
+  function hasLegacyScopeData(storageKey, value) {
+    const keys = Object.keys(asRecord(value));
+    if (storageKey === FAVORITE_PROFILES_STORAGE_KEY || storageKey === GENERATED_PROFILES_STORAGE_KEY) {
+      return keys.some(function(key) {
+        const normalized = normalizeScopeKey(key);
+        return !!normalized && isLegacyScopeKey(normalized);
+      });
+    }
+    if (storageKey === SITE_FEATURE_STORAGE_KEY) return keys.some(isLegacyScopeKey);
+    if (storageKey === OVERRIDES_STORAGE_KEY || storageKey === AI_MAPPINGS_STORAGE_KEY) {
+      return keys.some(function(key) {
+        return migrateAnnotationKey(key) !== null;
+      });
+    }
+    return false;
+  }
   async function migrateLegacyScopes(env) {
     const recordsChanged = await migrateRecords(env);
     const togglesChanged = await migrateFeatureToggles(env);
@@ -903,6 +919,7 @@ var ChromeTestDataSystemScopeBundle = (function() {
   }
   const scopeMigration = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
+    hasLegacyScopeData,
     migrateLegacyScopes
   }, Symbol.toStringTag, { value: "Module" }));
   const systemScopeApi = { ...systemScope, ...systemRegistry, ...scopeMigration };

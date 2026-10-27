@@ -147,6 +147,27 @@ async function migrateRecords(env?: RegistryEnv): Promise<boolean> {
 }
 
 /**
+ * Cheap check whether a (changed) storage value still holds keys the migration would rewrite, so
+ * storage.onChanged only queues the migration for legacy-shaped writes.
+ */
+export function hasLegacyScopeData(storageKey: string, value: unknown): boolean {
+  const keys = Object.keys(asRecord(value));
+  if (storageKey === FAVORITE_PROFILES_STORAGE_KEY || storageKey === GENERATED_PROFILES_STORAGE_KEY) {
+    return keys.some(function (key) {
+      const normalized = normalizeScopeKey(key);
+      return !!normalized && isLegacyScopeKey(normalized);
+    });
+  }
+  if (storageKey === SITE_FEATURE_STORAGE_KEY) return keys.some(isLegacyScopeKey);
+  if (storageKey === OVERRIDES_STORAGE_KEY || storageKey === AI_MAPPINGS_STORAGE_KEY) {
+    return keys.some(function (key) {
+      return migrateAnnotationKey(key) !== null;
+    });
+  }
+  return false;
+}
+
+/**
  * One-shot, idempotent migration of URL-keyed data to scope keys. Only legacy keys are touched and
  * they are merged into any existing new-format key; when nothing is legacy no write happens.
  */
