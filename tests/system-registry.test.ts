@@ -239,6 +239,7 @@ test("resolvePageScope reads the legacy local default for the fallback switch", 
   const { env } = createEnv({ [SITE_FEATURE_STORAGE_KEY]: { "legacy:localhost": true } }, ["sys1", "env1"]);
   const result = await resolvePageScope({ info: pageInfo(), marker: null }, env);
   assert.equal(result.scope, "system:sys1");
+  assert.equal(await readScopeEnabled("system:sys1", env), true);
 });
 
 test("resolvePageScope auto-adds a new host to the title-matched system", async () => {
@@ -267,6 +268,35 @@ test("resolvePageScope auto-adds a new host to the title-matched system", async 
   assert.equal(added.autoAdded, true);
   assert.deepEqual(added.query, {});
   assert.equal(added.createdAt, 5000);
+});
+
+test("resolvePageScope auto-add moves the new host's fallback data into the system", async () => {
+  const existing = system("A", "CRM", [environment("prod.crm.com")], ["CRM"]);
+  const { env, storageArea } = createEnv(
+    {
+      [SYSTEM_PROFILES_STORAGE_KEY]: [existing],
+      [SITE_FEATURE_STORAGE_KEY]: { "host:staging.crm.com": true },
+      [FAVORITE_PROFILES_STORAGE_KEY]: {
+        "host:staging.crm.com": [{ id: "f1", name: "常用", note: "", createdAt: "10", updatedAt: "10", profile: profile(1) }]
+      },
+      [OVERRIDES_KEY]: { "host:staging.crm.com::top::fp1": "mobile" }
+    },
+    ["envNew"]
+  );
+  const info = pageInfo({
+    hostname: "staging.crm.com",
+    port: "",
+    origin: "https://staging.crm.com",
+    protocol: "https:",
+    title: "CRM 客户管理"
+  });
+  const result = await resolvePageScope({ info, marker: null }, env);
+  assert.equal(result.scope, "system:A");
+  assert.equal((await readFavoriteProfiles("system:A", env)).length, 1);
+  assert.equal((await readFavoriteProfiles("host:staging.crm.com", env)).length, 0);
+  assert.deepEqual(storageArea.state[OVERRIDES_KEY], { "system:A::top::fp1": "mobile" });
+  assert.equal(await readScopeEnabled("system:A", env), true);
+  assert.deepEqual(storageArea.state[SITE_FEATURE_STORAGE_KEY], { "system:A": true });
 });
 
 test("resolvePageScope records anomalies without query, deduplicated and capped at 20", async () => {

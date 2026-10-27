@@ -278,6 +278,18 @@ export async function writeScopeEnabled(scope: string, enabled: boolean, env?: R
   await writeStorageValue(env, SITE_FEATURE_STORAGE_KEY, { ...stored, [scope]: enabled });
 }
 
+/**
+ * Moves a fallback scope's data into a system and makes sure the system scope carries the
+ * effective switch value (which may only have come from the legacy local-host default).
+ */
+async function adoptFallbackScope(fallbackScope: string, systemId: string, env?: RegistryEnv): Promise<void> {
+  const systemScope = buildSystemScope(systemId);
+  const enabled = await readScopeEnabled(fallbackScope, env);
+  await moveScopeData(fallbackScope, systemScope, env);
+  const stored = asRecord(await readStorageValue(env, SITE_FEATURE_STORAGE_KEY));
+  if (!recordHasOwn(stored, systemScope)) await writeScopeEnabled(systemScope, enabled, env);
+}
+
 function buildEnvironment(info: PageInfo, autoAdded: boolean, env?: RegistryEnv): SystemEnvironment {
   return {
     id: generateId(env),
@@ -349,6 +361,7 @@ export async function resolvePageScope(
     target.environments = target.environments.concat([buildEnvironment(info, true, env)]);
     target.updatedAt = currentTime(env);
     await writeSystems(systems, env);
+    await adoptFallbackScope(fallbackScope, target.id, env);
     return resolved(target, fallbackScope, marker);
   }
 
@@ -365,7 +378,7 @@ export async function resolvePageScope(
     updatedAt: now
   };
   await writeSystems(systems.concat([created]), env);
-  await moveScopeData(fallbackScope, buildSystemScope(created.id), env);
+  await adoptFallbackScope(fallbackScope, created.id, env);
   return resolved(created, fallbackScope, marker);
 }
 
