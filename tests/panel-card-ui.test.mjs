@@ -20,6 +20,7 @@ const {
   generateFallbackAutoFillValue,
   hasAutoFillTargetValue,
   isSensitiveFormControl,
+  renderSystemScopeMarkup,
   sampleFavoriteProfiles
 } = panelControllerPkg.default || panelControllerPkg;
 const editableTargetApi = editableTargetPkg.default || editableTargetPkg;
@@ -39,7 +40,7 @@ test("page capture checks duplicates only on request and prevents concurrent wri
   ];
   globalThis.ChromeTestDataDataRecords = {
     async findFavoriteProfile(scope, profile) {
-      assert.equal(scope, "example.com");
+      assert.equal(scope, "system:crm");
       assert.deepEqual(profile, { fullName: "张三", mobile: "13800138000" });
       if (failLookup) throw new Error("Storage unavailable");
       return existing;
@@ -57,6 +58,7 @@ test("page capture checks duplicates only on request and prevents concurrent wri
       return fields;
     } },
     window: { location: { hostname: "EXAMPLE.COM" } },
+    scopeClient: { getScope() { return "system:crm"; } },
     generators: { generateProfile() { return {}; } },
     panelStateApi: { createPanelState() { return {}; } },
     fieldMetaApi: { getFieldKeys() { return []; } },
@@ -833,8 +835,8 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(panelScript, /recordGeneratedProfile/);
   assert.match(panelScript, /function regenerateFieldValue\(fieldKey\)/);
   assert.match(panelScript, /siteFeatureEnabled:\s*siteFeatureToggleApi\.getDefaultSiteFeatureEnabled\(\)/);
-  assert.match(panelScript, /readSiteFeatureEnabled/);
-  assert.match(panelScript, /writeSiteFeatureEnabled/);
+  assert.match(panelScript, /readSiteFeatureEnabled\(\{ scope: getCurrentScopeKey\(\) \}\)/);
+  assert.match(panelScript, /scopeClient\.setSiteFeatureEnabled/);
   assert.match(smartfillScript, /function renderSmartFillMenuMarkup\(primaryFieldKey\)/);
   assert.match(smartfillScript, /function resolveFocusTargetSurfaceColor\(target\)/);
   assert.match(smartfillScript, /--ctdp-smartfocus-surface/);
@@ -871,7 +873,7 @@ test("smart fill menu supports right-click manual annotation and regenerates onl
   assert.match(orchestratorScript, /sync-site-feature-context-menu/);
   assert.match(orchestratorScript, /onAddCurrentPageToFavorites:\s*panelController\.addCurrentPageToFavorites/);
   assert.match(orchestratorScript, /listRecommendedProfiles:/);
-  assert.match(orchestratorScript, /getCurrentScope,/);
+  assert.match(orchestratorScript, /getCurrentScope:\s*scopeClient\.getScope,/);
   assert.match(orchestratorScript, /message\.type === "apply-smart-fill-override"/);
   assert.match(orchestratorScript, /message\.type === "suppress-smart-fill-recognition"/);
   assert.match(orchestratorScript, /message\.type === "clear-smart-fill-override"/);
@@ -942,4 +944,95 @@ test("clear user data requires confirmation, clears only annotations and handles
   fail = true;
   assert.equal(await controller.clearUserData(), false);
   assert.equal(refreshes, 1);
+});
+
+test("settings show the recognized system with a manage link and no switch on non-local hosts", () => {
+  const markup = renderSystemScopeMarkup(
+    { fallbackScope: "host:crm.example.com", marker: { id: "a", manual: false, name: "客户管理" }, scope: "system:a", system: { id: "a", name: "客户管理" } },
+    { isLocalHost: false, systems: [{ id: "a", name: "客户管理" }] }
+  );
+
+  assert.match(markup, /data-role="system-scope-label">当前系统：客户管理</);
+  assert.match(markup, /data-role="open-system-manager">管理系统</);
+  assert.doesNotMatch(markup, /system-scope-select|切换系统/);
+});
+
+test("settings show the fallback scope for unrecognized pages without a manage link", () => {
+  const markup = renderSystemScopeMarkup(
+    { fallbackScope: "host:example.com", marker: null, scope: "host:example.com", system: null },
+    { isLocalHost: false }
+  );
+
+  assert.match(markup, /未识别（host:example\.com）/);
+  assert.doesNotMatch(markup, /open-system-manager|管理系统/);
+});
+
+test("local hosts get a system switch with automatic recognition and the manual pick selected", () => {
+  const automatic = renderSystemScopeMarkup(
+    { fallbackScope: "host:localhost:5173", marker: { id: "a", manual: false, name: "客户管理" }, scope: "system:a", system: { id: "a", name: "客户管理" } },
+    { isLocalHost: true, systems: [{ id: "a", name: "客户管理" }, { id: "b", name: "<订单>" }] }
+  );
+  assert.match(automatic, /<span class="ctdp-settings-row-note">切换系统<\/span>/);
+  assert.match(automatic, /<select class="ctdp-settings-select" data-role="system-scope-select" aria-label="切换系统">/);
+  assert.match(automatic, /<option value="" selected>自动识别<\/option>/);
+  assert.match(automatic, /<option value="a">客户管理<\/option>/);
+  assert.match(automatic, /<option value="b">&lt;订单&gt;<\/option>/);
+
+  const manual = renderSystemScopeMarkup(
+    { fallbackScope: "host:localhost:5173", marker: { id: "c", manual: true, name: "报表" }, scope: "system:c", system: { id: "c", name: "报表" } },
+    { isLocalHost: true, systems: [] }
+  );
+  assert.match(manual, /<option value="">自动识别<\/option>/);
+  assert.match(manual, /<option value="c" selected>报表<\/option>/);
+
+  const unrecognized = renderSystemScopeMarkup(
+    { fallbackScope: "host:localhost:5173", marker: null, scope: "host:localhost:5173", system: null },
+    { isLocalHost: true, systems: [] }
+  );
+  assert.match(unrecognized, /未识别（host:localhost:5173）/);
+  assert.match(unrecognized, /data-role="system-scope-select"/);
+});
+
+test("the current-site settings render the system row below the toggle and route actions through the scope client", () => {
+  assert.match(panelScript, /renderSettingsSectionMarkup\(\s*"site"[\s\S]*?renderSiteFeatureToggleMarkup\(\) \+ renderSystemScopeRowMarkup\(\)/);
+  assert.match(panelScript, /class="ctdp-settings-row ctdp-settings-row-static ctdp-system-scope" data-role="system-scope"/);
+  assert.match(panelScript, /systemScopeApi\.classifyHost\(win\.location\.hostname\) === "local"/);
+  assert.match(panelScript, /type: "open-data-manager-page",\s*scope: getCurrentScopeKey\(\),\s*view: "systems"/);
+  assert.match(panelScript, /closest\('\[data-role="system-scope-select"\]'\)[\s\S]*?selectSystem\(systemScopeTrigger\.value\)/);
+  assert.match(panelScript, /if \(scopeClient\) await scopeClient\.setSiteFeatureEnabled\(enabled\)/);
+  assert.match(panelStyles, /\.ctdp-system-scope-link\s*\{/);
+  assert.match(panelStyles, /\.ctdp-system-scope-switch\s*\{/);
+  assert.doesNotMatch(panelStyles, /\.ctdp-system-scope[^{]*\{[^}]*&/);
+});
+
+test("the panel reads the site toggle under the scope client's current scope", async () => {
+  const toggleScopes = [];
+  let scope = "host:localhost:5173";
+  const controller = (panelControllerPkg.default || panelControllerPkg).createContentScriptPanelController({
+    document: {},
+    window: { location: { hostname: "localhost" } },
+    generators: { generateProfile() { return {}; } },
+    panelStateApi: { createPanelState() { return { hide() {}, showCollapsed() {}, snapshot() { return { collapsed: false, visible: false }; } }; } },
+    fieldMetaApi: { getFieldKeys() { return []; } },
+    scopeClient: { getScope() { return scope; } },
+    siteFeatureToggleApi: {
+      getDefaultSiteFeatureEnabled() { return false; },
+      isSiteFeatureEnabled(value) { return value === true; },
+      readSiteFeatureEnabled(env) {
+        toggleScopes.push(env && env.scope);
+        return Promise.resolve(true);
+      }
+    },
+    smartFillApi: {}
+  });
+
+  await controller.loadSiteFeatureEnabled();
+  scope = "system:a";
+  await controller.loadSiteFeatureEnabled();
+
+  assert.deepEqual(toggleScopes, ["host:localhost:5173", "system:a"]);
+  assert.equal(controller.isSiteFeatureEnabled(), true);
+  // Unmounted panels (iframes) keep reloadScope a no-op.
+  assert.equal(typeof controller.reloadScope, "function");
+  await controller.reloadScope();
 });

@@ -1461,6 +1461,46 @@
   outline-offset: 2px;
 }
 
+.ctdp-system-scope-label {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.ctdp-system-scope-link {
+  flex: none;
+  margin-left: auto;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 8px;
+  color: rgb(var(--place-fill-accent-rgb));
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 160ms ease;
+}
+
+.ctdp-system-scope-link:hover,
+.ctdp-system-scope-link:focus-visible {
+  outline: none;
+  background: rgb(var(--place-fill-accent-rgb) / 0.10);
+}
+
+.ctdp-system-scope-link:focus-visible {
+  box-shadow: inset 0 0 0 2px rgb(var(--place-fill-accent-rgb) / 0.26);
+}
+
+.ctdp-system-scope-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ctdp-system-scope-switch .ctdp-settings-select {
+  min-width: 0;
+  max-width: 60%;
+}
+
 .ctdp-ai-settings {
   display: grid;
   gap: 10px;

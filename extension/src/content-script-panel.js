@@ -10,6 +10,41 @@
       .replace(/'/g, "&#39;");
   }
 
+  // Inner markup of the settings row showing the page's system; the switch is a local-host-only
+  // correction tool and the manage link only makes sense for a recognized system.
+  function renderSystemScopeMarkup(resolution, options) {
+    const current = resolution || {};
+    const opts = options || {};
+    const system = current.system && current.system.id ? current.system : null;
+    const label = system ? "当前系统：" + system.name : "未识别（" + (current.fallbackScope || current.scope || "") + "）";
+    const parts = [
+      '<span class="ctdp-settings-row-head">',
+      '  <span class="ctdp-settings-row-copy">',
+      '    <span class="ctdp-settings-row-title ctdp-system-scope-label" data-role="system-scope-label">' + escapeHtml(label) + "</span>",
+      "  </span>",
+      system ? '  <button class="ctdp-system-scope-link" type="button" data-role="open-system-manager">管理系统</button>' : "",
+      "</span>"
+    ];
+    if (opts.isLocalHost) {
+      const marker = current.marker;
+      const selectedId = marker && marker.manual && marker.id ? marker.id : "";
+      const systems = Array.isArray(opts.systems) ? opts.systems.slice() : [];
+      if (selectedId && system && !systems.some(function (item) { return item.id === selectedId; })) systems.push(system);
+      parts.push(
+        '<label class="ctdp-system-scope-switch">',
+        '  <span class="ctdp-settings-row-note">切换系统</span>',
+        '  <select class="ctdp-settings-select" data-role="system-scope-select" aria-label="切换系统">',
+        '    <option value=""' + (selectedId ? "" : " selected") + ">自动识别</option>",
+        systems.map(function (item) {
+          return '    <option value="' + escapeHtml(item.id) + '"' + (item.id === selectedId ? " selected" : "") + ">" + escapeHtml(item.name || item.id) + "</option>";
+        }).join(""),
+        "  </select>",
+        "</label>"
+      );
+    }
+    return parts.join("");
+  }
+
   function sampleFavoriteProfiles(favoriteProfiles, count, randomFn) {
     const random = typeof randomFn === "function" ? randomFn : Math.random;
     const pool = Array.isArray(favoriteProfiles)
@@ -310,6 +345,8 @@
     const iconAssetsApi = opts.iconAssetsApi;
     const fieldMetaApi = opts.fieldMetaApi;
     const siteFeatureToggleApi = opts.siteFeatureToggleApi;
+    const scopeClient = opts.scopeClient || null;
+    const systemScopeApi = opts.systemScopeApi || rootScope.ChromeTestDataSystemScope || null;
     const smartFillApi = opts.smartFillApi;
     const editableTargetApi = opts.editableTargetApi;
     const elementFormControlApi = opts.elementFormControlApi;
@@ -344,6 +381,7 @@
     let checkUpdateBtn = null;
     let siteFeatureStatus = null;
     let siteFeatureToggle = null;
+    let systemScopeRow = null;
     let floatingIconToggle = null;
     let floatingIconSizeSelect = null;
     let localAnnotationFileToggle = null;
@@ -390,6 +428,7 @@
       panelView: "main",
       profile: generators.generateProfile(),
       siteFeatureEnabled: siteFeatureToggleApi.getDefaultSiteFeatureEnabled(),
+      systemOptions: [],
       floatingIconEnabled: true,
       floatingIconSize: "medium",
       clearingUserData: false,
@@ -566,6 +605,63 @@
         "  </span>",
         "</section>"
       ].join("");
+    }
+
+    function isLocalHostPage() {
+      if (!systemScopeApi || typeof systemScopeApi.classifyHost !== "function") return false;
+      if (!win || !win.location || typeof win.location.hostname !== "string") return false;
+      return systemScopeApi.classifyHost(win.location.hostname) === "local";
+    }
+
+    function getScopeResolution() {
+      return scopeClient ? scopeClient.getResolution() : null;
+    }
+
+    function renderSystemScopeRowMarkup() {
+      return [
+        '<section class="ctdp-settings-row ctdp-settings-row-static ctdp-system-scope" data-role="system-scope">',
+        renderSystemScopeMarkup(getScopeResolution(), { isLocalHost: isLocalHostPage(), systems: state.systemOptions }),
+        "</section>"
+      ].join("");
+    }
+
+    function syncSystemScopeRow() {
+      if (!systemScopeRow) return;
+      systemScopeRow.innerHTML = renderSystemScopeMarkup(getScopeResolution(), { isLocalHost: isLocalHostPage(), systems: state.systemOptions });
+    }
+
+    async function loadSystemOptions() {
+      if (!scopeClient || !isLocalHostPage()) return [];
+      state.systemOptions = await scopeClient.listSystems().catch(function () {
+        return [];
+      });
+      syncSystemScopeRow();
+      return state.systemOptions;
+    }
+
+    async function selectSystem(systemId) {
+      if (!scopeClient) return;
+      // A scope change reaches reloadScope through the content script's onChange wiring; the row
+      // is re-rendered here as well because the manual flag can change without the scope changing.
+      await scopeClient.selectSystem(systemId || null);
+      syncSystemScopeRow();
+    }
+
+    async function openSystemManagerPage() {
+      const response = await sendRuntimeMessage({
+        type: "open-data-manager-page",
+        scope: getCurrentScopeKey(),
+        view: "systems"
+      });
+      if (response && response.error) setSettingsStatus(response.error, "error");
+    }
+
+    // The page's scope changed (title-based recognition, manual switch, toggle-created system):
+    // everything keyed by scope is read again.
+    async function reloadScope() {
+      if (!root) return;
+      syncSystemScopeRow();
+      await Promise.all([loadSiteFeatureEnabled(), loadFavoriteProfiles(), loadSystemOptions()]);
     }
 
     function getSiteFeatureStatusText() {
@@ -1450,12 +1546,15 @@
     }
 
     async function loadSiteFeatureEnabled() {
-      syncSiteFeatureEnabled(await siteFeatureToggleApi.readSiteFeatureEnabled());
+      syncSiteFeatureEnabled(await siteFeatureToggleApi.readSiteFeatureEnabled({ scope: getCurrentScopeKey() }));
     }
 
+    // The background writes the toggle and re-resolves (enabling may create or join a system), so
+    // the state is read back under whatever scope the page ends up in.
     async function toggleSiteFeatureEnabled(enabled) {
-      const nextEnabled = await siteFeatureToggleApi.writeSiteFeatureEnabled(enabled);
-      syncSiteFeatureEnabled(nextEnabled);
+      if (scopeClient) await scopeClient.setSiteFeatureEnabled(enabled);
+      await loadSiteFeatureEnabled();
+      syncSystemScopeRow();
     }
 
     function setSettingsStatus(text, tone) {
@@ -1504,8 +1603,7 @@
     }
 
     function getCurrentScopeKey() {
-      if (!win || !win.location || typeof win.location.hostname !== "string") return "";
-      return String(win.location.hostname || "").trim().toLowerCase();
+      return scopeClient ? scopeClient.getScope() : "";
     }
 
     function recordGeneratedProfile() {
@@ -1827,7 +1925,7 @@
           "当前站点",
           getSiteFeatureStatusText(),
           iconAssetsApi.ACTION_ICONS.settings,
-          renderSiteFeatureToggleMarkup(),
+          renderSiteFeatureToggleMarkup() + renderSystemScopeRowMarkup(),
           true,
           "site-feature-status"
         ),
@@ -1895,6 +1993,7 @@
       checkUpdateBtn = root.querySelector('[data-role="check-update"]');
       siteFeatureStatus = root.querySelector('[data-role="site-feature-status"]');
       siteFeatureToggle = root.querySelector('[data-role="site-feature-toggle"]');
+      systemScopeRow = root.querySelector('[data-role="system-scope"]');
       floatingIconToggle = root.querySelector('[data-role="floating-icon-toggle"]');
       floatingIconSizeSelect = root.querySelector('[data-role="floating-icon-size"]');
       localAnnotationFileToggle = root.querySelector('[data-role="local-annotation-file-toggle"]');
@@ -1966,6 +2065,10 @@
         }
         if (role === "open-data-manager") {
           openDataManagerPage();
+          return;
+        }
+        if (role === "open-system-manager") {
+          openSystemManagerPage();
           return;
         }
         if (role === "check-update") {
@@ -2040,6 +2143,13 @@
           toggleSiteFeatureEnabled(siteFeatureTrigger.checked);
           return;
         }
+        const systemScopeTrigger = event.target.closest('[data-role="system-scope-select"]');
+        if (systemScopeTrigger) {
+          selectSystem(systemScopeTrigger.value).catch(function () {
+            setSettingsStatus("切换系统失败", "error");
+          });
+          return;
+        }
         const floatingIconTrigger = event.target.closest('[data-role="floating-icon-toggle"]');
         if (floatingIconTrigger) {
           setFloatingIconEnabled(floatingIconTrigger.checked);
@@ -2109,6 +2219,7 @@
       hideGithubControls();
       loadFloatingIconEnabled().then(loadSiteFeatureEnabled);
       loadFloatingIconSize();
+      loadSystemOptions();
       loadLocalAnnotationFileEnabled();
       loadAiRecognitionConfig();
       loadFocusStyle();
@@ -2199,6 +2310,7 @@
       hideDismissibleDockMessage,
       loadSiteFeatureEnabled,
       mount,
+      reloadScope,
       showDockMessage,
       syncImportedOverrideState,
       toggleVisible
@@ -2214,6 +2326,7 @@
     generateFallbackAutoFillValue,
     hasAutoFillTargetValue,
     isSensitiveFormControl,
+    renderSystemScopeMarkup,
     sampleFavoriteProfiles
   };
 

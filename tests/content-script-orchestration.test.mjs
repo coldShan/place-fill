@@ -24,6 +24,32 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
   let panelOptions = null;
   let runtimeMessageListener = null;
   let smartFillOptions = null;
+  let scopeClientOptions = null;
+  let scopeResolver = null;
+  let scopeChangeListener = null;
+  let currentScope = "host:example.com";
+  const startupEvents = [];
+  const reloadScopeCalls = [];
+  const toggleReadEnvs = [];
+  const scopeClient = {
+    getResolution() {
+      return { fallbackScope: "host:example.com", marker: null, scope: currentScope, system: null };
+    },
+    getScope() {
+      return currentScope;
+    },
+    onChange(listener) {
+      scopeChangeListener = listener;
+      return function () {};
+    },
+    start() {
+      startupEvents.push("scope-start");
+      return (env.scopeStart || Promise.resolve()).then(function () {
+        startupEvents.push("scope-resolved");
+        return scopeClient.getResolution();
+      });
+    }
+  };
   const smartFillController = {
     fillTarget() {},
     handleDocumentPointerDown(target) {
@@ -105,7 +131,8 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
         isSiteFeatureEnabled(value) {
           return value === true;
         },
-        readSiteFeatureEnabled() {
+        readSiteFeatureEnabled(readEnv) {
+          toggleReadEnvs.push(readEnv);
           return Promise.resolve(env.siteFeatureEnabled !== false);
         }
       },
@@ -118,11 +145,15 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
           return env.supportedFieldKeys || [];
         },
         setManualFieldOverride() {},
+        setScopeResolver(resolver) {
+          scopeResolver = resolver;
+        },
         ...(env.loadManualFieldOverrides ? {
           loadAiFieldMappings() {
             return Promise.resolve();
           },
           loadManualFieldOverrides() {
+            startupEvents.push("load-overrides");
             return Promise.resolve();
           }
         } : {})
@@ -130,6 +161,13 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
       ChromeTestDataAiFormSnapshot: {
         buildAiFormSnapshot() {
           return env.snapshot || { allowedFieldKeys: [], fields: [] };
+        }
+      },
+      ChromeTestDataSystemScope: {},
+      ChromeTestDataContentScriptScope: {
+        createScopeClient(options) {
+          scopeClientOptions = options;
+          return scopeClient;
         }
       },
       ChromeTestDataDataRecords: {
@@ -170,7 +208,13 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
             isSiteFeatureEnabled() {
               return env.siteFeatureEnabled !== false;
             },
-            mount() {},
+            mount() {
+              startupEvents.push("panel-mount");
+            },
+            reloadScope() {
+              reloadScopeCalls.push(currentScope);
+              return Promise.resolve();
+            },
             showDockMessage(...args) {
               dockMessageArgs = args;
             },
@@ -189,6 +233,10 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
   });
 
   return {
+    changeScope(scope) {
+      currentScope = scope;
+      if (scopeChangeListener) scopeChangeListener(scopeClient.getResolution());
+    },
     document,
     documentListeners,
     dispatchRuntimeMessage(message) {
@@ -206,8 +254,19 @@ function runContentScriptWithSmartFillStub(overrides, envOverrides) {
     getHideDockMessageCalls() {
       return hideDockMessageCalls;
     },
+    ready() {
+      return new Promise(function (resolve) { setImmediate(resolve); });
+    },
+    reloadScopeCalls,
     removeFavoriteCalls,
+    getScopeResolver() {
+      return scopeResolver;
+    },
     panelOptions,
+    scopeClient,
+    scopeClientOptions,
+    startupEvents,
+    toggleReadEnvs,
     panelFocusInCalls,
     runtimeMessages,
     smartFillPointerDownCalls,
@@ -240,6 +299,7 @@ test("clicking the backup reminder exports all data and dismisses it after succe
 
 test("backup reminder messages stay hidden on disabled sites", async () => {
   const runtime = runContentScriptWithSmartFillStub({}, { siteFeatureEnabled: false });
+  await runtime.ready();
   await new Promise(function (resolve) { setImmediate(resolve); });
   const hideCalls = runtime.getHideDockMessageCalls();
 
@@ -287,9 +347,10 @@ test("directory permission reminder stays hidden on disabled sites", async () =>
   }), false);
 });
 
-test("focus events coalesce and recognize only the final active target", () => {
+test("focus events coalesce and recognize only the final active target", async () => {
   const focusTimers = [];
   const runtime = runContentScriptWithSmartFillStub({}, { focusTimers });
+  await runtime.ready();
   runtime.documentListeners.focusout();
   runtime.document.activeElement = { id: "next" };
   runtime.documentListeners.focusin({ target: runtime.document.activeElement });
@@ -306,13 +367,14 @@ test("focus events coalesce and recognize only the final active target", () => {
   assert.deepEqual(runtime.syncTargetCalls, [{ id: "final" }, runtime.document.body]);
 });
 
-test("pending focus sync skips internal controls but permits a new external focus", () => {
+test("pending focus sync skips internal controls but permits a new external focus", async () => {
   const focusTimers = [];
   const internal = { id: "favorite" };
   const runtime = runContentScriptWithSmartFillStub({
     isInteractionTarget(target) { return target === internal; },
     shouldPreserveOnFocusOut() { return true; }
   }, { focusTimers });
+  await runtime.ready();
   runtime.documentListeners.focusout();
   runtime.document.activeElement = internal;
   runtime.documentListeners.focusin({ target: internal });
@@ -325,48 +387,53 @@ test("pending focus sync skips internal controls but permits a new external focu
   assert.deepEqual(runtime.syncTargetCalls, [runtime.document.activeElement]);
 });
 
-test("focusout keeps the smart-fill controller alive while it is preserving an internal interaction", () => {
+test("focusout keeps the smart-fill controller alive while it is preserving an internal interaction", async () => {
   const runtime = runContentScriptWithSmartFillStub({
     shouldPreserveOnFocusOut() {
       return true;
     }
   });
+  await runtime.ready();
 
   runtime.documentListeners.focusout();
 
   assert.deepEqual(runtime.syncTargetCalls, []);
 });
 
-test("focusout syncs the current active element when no smart-fill interaction is in progress", () => {
+test("focusout syncs the current active element when no smart-fill interaction is in progress", async () => {
   const runtime = runContentScriptWithSmartFillStub();
+  await runtime.ready();
 
   runtime.documentListeners.focusout();
 
   assert.deepEqual(runtime.syncTargetCalls, [runtime.document.activeElement]);
 });
 
-test("focusin ignores targets that belong to the smart-fill interaction itself", () => {
+test("focusin ignores targets that belong to the smart-fill interaction itself", async () => {
   const runtime = runContentScriptWithSmartFillStub({
     isInteractionTarget(node) {
       return node && node.id === "recommend-item";
     }
   });
+  await runtime.ready();
 
   runtime.documentListeners.focusin({ target: { id: "recommend-item" } });
 
   assert.deepEqual(runtime.syncTargetCalls, []);
 });
 
-test("focusin on the document shell does not ask the panel to collapse", () => {
+test("focusin on the document shell does not ask the panel to collapse", async () => {
   const runtime = runContentScriptWithSmartFillStub();
+  await runtime.ready();
 
   runtime.documentListeners.focusin({ target: runtime.document.body });
 
   assert.deepEqual(runtime.panelFocusInCalls, []);
 });
 
-test("pointerdown delegates outside-click handling to smart fill", () => {
+test("pointerdown delegates outside-click handling to smart fill", async () => {
   const runtime = runContentScriptWithSmartFillStub();
+  await runtime.ready();
   const target = { id: "blank-area" };
 
   runtime.documentListeners.pointerdown({ target });
@@ -374,16 +441,18 @@ test("pointerdown delegates outside-click handling to smart fill", () => {
   assert.deepEqual(runtime.smartFillPointerDownCalls, [target]);
 });
 
-test("quick favorite context action delegates page capture to the panel controller", () => {
+test("quick favorite context action delegates page capture to the panel controller", async () => {
   const runtime = runContentScriptWithSmartFillStub();
+  await runtime.ready();
 
   runtime.dispatchRuntimeMessage({ type: "add-current-page-to-favorites" });
 
   assert.equal(runtime.getAddCurrentPageToFavoritesCalls(), 1);
 });
 
-test("smart fill star delegates capture without favorite state or removal callbacks", () => {
+test("smart fill star delegates capture without favorite state or removal callbacks", async () => {
   const runtime = runContentScriptWithSmartFillStub();
+  await runtime.ready();
 
   runtime.smartFillOptions.onAddCurrentPageToFavorites();
 
@@ -406,8 +475,7 @@ test("content script skips duplicate ai recognition snapshots", async () => {
     supportedFieldKeys: ["mobile"]
   });
 
-  await Promise.resolve();
-  await Promise.resolve();
+  await runtime.ready();
   runtime.panelOptions.onSiteFeatureEnabledChanged(true);
   await Promise.resolve();
   await Promise.resolve();
@@ -417,4 +485,51 @@ test("content script skips duplicate ai recognition snapshots", async () => {
     }).length,
     1
   );
+});
+
+test("the panel mounts and annotations load only after the page scope is resolved", async () => {
+  let resolveStart;
+  const runtime = runContentScriptWithSmartFillStub({}, {
+    loadManualFieldOverrides: true,
+    scopeStart: new Promise(function (resolve) { resolveStart = resolve; })
+  });
+
+  await runtime.ready();
+  assert.deepEqual(runtime.startupEvents, ["scope-start"]);
+  assert.equal(runtime.runtimeMessages.length, 0);
+
+  resolveStart();
+  await runtime.ready();
+  assert.deepEqual(runtime.startupEvents, ["scope-start", "scope-resolved", "load-overrides", "panel-mount"]);
+});
+
+test("the scope client is wired into smart fill, the panel and every toggle read", async () => {
+  const runtime = runContentScriptWithSmartFillStub({}, {
+    runtimeResponse(message) {
+      return message.type === "read-backup-reminder-state" ? { message: "该备份数据啦！", pending: true } : {};
+    }
+  });
+  await runtime.ready();
+
+  assert.equal(runtime.scopeClientOptions.isTopFrame, true);
+  assert.equal(typeof runtime.scopeClientOptions.sendRuntimeMessage, "function");
+  assert.equal(runtime.panelOptions.scopeClient, runtime.scopeClient);
+  assert.equal(runtime.getScopeResolver()(), "host:example.com");
+  assert.equal(runtime.smartFillOptions.getCurrentScope(), "host:example.com");
+  assert.ok(runtime.toggleReadEnvs.length > 0);
+  assert.ok(runtime.toggleReadEnvs.every(function (readEnv) { return readEnv && readEnv.scope === "host:example.com"; }));
+});
+
+test("a scope change reloads the panel's scoped state and resyncs the smart-fill target", async () => {
+  let hides = 0;
+  const runtime = runContentScriptWithSmartFillStub({ hide() { hides += 1; } });
+  await runtime.ready();
+  const hidesBefore = hides;
+
+  runtime.changeScope("system:a");
+
+  assert.deepEqual(runtime.reloadScopeCalls, ["system:a"]);
+  assert.equal(runtime.getScopeResolver()(), "system:a");
+  // No editable target is focused, so the resync hides the smart-fill button.
+  assert.equal(hides, hidesBefore + 1);
 });

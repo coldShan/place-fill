@@ -8,6 +8,8 @@
   const iconAssetsApi = globalThis.ChromeTestDataIconAssets;
   const fieldMetaApi = globalThis.ChromeTestDataFieldMeta;
   const siteFeatureToggleApi = globalThis.ChromeTestDataSiteFeatureToggle;
+  const systemScopeApi = globalThis.ChromeTestDataSystemScope;
+  const contentScriptScopeApi = globalThis.ChromeTestDataContentScriptScope;
   const smartFillApi = globalThis.ChromeTestDataSmartFill;
   const aiFormSnapshotApi = globalThis.ChromeTestDataAiFormSnapshot;
   const dataRecordsApi = globalThis.ChromeTestDataDataRecords;
@@ -22,6 +24,8 @@
     !iconAssetsApi ||
     !fieldMetaApi ||
     !siteFeatureToggleApi ||
+    !systemScopeApi ||
+    !contentScriptScopeApi ||
     !smartFillApi ||
     !aiFormSnapshotApi ||
     !panelControllerApi ||
@@ -38,11 +42,6 @@
   let lastAiRecognitionSignature = "";
   let localAnnotationPermissionRequired = false;
 
-  function getCurrentScope() {
-    if (!window || !window.location || typeof window.location.hostname !== "string") return "";
-    return String(window.location.hostname || "").trim().toLowerCase();
-  }
-
   function sendRuntimeMessage(message) {
     return new Promise(function (resolve) {
       if (!runtimeApi || typeof runtimeApi.sendMessage !== "function") {
@@ -54,6 +53,20 @@
         resolve(response || {});
       });
     });
+  }
+
+  // Every scoped read (toggle, favorites, annotations) follows the page's system scope.
+  const scopeClient = contentScriptScopeApi.createScopeClient({
+    document,
+    isTopFrame: canRenderPanel,
+    sendRuntimeMessage,
+    systemScopeApi,
+    window
+  });
+  if (typeof smartFillApi.setScopeResolver === "function") smartFillApi.setScopeResolver(scopeClient.getScope);
+
+  function readSiteFeatureEnabled() {
+    return siteFeatureToggleApi.readSiteFeatureEnabled({ scope: scopeClient.getScope() });
   }
 
   function syncSiteFeatureContextMenu(enabled) {
@@ -189,8 +202,10 @@
       syncActiveSmartTarget();
     },
     panelStateApi,
+    scopeClient,
     siteFeatureToggleApi,
     smartFillApi,
+    systemScopeApi,
     window
   });
 
@@ -200,7 +215,7 @@
   }
 
   function showBackupReminder(message) {
-    return siteFeatureToggleApi.readSiteFeatureEnabled().then(function (enabled) {
+    return readSiteFeatureEnabled().then(function (enabled) {
       if (!canRenderPanel || !siteFeatureToggleApi.isSiteFeatureEnabled(enabled)) {
         panelController.hideDismissibleDockMessage();
         return false;
@@ -227,7 +242,7 @@
   }
 
   function showLocalAnnotationPermissionReminder() {
-    return siteFeatureToggleApi.readSiteFeatureEnabled().then(function (enabled) {
+    return readSiteFeatureEnabled().then(function (enabled) {
       if (!canRenderPanel || !siteFeatureToggleApi.isSiteFeatureEnabled(enabled)) return false;
       panelController.showDockMessage(
         "本地数据目录需要重新授权",
@@ -247,7 +262,7 @@
     document,
     editableTargetApi,
     getFieldValue: panelController.getFieldValue,
-    getCurrentScope,
+    getCurrentScope: scopeClient.getScope,
     iconAssetsApi,
     isEnabled: panelController.isSiteFeatureEnabled,
     listRecommendedProfiles: function (scope) {
@@ -263,9 +278,15 @@
     window
   });
 
+  function handleScopeChanged() {
+    panelController.reloadScope();
+    syncActiveSmartTarget();
+  }
+
   function startContentScript() {
     panelController.mount();
     smartFillController.mount();
+    scopeClient.onChange(handleScopeChanged);
     syncBackupReminderState().then(function () {
       if (localAnnotationPermissionRequired) showLocalAnnotationPermissionReminder();
     });
@@ -362,7 +383,11 @@
     });
   }
 
-  if (typeof smartFillApi.loadManualFieldOverrides === "function") {
+  function loadAnnotationsAndStart() {
+    if (typeof smartFillApi.loadManualFieldOverrides !== "function") {
+      startContentScript();
+      return;
+    }
     sendRuntimeMessage({ type: "prepare-local-annotation-file" }).then(function (response) {
       localAnnotationPermissionRequired = !!(response && response.permissionRequired);
       return Promise.all([
@@ -370,7 +395,8 @@
         typeof smartFillApi.loadAiFieldMappings === "function" ? Promise.resolve(smartFillApi.loadAiFieldMappings()) : Promise.resolve()
       ]);
     }).then(startContentScript, startContentScript);
-  } else {
-    startContentScript();
   }
+
+  // The scope is resolved first so annotations, the toggle and favorites load under it.
+  scopeClient.start().then(loadAnnotationsAndStart, loadAnnotationsAndStart);
 })();
