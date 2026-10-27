@@ -77,16 +77,20 @@
     });
   }
 
+  // Synchronous lookup against an already-normalized map (the background keeps one cached).
+  function isScopeEnabledInMap(enabledMap, scope) {
+    const map = enabledMap || {};
+    if (!scope) return getDefaultSiteFeatureEnabled();
+    if (Object.prototype.hasOwnProperty.call(map, scope)) return isSiteFeatureEnabled(map[scope]);
+    const legacyKey = getLegacyKeyForFallbackScope(scope);
+    if (legacyKey && Object.prototype.hasOwnProperty.call(map, legacyKey)) return isSiteFeatureEnabled(map[legacyKey]);
+    return getDefaultSiteFeatureEnabled();
+  }
+
   async function readSiteFeatureEnabled(env) {
     const scope = getScope(env);
     if (!scope) return getDefaultSiteFeatureEnabled();
-    const enabledMap = await readSiteFeatureEnabledMap(env);
-    if (Object.prototype.hasOwnProperty.call(enabledMap, scope)) return isSiteFeatureEnabled(enabledMap[scope]);
-    const legacyKey = getLegacyKeyForFallbackScope(scope);
-    if (legacyKey && Object.prototype.hasOwnProperty.call(enabledMap, legacyKey)) {
-      return isSiteFeatureEnabled(enabledMap[legacyKey]);
-    }
-    return getDefaultSiteFeatureEnabled();
+    return isScopeEnabledInMap(await readSiteFeatureEnabledMap(env), scope);
   }
 
   async function writeSiteFeatureEnabled(enabled, env) {
@@ -109,6 +113,7 @@
   const api = {
     STORAGE_KEY,
     getDefaultSiteFeatureEnabled,
+    isScopeEnabledInMap,
     isSiteFeatureEnabled,
     normalizeSiteFeatureEnabledMap,
     readSiteFeatureEnabled,

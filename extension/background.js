@@ -11,6 +11,7 @@ function getChromeMajorVersion() {
 
 const backgroundImports = [
   "src/field-meta.js",
+  "generated/system-scope-api.js",
   "src/site-feature-toggle.js",
   "src/ai-recognition.js",
   "src/smart-fill.js",
@@ -26,6 +27,7 @@ const dataManagerBridgeApi = globalThis.ChromeTestDataDataManagerBridge;
 const siteFeatureToggleApi = globalThis.ChromeTestDataSiteFeatureToggle;
 const smartFillApi = globalThis.ChromeTestDataSmartFill;
 const storageMirrorApi = globalThis.ChromeTestDataStorageMirror;
+const systemScopeApi = globalThis.ChromeTestDataSystemScope;
 const localAnnotationFileApi = globalThis.ChromeTestDataLocalAnnotationFile;
 const MENU_ROOT_ID = "ctdp-manual-annotation-root";
 const MENU_FIELD_PREFIX = "ctdp-manual-annotation:";
@@ -39,23 +41,177 @@ const BACKUP_REMINDER_ALARM_NAME = "weekly-backup-reminder";
 const BACKUP_REMINDER_MESSAGE = "该备份数据啦！";
 const BACKUP_REMINDER_PENDING_KEY = "ctdp.backupReminderPendingAt.v1";
 const WEEK_IN_MINUTES = 7 * 24 * 60;
+const TAB_SCOPES_STORAGE_KEY = "ctdp.tabScopes";
+// Storage keys whose legacy (URL-keyed) shape the scope migration rewrites.
+const LEGACY_MIGRATION_TRIGGER_KEYS = [
+  "ctdp.favoriteProfiles.v1",
+  "ctdp.generatedProfiles.v1",
+  "ctdp.smartFillOverrides.v1",
+  "ctdp.siteFeatureEnabled.v1",
+  "ctdp.aiFieldMappings.v1"
+];
 let siteFeatureEnabledMap = {};
 let localAnnotationPreparePromise = null;
+// tabId -> ScopeResolution. chrome.storage.session keeps it across service worker restarts; the
+// in-memory copy also serves the synchronous context-menu paths.
+let tabScopes = {};
+let tabScopesLoadPromise = null;
+// Serializes every system-registry write: scope resolution, toggle writes, manual system picks
+// and the legacy migration all read-modify-write the same storage keys.
+let registryQueue = Promise.resolve();
 
-function getUrlHostname(url) {
-  if (!url) return "";
+function resolveContextUrl(info, tab) {
+  return (info && (info.frameUrl || info.pageUrl)) || (tab && tab.url) || "";
+}
+
+function getFallbackScopeForUrl(url) {
+  if (!url || !systemScopeApi || typeof systemScopeApi.getFallbackScope !== "function") return "";
   try {
-    return String(new URL(url).hostname || "").trim().toLowerCase();
+    const parsed = new URL(url);
+    return systemScopeApi.getFallbackScope({ hostname: parsed.hostname, port: parsed.port, protocol: parsed.protocol });
   } catch (_) {
     return "";
   }
 }
 
-function resolveContextHostname(info, tab) {
-  const contextHostname = getUrlHostname(info && (info.frameUrl || info.pageUrl));
-  if (contextHostname) return contextHostname;
-  if (tab && tab.url) return String(new URL(tab.url).hostname || "").trim().toLowerCase();
-  return "";
+// The tab's recognized scope wins (it covers every frame of the tab); without one, the URL's own
+// fallback scope is what a content script would use before recognition finishes.
+function getScopeForTab(tabId, url) {
+  const entry = tabId ? tabScopes[tabId] : null;
+  if (entry && typeof entry.scope === "string" && entry.scope) return entry.scope;
+  return getFallbackScopeForUrl(url);
+}
+
+function getSessionStorageArea() {
+  return chrome.storage && chrome.storage.session && typeof chrome.storage.session.get === "function" ? chrome.storage.session : null;
+}
+
+function loadTabScopes() {
+  if (!tabScopesLoadPromise) {
+    tabScopesLoadPromise = new Promise(function (resolve) {
+      const area = getSessionStorageArea();
+      if (!area) {
+        resolve();
+        return;
+      }
+      area.get([TAB_SCOPES_STORAGE_KEY], function (result) {
+        void chrome.runtime.lastError;
+        const stored = result && result[TAB_SCOPES_STORAGE_KEY];
+        if (stored && typeof stored === "object" && !Array.isArray(stored)) tabScopes = Object.assign({}, stored, tabScopes);
+        resolve();
+      });
+    });
+  }
+  return tabScopesLoadPromise;
+}
+
+function persistTabScopes() {
+  const area = getSessionStorageArea();
+  if (!area || typeof area.set !== "function") return Promise.resolve();
+  return new Promise(function (resolve) {
+    area.set({ [TAB_SCOPES_STORAGE_KEY]: tabScopes }, function () {
+      void chrome.runtime.lastError;
+      resolve();
+    });
+  });
+}
+
+function broadcastPageScopeChanged(tabId, resolution) {
+  if (!tabId || !chrome.tabs || typeof chrome.tabs.sendMessage !== "function") return;
+  chrome.tabs.sendMessage(tabId, { resolution, type: "page-scope-changed" }, function () {
+    void chrome.runtime.lastError;
+  });
+}
+
+async function setTabScope(tabId, resolution) {
+  await loadTabScopes();
+  tabScopes[tabId] = resolution;
+  await persistTabScopes();
+  broadcastPageScopeChanged(tabId, resolution);
+  syncRootMenuVisibilityForActiveTab();
+  syncBackupReminderForActiveTab();
+}
+
+async function clearTabScope(tabId) {
+  await loadTabScopes();
+  if (!Object.prototype.hasOwnProperty.call(tabScopes, tabId)) return;
+  delete tabScopes[tabId];
+  await persistTabScopes();
+}
+
+function enqueueRegistryTask(task) {
+  const run = registryQueue.then(task);
+  registryQueue = run.then(function () {}, function () {});
+  return run;
+}
+
+function runLegacyMigration() {
+  if (!systemScopeApi || typeof systemScopeApi.migrateLegacyScopes !== "function") return Promise.resolve(null);
+  return enqueueRegistryTask(function () {
+    return systemScopeApi.migrateLegacyScopes();
+  }).catch(function () {
+    return null;
+  });
+}
+
+function normalizePageInfo(info) {
+  if (!info || typeof info !== "object" || typeof info.hostname !== "string") return null;
+  return { ...info, query: info.query && typeof info.query === "object" ? info.query : {} };
+}
+
+// Content scripts (including their sessionStorage marker) are untrusted input here.
+function normalizeResolveInput(info, marker) {
+  const pageInfo = normalizePageInfo(info);
+  if (!pageInfo || !systemScopeApi) return null;
+  return { info: pageInfo, marker: systemScopeApi.normalizeSessionMarker(marker) };
+}
+
+function getSenderTabId(sender) {
+  return sender && sender.tab && typeof sender.tab.id === "number" ? sender.tab.id : 0;
+}
+
+// Only the top frame is recognized; recording is skipped for iframe senders so a frame's own URL
+// never overwrites the tab's scope.
+function canRecordTabScope(sender) {
+  return getSenderTabId(sender) > 0 && (sender.frameId === undefined || sender.frameId === 0);
+}
+
+function recordResolution(tabId, resolution, record) {
+  if (!record) return Promise.resolve(resolution);
+  return setTabScope(tabId, resolution).then(function () {
+    return resolution;
+  });
+}
+
+function resolveAndRecordPageScope(tabId, input, record) {
+  return systemScopeApi.resolvePageScope(input).then(function (resolution) {
+    return recordResolution(tabId, resolution, record);
+  });
+}
+
+function selectSystemForTab(tabId, systemId, info, record) {
+  if (!systemId) return resolveAndRecordPageScope(tabId, { info, marker: null }, record);
+  return systemScopeApi.readSystems().then(function (systems) {
+    const system = systems.find(function (item) {
+      return item.id === systemId;
+    });
+    // A stale id behaves like "back to auto recognition".
+    if (!system) return resolveAndRecordPageScope(tabId, { info, marker: null }, record);
+    return recordResolution(tabId, {
+      fallbackScope: systemScopeApi.getFallbackScope(info),
+      marker: { id: system.id, manual: true, name: system.name },
+      scope: systemScopeApi.buildSystemScope(system.id),
+      system: { id: system.id, name: system.name }
+    }, record);
+  });
+}
+
+function setSiteFeatureEnabledForScope(tabId, scope, enabled, input, record) {
+  return systemScopeApi.writeScopeEnabled(scope, enabled === true).then(function () {
+    // Enabling a fallback scope turns the page into a system (new or auto-joined); resolving
+    // again after a disable lands on the same scope because the system keeps participating.
+    return resolveAndRecordPageScope(tabId, input, record);
+  });
 }
 
 async function buildContextMenus() {
@@ -176,14 +332,15 @@ function clearBackupReminder() {
   });
 }
 
-function isSiteFeatureEnabledForUrl(url) {
-  const hostname = getUrlHostname(url);
-  if (!siteFeatureToggleApi || !hostname) return Promise.resolve(true);
-  if (typeof siteFeatureToggleApi.readSiteFeatureEnabled !== "function") {
-    return Promise.resolve(isSiteFeatureEnabledForHostname(hostname));
-  }
-  return siteFeatureToggleApi.readSiteFeatureEnabled({ hostname }).catch(function () {
-    return false;
+function isSiteFeatureEnabledForTab(tabId, url) {
+  if (!siteFeatureToggleApi) return Promise.resolve(true);
+  return loadTabScopes().then(function () {
+    const scope = getScopeForTab(tabId, url);
+    if (!scope) return true;
+    if (typeof siteFeatureToggleApi.readSiteFeatureEnabled !== "function") return isSiteFeatureEnabledForScope(scope);
+    return siteFeatureToggleApi.readSiteFeatureEnabled({ scope }).catch(function () {
+      return false;
+    });
   });
 }
 
@@ -191,7 +348,7 @@ function syncBackupReminderForTab(tabId) {
   if (!tabId || !chrome.tabs || typeof chrome.tabs.get !== "function" || !chrome.storage || !chrome.storage.local) return;
   chrome.tabs.get(tabId, function (tab) {
     void chrome.runtime.lastError;
-    Promise.all([isSiteFeatureEnabledForUrl(tab && tab.url), isLocalAutoBackupReady()]).then(function (states) {
+    Promise.all([isSiteFeatureEnabledForTab(tabId, tab && tab.url), isLocalAutoBackupReady()]).then(function (states) {
       if (!states[0] || states[1]) return sendBackupReminderState(tabId, false);
       chrome.storage.local.get(BACKUP_REMINDER_PENDING_KEY, function (values) {
         void chrome.runtime.lastError;
@@ -257,11 +414,11 @@ function openExtensionPage(url) {
   chrome.tabs.create({ url: url });
 }
 
-function openDataManagerPage(scope) {
+function openDataManagerPage(scope, view) {
   if (!chrome.runtime || typeof chrome.runtime.getURL !== "function") return;
   const baseUrl = chrome.runtime.getURL("");
   const url = dataManagerBridgeApi && typeof dataManagerBridgeApi.buildDataManagerPageUrl === "function"
-    ? dataManagerBridgeApi.buildDataManagerPageUrl(baseUrl, scope)
+    ? dataManagerBridgeApi.buildDataManagerPageUrl(baseUrl, scope, view)
     : chrome.runtime.getURL("data-manager.html");
   const versionedUrl = new URL(url);
   versionedUrl.searchParams.set("v", chrome.runtime.getManifest().version);
@@ -333,12 +490,10 @@ async function checkExtensionUpdate() {
   };
 }
 
-function isSiteFeatureEnabledForHostname(hostname) {
-  if (!siteFeatureToggleApi || !hostname) return true;
-  if (!Object.prototype.hasOwnProperty.call(siteFeatureEnabledMap, hostname)) {
-    return siteFeatureToggleApi.getDefaultSiteFeatureEnabled();
-  }
-  return siteFeatureToggleApi.isSiteFeatureEnabled(siteFeatureEnabledMap[hostname]);
+function isSiteFeatureEnabledForScope(scope) {
+  if (!siteFeatureToggleApi || !scope) return true;
+  if (typeof siteFeatureToggleApi.isScopeEnabledInMap !== "function") return siteFeatureToggleApi.getDefaultSiteFeatureEnabled();
+  return siteFeatureToggleApi.isScopeEnabledInMap(siteFeatureEnabledMap, scope);
 }
 
 async function readSiteFeatureEnabledMap() {
@@ -472,19 +627,15 @@ function updateRootMenuVisibility(visible) {
   });
 }
 
-function syncRootMenuVisibilityForHostname(hostname) {
-  updateRootMenuVisibility(isSiteFeatureEnabledForHostname(hostname));
-}
-
-function syncRootMenuVisibilityForUrl(url) {
-  syncRootMenuVisibilityForHostname(getUrlHostname(url));
+function syncRootMenuVisibilityForTab(tabId, url) {
+  updateRootMenuVisibility(isSiteFeatureEnabledForScope(getScopeForTab(tabId, url)));
 }
 
 function syncRootMenuVisibilityForTabId(tabId) {
   if (!chrome.tabs || typeof chrome.tabs.get !== "function" || !tabId) return;
   chrome.tabs.get(tabId, function (tab) {
     void chrome.runtime.lastError;
-    syncRootMenuVisibilityForUrl(tab && tab.url);
+    syncRootMenuVisibilityForTab(tabId, tab && tab.url);
   });
 }
 
@@ -492,7 +643,8 @@ function syncRootMenuVisibilityForActiveTab() {
   if (!chrome.tabs || typeof chrome.tabs.query !== "function") return;
   chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     void chrome.runtime.lastError;
-    syncRootMenuVisibilityForUrl(tabs && tabs[0] && tabs[0].url);
+    const tab = tabs && tabs[0];
+    syncRootMenuVisibilityForTab(tab && tab.id, tab && tab.url);
   });
 }
 
@@ -535,6 +687,11 @@ if (chrome.storage && chrome.storage.onChanged) {
       syncRootMenuVisibilityForActiveTab();
       syncBackupReminderForActiveTab();
     }
+    if (LEGACY_MIGRATION_TRIGGER_KEYS.some(function (key) { return Object.prototype.hasOwnProperty.call(changes, key); })) {
+      // The migration is idempotent: once nothing is legacy it writes nothing, so the onChanged
+      // events caused by its own writes end after one extra no-op pass.
+      runLegacyMigration();
+    }
     mirrorStorageLocal().catch(function () {});
     if (localAnnotationFileApi && storageMirrorApi.STORAGE_KEYS.some(function (key) {
       return key !== localAnnotationFileApi.OVERRIDES_STORAGE_KEY && Object.prototype.hasOwnProperty.call(changes, key);
@@ -546,7 +703,7 @@ if (chrome.storage && chrome.storage.onChanged) {
 
 if (chrome.contextMenus && chrome.contextMenus.onShown) {
   chrome.contextMenus.onShown.addListener(function (info, tab) {
-    syncRootMenuVisibilityForHostname(resolveContextHostname(info, tab));
+    syncRootMenuVisibilityForTab(tab && tab.id, resolveContextUrl(info, tab));
   });
 }
 
@@ -560,15 +717,22 @@ if (chrome.tabs && chrome.tabs.onActivated) {
 if (chrome.tabs && chrome.tabs.onUpdated) {
   chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
     if (!changeInfo || (!Object.prototype.hasOwnProperty.call(changeInfo, "status") && !Object.prototype.hasOwnProperty.call(changeInfo, "url"))) return;
-    syncRootMenuVisibilityForUrl((tab && tab.url) || changeInfo.url);
+    syncRootMenuVisibilityForTab(tabId, (tab && tab.url) || changeInfo.url);
     if (changeInfo.status === "complete" && tab && tab.active) syncBackupReminderForTab(tabId);
+  });
+}
+
+if (chrome.tabs && chrome.tabs.onRemoved) {
+  chrome.tabs.onRemoved.addListener(function (tabId) {
+    enqueueRegistryTask(function () {
+      return clearTabScope(tabId);
+    }).catch(function () {});
   });
 }
 
 chrome.contextMenus.onClicked.addListener(function (info, tab) {
   if (!info || !tab || !tab.id) return;
-  const hostname = resolveContextHostname(info, tab);
-  if (!isSiteFeatureEnabledForHostname(hostname)) return;
+  if (!isSiteFeatureEnabledForScope(getScopeForTab(tab.id, resolveContextUrl(info, tab)))) return;
   if (info.menuItemId === MENU_FAVORITE_ID) {
     sendTabMessage(tab.id, info, { type: "add-current-page-to-favorites" });
     return;
@@ -597,7 +761,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return;
   }
   if (message.type === "open-data-manager-page") {
-    openDataManagerPage(message.scope);
+    openDataManagerPage(message.scope, message.view);
     sendResponse({ ok: true });
     return;
   }
@@ -606,8 +770,81 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     sendResponse({ ok: true });
     return;
   }
+  if (message.type === "resolve-page-scope") {
+    const input = normalizeResolveInput(message.info, message.marker);
+    const tabId = getSenderTabId(sender);
+    if (!input || !tabId || sender.frameId !== 0) {
+      sendResponse(null);
+      return;
+    }
+    enqueueRegistryTask(function () {
+      return resolveAndRecordPageScope(tabId, input, true);
+    }).then(sendResponse, function () {
+      sendResponse(null);
+    });
+    return true;
+  }
+  if (message.type === "get-tab-scope") {
+    const tabId = getSenderTabId(sender);
+    if (!tabId) {
+      sendResponse(null);
+      return;
+    }
+    loadTabScopes().then(function () {
+      sendResponse(tabScopes[tabId] || null);
+    });
+    return true;
+  }
+  if (message.type === "set-site-feature-enabled") {
+    const input = normalizeResolveInput(message.info, message.marker);
+    const scope = typeof message.scope === "string" ? message.scope.trim() : "";
+    if (!input || !scope) {
+      sendResponse(null);
+      return;
+    }
+    const tabId = getSenderTabId(sender);
+    const record = canRecordTabScope(sender);
+    enqueueRegistryTask(function () {
+      return setSiteFeatureEnabledForScope(tabId, scope, message.enabled, input, record);
+    }).then(sendResponse, function () {
+      sendResponse(null);
+    });
+    return true;
+  }
+  if (message.type === "select-system") {
+    const input = normalizeResolveInput(message.info, null);
+    const systemId = typeof message.systemId === "string" && message.systemId ? message.systemId : null;
+    if (!input) {
+      sendResponse(null);
+      return;
+    }
+    const tabId = getSenderTabId(sender);
+    const record = canRecordTabScope(sender);
+    enqueueRegistryTask(function () {
+      return selectSystemForTab(tabId, systemId, input.info, record);
+    }).then(sendResponse, function () {
+      sendResponse(null);
+    });
+    return true;
+  }
+  if (message.type === "list-systems") {
+    if (!systemScopeApi) {
+      sendResponse([]);
+      return;
+    }
+    systemScopeApi.readSystems()
+      .then(function (systems) {
+        sendResponse(systems.map(function (system) {
+          return { id: system.id, name: system.name };
+        }));
+      })
+      .catch(function () {
+        sendResponse([]);
+      });
+    return true;
+  }
   if (message.type === "read-backup-reminder-state") {
-    Promise.all([isSiteFeatureEnabledForUrl(sender && sender.tab && sender.tab.url), isLocalAutoBackupReady()]).then(function (states) {
+    Promise.all([isSiteFeatureEnabledForTab(getSenderTabId(sender), sender && sender.tab && sender.tab.url), isLocalAutoBackupReady()]).then(function (states) {
       chrome.storage.local.get(BACKUP_REMINDER_PENDING_KEY, function (values) {
         const error = chrome.runtime.lastError;
         sendResponse({
@@ -814,6 +1051,8 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   }
 });
 
+runLegacyMigration();
+loadTabScopes().then(syncRootMenuVisibilityForActiveTab);
 readSiteFeatureEnabledMap().catch(function () {});
 restoreStorageLocalMirrorIfEmpty()
   .then(function (result) {

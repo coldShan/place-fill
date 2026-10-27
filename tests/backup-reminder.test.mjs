@@ -109,8 +109,11 @@ test("weekly backup reminder only displays on enabled sites until dismissed", as
         getDefaultSiteFeatureEnabled() { return false; },
         isSiteFeatureEnabled(value) { return value === true; },
         normalizeSiteFeatureEnabledMap(value) { return value || {}; },
-        readSiteFeatureEnabledMap() { return Promise.resolve({ "enabled.example.com": true }); },
-        readSiteFeatureEnabled({ hostname }) { return Promise.resolve(hostname === "enabled.example.com"); }
+        readSiteFeatureEnabledMap() { return Promise.resolve({ "host:enabled.example.com": true }); },
+        readSiteFeatureEnabled({ scope }) { return Promise.resolve(scope === "host:enabled.example.com"); }
+      },
+      ChromeTestDataSystemScope: {
+        getFallbackScope({ hostname }) { return "host:" + hostname; }
       },
       ChromeTestDataSmartFill: {
         formatSmartFillButtonLabel(fieldKey) { return fieldKey; },

@@ -4,6 +4,7 @@ import siteFeatureTogglePkg from "../extension/src/site-feature-toggle.js";
 
 const {
   getDefaultSiteFeatureEnabled,
+  isScopeEnabledInMap,
   isSiteFeatureEnabled,
   normalizeSiteFeatureEnabledMap,
   readSiteFeatureEnabled,
@@ -108,6 +109,15 @@ test("legacy fallback does not apply to external hosts, system scopes or file sc
   assert.equal(await readSiteFeatureEnabled({ scope: "system:abc", storageArea }), false);
   assert.equal(await readSiteFeatureEnabled({ scope: "file:local", storageArea }), false);
   assert.equal(await readSiteFeatureEnabled({ scope: "legacy:localhost", storageArea }), true);
+});
+
+test("isScopeEnabledInMap applies the same own-entry and legacy local-host rules synchronously", () => {
+  const map = { "host:localhost:5173": false, "legacy:localhost": true, "system:a": true };
+  assert.equal(isScopeEnabledInMap(map, "system:a"), true);
+  assert.equal(isScopeEnabledInMap(map, "host:localhost:5173"), false);
+  assert.equal(isScopeEnabledInMap(map, "host:localhost:3000"), true);
+  assert.equal(isScopeEnabledInMap(map, "host:example.com"), false);
+  assert.equal(isScopeEnabledInMap({}, ""), false);
 });
 
 test("normalizeSiteFeatureEnabledMap keeps scope keys intact and coerces values to booleans", () => {

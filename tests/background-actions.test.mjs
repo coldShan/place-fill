@@ -18,10 +18,10 @@ test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /title:\s*"无"/);
   assert.match(script, /contexts:\s*\["editable"\]/);
   assert.match(script, /chrome\.contextMenus\.onClicked\.addListener/);
-  assert.match(script, /new URL\(tab\.url\)\.hostname/);
+  assert.match(script, /resolveContextUrl\(info, tab\)/);
   assert.match(script, /frameId:\s*info\.frameId/);
   assert.match(script, /readSiteFeatureEnabledMap/);
-  assert.match(script, /siteFeatureToggleApi\.isSiteFeatureEnabled/);
+  assert.match(script, /siteFeatureToggleApi\.isScopeEnabledInMap/);
   assert.match(script, /sync-site-feature-context-menu/);
   assert.match(script, /message\.type === "enable-local-annotation-file"/);
   assert.match(script, /getSupportedFieldKeys\(\)/);
@@ -44,6 +44,12 @@ test("background handles toolbar toggle and editable context menus", () => {
   assert.match(script, /test-ai-recognition-config/);
   assert.match(script, /classify-form-fields/);
   assert.match(script, /buildDataManagerPageUrl/);
+  assert.match(script, /message\.type === "resolve-page-scope"/);
+  assert.match(script, /message\.type === "get-tab-scope"/);
+  assert.match(script, /message\.type === "set-site-feature-enabled"/);
+  assert.match(script, /message\.type === "select-system"/);
+  assert.match(script, /message\.type === "list-systems"/);
+  assert.match(script, /chrome\.tabs\.onRemoved\.addListener/);
   assert.match(script, /https:\/\/api\.github\.com\/repos\/coldShan\/place-fill\/releases\/latest/);
   assert.match(script, /chrome\.tabs\.create\(\{\s*url:/);
 });
