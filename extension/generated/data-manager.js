@@ -2466,109 +2466,35 @@ function SearchBox(props) {
     ) : /* @__PURE__ */ u$1("kbd", { class: "dm-kbd", "aria-hidden": "true", children: "/" })
   ] });
 }
-function SystemDetails(props) {
-  const { system, stats } = props;
+function SystemAnomalies(props) {
+  const { system } = props;
+  if (!system.anomalies.length) return null;
   function titleSystemName(id) {
     const found = props.systems.find(function(item) {
       return item.id === id;
     });
     return found ? found.name || "未命名系统" : DELETED_SYSTEM_LABEL;
   }
-  return /* @__PURE__ */ u$1(M, { children: [
-    system.anomalies.length ? /* @__PURE__ */ u$1("section", { class: "dm-detail-group", children: [
-      /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: "异常提醒" }),
-      /* @__PURE__ */ u$1("div", { class: "dm-banner is-warning dm-anomaly-banner", role: "alert", children: [
-        /* @__PURE__ */ u$1(Icon, { name: "circle-alert" }),
-        /* @__PURE__ */ u$1("span", { class: "dm-banner-text", children: "以下页面所在的域名属于本系统，但页面标题命中了其他系统，可能需要调整归属。" }),
-        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-link-btn", onClick: function() {
-          props.onDismissAnomalies(system.id);
-        }, children: "忽略" })
-      ] }),
-      /* @__PURE__ */ u$1("ul", { class: "dm-anomaly-list", children: system.anomalies.map(function(anomaly) {
-        return /* @__PURE__ */ u$1("li", { class: "dm-anomaly-item", children: [
-          /* @__PURE__ */ u$1("span", { class: "dm-anomaly-title", children: [
-            "标题命中「",
-            titleSystemName(anomaly.titleSystemId),
-            "」"
-          ] }),
-          /* @__PURE__ */ u$1("span", { class: "dm-anomaly-url", title: anomaly.url, children: anomaly.url }),
-          /* @__PURE__ */ u$1("span", { class: "dm-anomaly-time", children: formatDisplayTime(String(anomaly.at)) })
-        ] }, anomaly.titleSystemId + anomaly.url);
-      }) })
-    ] }) : null,
-    /* @__PURE__ */ u$1("section", { class: "dm-detail-group", children: [
-      /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: "基本信息" }),
-      /* @__PURE__ */ u$1("dl", { class: "dm-detail-list", children: [
-        /* @__PURE__ */ u$1("div", { class: "dm-detail-row", children: [
-          /* @__PURE__ */ u$1("dt", { children: "系统 ID" }),
-          /* @__PURE__ */ u$1("dd", { children: /* @__PURE__ */ u$1(
-            "button",
-            {
-              type: "button",
-              class: "dm-detail-value is-mono",
-              title: "点击复制",
-              onClick: function() {
-                props.onCopyId(system.id);
-              },
-              children: [
-                /* @__PURE__ */ u$1("span", { children: system.id }),
-                /* @__PURE__ */ u$1(Icon, { name: "copy", class: "dm-copy-cell-icon" })
-              ]
-            }
-          ) })
-        ] }),
-        /* @__PURE__ */ u$1("div", { class: "dm-detail-row", children: [
-          /* @__PURE__ */ u$1("dt", { children: "标题关键词" }),
-          /* @__PURE__ */ u$1("dd", { children: system.titles.length ? /* @__PURE__ */ u$1("span", { class: "dm-chip-list", children: system.titles.map(function(title) {
-            return /* @__PURE__ */ u$1("span", { class: "dm-chip", children: title }, title);
-          }) }) : /* @__PURE__ */ u$1("span", { class: "dm-cell-empty", children: "— 仅按端口、参数识别" }) })
-        ] }),
-        /* @__PURE__ */ u$1("div", { class: "dm-detail-row", children: [
-          /* @__PURE__ */ u$1("dt", { children: "关联数据" }),
-          /* @__PURE__ */ u$1("dd", { children: [
-            "常用 ",
-            stats.favorites,
-            " · 记录 ",
-            stats.history,
-            " · 标注 ",
-            stats.annotations
-          ] })
-        ] }),
-        /* @__PURE__ */ u$1("div", { class: "dm-detail-row", children: [
-          /* @__PURE__ */ u$1("dt", { children: "最近更新" }),
-          /* @__PURE__ */ u$1("dd", { children: formatDisplayTime(String(system.updatedAt)) })
-        ] })
-      ] })
+  return /* @__PURE__ */ u$1("section", { class: "dm-detail-group", children: [
+    /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: "异常提醒" }),
+    /* @__PURE__ */ u$1("div", { class: "dm-banner is-warning dm-anomaly-banner", role: "alert", children: [
+      /* @__PURE__ */ u$1(Icon, { name: "circle-alert" }),
+      /* @__PURE__ */ u$1("span", { class: "dm-banner-text", children: "以下页面所在的域名属于本系统，但页面标题命中了其他系统，可能需要调整归属。" }),
+      /* @__PURE__ */ u$1("button", { type: "button", class: "dm-link-btn", onClick: function() {
+        props.onDismiss(system.id);
+      }, children: "忽略" })
     ] }),
-    /* @__PURE__ */ u$1("section", { class: "dm-detail-group", children: [
-      /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: [
-        "环境（",
-        system.environments.length,
-        "）"
-      ] }),
-      system.environments.length ? /* @__PURE__ */ u$1("ul", { class: "dm-env-list", children: system.environments.map(function(environment) {
-        const params = Object.keys(environment.query);
-        return /* @__PURE__ */ u$1("li", { class: "dm-env-item", children: [
-          /* @__PURE__ */ u$1("span", { class: "dm-env-host", children: [
-            formatEnvironmentHost(environment),
-            environment.autoAdded ? /* @__PURE__ */ u$1("span", { class: "dm-badge", children: "自动" }) : null
-          ] }),
-          environment.lastPath || params.length ? /* @__PURE__ */ u$1("span", { class: "dm-chip-list", children: [
-            environment.lastPath ? /* @__PURE__ */ u$1("span", { class: "dm-chip", children: [
-              "path = ",
-              environment.lastPath
-            ] }) : null,
-            params.map(function(key) {
-              return /* @__PURE__ */ u$1("span", { class: "dm-chip", children: [
-                key,
-                "=",
-                environment.query[key]
-              ] }, key);
-            })
-          ] }) : null
-        ] }, environment.id || formatEnvironmentHost(environment));
-      }) }) : /* @__PURE__ */ u$1("span", { class: "dm-cell-empty", children: "—" })
-    ] })
+    /* @__PURE__ */ u$1("ul", { class: "dm-anomaly-list", children: system.anomalies.map(function(anomaly) {
+      return /* @__PURE__ */ u$1("li", { class: "dm-anomaly-item", children: [
+        /* @__PURE__ */ u$1("span", { class: "dm-anomaly-title", children: [
+          "标题命中「",
+          titleSystemName(anomaly.titleSystemId),
+          "」"
+        ] }),
+        /* @__PURE__ */ u$1("span", { class: "dm-anomaly-url", title: anomaly.url, children: anomaly.url }),
+        /* @__PURE__ */ u$1("span", { class: "dm-anomaly-time", children: formatDisplayTime(String(anomaly.at)) })
+      ] }, anomaly.titleSystemId + anomaly.url);
+    }) })
   ] });
 }
 const NAME_MAX_LENGTH = 40;
@@ -2634,7 +2560,7 @@ function SystemEditor(props) {
     {
       eyebrow: props.entry ? "编辑系统" : "新增系统",
       title: props.entry ? props.entry.name || "未命名系统" : "新的系统",
-      subtitle: props.entry ? "" : "填写名称和至少一条环境记录；保存后页面按环境匹配到该系统。",
+      subtitle: props.entry ? "ID " + props.entry.id : "填写名称和至少一条环境记录；保存后页面按环境匹配到该系统。",
       onClose: props.onCancel,
       footer: /* @__PURE__ */ u$1(M, { children: [
         /* @__PURE__ */ u$1("span", { class: "dm-drawer-foot-hint", children: problem || "⌘/Ctrl + S 保存" }),
@@ -2661,6 +2587,7 @@ function SystemEditor(props) {
               /* @__PURE__ */ u$1("span", { class: "dm-banner-text", children: "这个系统已在其他页面更新，保存将覆盖那次修改。" }),
               props.onLoadLatest ? /* @__PURE__ */ u$1("button", { type: "button", class: "dm-link-btn", onClick: props.onLoadLatest, children: "载入最新" }) : null
             ] }) : null,
+            props.notice,
             /* @__PURE__ */ u$1("section", { class: "dm-detail-group", children: [
               /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: "基本信息" }),
               /* @__PURE__ */ u$1("label", { class: "dm-form-field", children: [
@@ -2960,14 +2887,9 @@ function SystemsTable(props) {
             /* @__PURE__ */ u$1("td", { class: "dm-col-number", children: stats.favorites }),
             /* @__PURE__ */ u$1("td", { class: "dm-col-number", children: stats.history }),
             /* @__PURE__ */ u$1("td", { class: "dm-col-number", children: stats.annotations }),
-            /* @__PURE__ */ u$1("td", { class: "dm-col-actions", children: /* @__PURE__ */ u$1("div", { class: "dm-row-actions", children: [
-              /* @__PURE__ */ u$1(IconButton, { icon: "pencil", label: "编辑", onClick: function() {
-                props.onEdit(system.id);
-              } }),
-              /* @__PURE__ */ u$1(IconButton, { icon: "trash-2", label: "删除", tone: "danger", onClick: function() {
-                props.onDelete(system.id);
-              } })
-            ] }) })
+            /* @__PURE__ */ u$1("td", { class: "dm-col-actions", children: /* @__PURE__ */ u$1("div", { class: "dm-row-actions", children: /* @__PURE__ */ u$1(IconButton, { icon: "trash-2", label: "删除", tone: "danger", onClick: function() {
+              props.onDelete(system.id);
+            } }) }) })
           ]
         },
         system.id
@@ -3331,10 +3253,6 @@ function App() {
   const drawerHistory = drawer && drawer.mode === "view" && drawer.view === "history" ? records.history.find(function(entry) {
     return entry.id === drawer.id;
   }) || null : null;
-  const drawerSystemId = drawer && drawer.mode === "view" && drawer.view === "systems" ? drawer.id : null;
-  const drawerSystem = drawerSystemId ? systemsState.systems.find(function(system) {
-    return system.id === drawerSystemId;
-  }) || null : null;
   const editingSystemId = drawer && drawer.mode === "system-edit" && drawer.snapshot ? drawer.snapshot.id : null;
   const editingSystemLive = editingSystemId ? systemsState.systems.find(function(system) {
     return system.id === editingSystemId;
@@ -3342,7 +3260,7 @@ function App() {
   const deleteSystemTarget = deleteSystemId ? systemsState.systems.find(function(system) {
     return system.id === deleteSystemId;
   }) || null : null;
-  const selectedSystemId = drawerSystemId || editingSystemId;
+  const selectedSystemId = editingSystemId;
   const systemRouteParam = getSystemRouteParam(
     view,
     selectedSystemId,
@@ -3514,7 +3432,7 @@ function App() {
       }
       showToast(snapshot ? "系统已更新" : "已新增系统", "success");
       editorDirtyRef.current = false;
-      setDrawer({ mode: "view", view: "systems", id: built.id });
+      setDrawer(null);
     } catch (_error) {
       showToast("保存失败，请重试", "danger");
     }
@@ -3625,57 +3543,26 @@ function App() {
             }
           },
           onCancel: function() {
-            void changeDrawer(snapshot ? { mode: "view", view: "systems", id: snapshot.id } : null);
+            void changeDrawer(null);
           },
           onSave: handleSaveSystem,
           onDirtyChange: function(dirty) {
             editorDirtyRef.current = dirty;
-          }
-        },
-        snapshot ? "edit-" + snapshot.id + "-" + snapshot.updatedAt : "create-system"
-      );
-    }
-    if (drawerSystem) {
-      const system = drawerSystem;
-      const stats = systemsState.stats[system.id] || { favorites: 0, history: 0, annotations: 0 };
-      return /* @__PURE__ */ u$1(
-        DrawerShell,
-        {
-          eyebrow: "系统",
-          title: system.name || "未命名系统",
-          subtitle: system.titles.join("、"),
-          onClose: function() {
-            void changeDrawer(null);
           },
-          footer: /* @__PURE__ */ u$1(M, { children: [
-            /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: function() {
-              startEditSystem(system);
-            }, children: [
-              /* @__PURE__ */ u$1(Icon, { name: "pencil" }),
-              "编辑"
-            ] }),
-            /* @__PURE__ */ u$1("span", { class: "dm-drawer-foot-spacer" }),
-            /* @__PURE__ */ u$1(IconButton, { icon: "trash-2", label: "删除", tone: "danger", onClick: function() {
-              setDeleteSystemId(system.id);
-            } })
-          ] }),
-          children: /* @__PURE__ */ u$1(
-            SystemDetails,
+          notice: editingSystemLive ? /* @__PURE__ */ u$1(
+            SystemAnomalies,
             {
-              system,
+              system: editingSystemLive,
               systems: systemsState.systems,
-              stats,
-              onCopyId: function(id) {
-                void copySystemId(id);
-              },
-              onDismissAnomalies: function(id) {
+              onDismiss: function(id) {
                 void runSafely(function() {
                   return systemsState.dismiss(id);
                 });
               }
             }
-          )
-        }
+          ) : null
+        },
+        snapshot ? "edit-" + snapshot.id + "-" + snapshot.updatedAt : "create-system"
       );
     }
     if (drawer.mode === "create" || drawer.mode === "edit") {
@@ -3824,16 +3711,17 @@ function App() {
         query,
         selectedId: selectedSystemId,
         onSelect: function(id) {
-          toggleRow("systems", id);
-        },
-        onCopyId: function(id) {
-          void copySystemId(id);
-        },
-        onEdit: function(id) {
           const system = systemsState.systems.find(function(item) {
             return item.id === id;
           });
-          if (system) startEditSystem(system);
+          if (!system || editingSystemId === id) {
+            void changeDrawer(null);
+          } else {
+            startEditSystem(system);
+          }
+        },
+        onCopyId: function(id) {
+          void copySystemId(id);
         },
         onDelete: setDeleteSystemId
       }

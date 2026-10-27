@@ -12,7 +12,6 @@ export function SystemsTable(props: {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onCopyId: (id: string) => void;
-  onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
   return (
@@ -72,7 +71,6 @@ export function SystemsTable(props: {
                 <td class="dm-col-number">{stats.annotations}</td>
                 <td class="dm-col-actions">
                   <div class="dm-row-actions">
-                    <IconButton icon="pencil" label="编辑" onClick={function () { props.onEdit(system.id); }} />
                     <IconButton icon="trash-2" label="删除" tone="danger" onClick={function () { props.onDelete(system.id); }} />
                   </div>
                 </td>

@@ -159,7 +159,12 @@ test("systems tab lists, edits and deletes systems through background registry m
   assert.match(readPageFile("components/system-editor.tsx"), /添加环境/);
   assert.match(readPageFile("components/system-editor.tsx"), /添加参数/);
   assert.match(readPageFile("components/system-editor.tsx"), /自动/);
-  assert.match(readPageFile("components/system-details.tsx"), /忽略/);
+  assert.match(readPageFile("components/system-anomalies.tsx"), /忽略/);
+  // A system row opens the editor directly; anomalies are shown inside the editor.
+  assert.match(app, /onSelect=\{function \(id\) \{[\s\S]*?startEditSystem\(system\)/);
+  assert.match(app, /notice=\{editingSystemLive \? \(\s*<SystemAnomalies/);
+  assert.doesNotMatch(app, /view: "systems", id/);
+  assert.doesNotMatch(readPageFile("components/systems-table.tsx"), /icon="pencil"/);
   assert.match(readPageFile("components/delete-system-dialog.tsx"), /type="radio"/);
 });
 

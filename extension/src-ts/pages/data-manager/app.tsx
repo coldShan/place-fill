@@ -48,7 +48,7 @@ import { Icon } from "./components/icon";
 import { IconButton } from "./components/icon-button";
 import { DrawerShell, ProfileDetails } from "./components/record-drawer";
 import { SearchBox } from "./components/search-box";
-import { SystemDetails } from "./components/system-details";
+import { SystemAnomalies } from "./components/system-anomalies";
 import { SystemEditor } from "./components/system-editor";
 import { SystemsTable } from "./components/systems-table";
 import { Toolbar, VIEW_LABELS } from "./components/toolbar";
@@ -122,10 +122,6 @@ export function App() {
   const drawerHistory = drawer && drawer.mode === "view" && drawer.view === "history"
     ? records.history.find(function (entry) { return entry.id === drawer.id; }) || null
     : null;
-  const drawerSystemId = drawer && drawer.mode === "view" && drawer.view === "systems" ? drawer.id : null;
-  const drawerSystem = drawerSystemId
-    ? systemsState.systems.find(function (system) { return system.id === drawerSystemId; }) || null
-    : null;
   const editingSystemId = drawer && drawer.mode === "system-edit" && drawer.snapshot ? drawer.snapshot.id : null;
   const editingSystemLive = editingSystemId
     ? systemsState.systems.find(function (system) { return system.id === editingSystemId; }) || null
@@ -133,7 +129,7 @@ export function App() {
   const deleteSystemTarget = deleteSystemId
     ? systemsState.systems.find(function (system) { return system.id === deleteSystemId; }) || null
     : null;
-  const selectedSystemId = drawerSystemId || editingSystemId;
+  const selectedSystemId = editingSystemId;
 
   const systemRouteParam = getSystemRouteParam(
     view,
@@ -318,7 +314,7 @@ export function App() {
       }
       showToast(snapshot ? "系统已更新" : "已新增系统", "success");
       editorDirtyRef.current = false;
-      setDrawer({ mode: "view", view: "systems", id: built.id });
+      setDrawer(null);
     } catch (_error) {
       showToast("保存失败，请重试", "danger");
     }
@@ -440,41 +436,18 @@ export function App() {
             }
           }}
           onCancel={function () {
-            void changeDrawer(snapshot ? { mode: "view", view: "systems", id: snapshot.id } : null);
+            void changeDrawer(null);
           }}
           onSave={handleSaveSystem}
           onDirtyChange={function (dirty) { editorDirtyRef.current = dirty; }}
+          notice={editingSystemLive ? (
+            <SystemAnomalies
+              system={editingSystemLive}
+              systems={systemsState.systems}
+              onDismiss={function (id) { void runSafely(function () { return systemsState.dismiss(id); }); }}
+            />
+          ) : null}
         />
-      );
-    }
-    if (drawerSystem) {
-      const system = drawerSystem;
-      const stats = systemsState.stats[system.id] || { favorites: 0, history: 0, annotations: 0 };
-      return (
-        <DrawerShell
-          eyebrow="系统"
-          title={system.name || "未命名系统"}
-          subtitle={system.titles.join("、")}
-          onClose={function () { void changeDrawer(null); }}
-          footer={
-            <>
-              <button type="button" class="dm-secondary-btn" onClick={function () { startEditSystem(system); }}>
-                <Icon name="pencil" />
-                编辑
-              </button>
-              <span class="dm-drawer-foot-spacer" />
-              <IconButton icon="trash-2" label="删除" tone="danger" onClick={function () { setDeleteSystemId(system.id); }} />
-            </>
-          }
-        >
-          <SystemDetails
-            system={system}
-            systems={systemsState.systems}
-            stats={stats}
-            onCopyId={function (id) { void copySystemId(id); }}
-            onDismissAnomalies={function (id) { void runSafely(function () { return systemsState.dismiss(id); }); }}
-          />
-        </DrawerShell>
       );
     }
     if (drawer.mode === "create" || drawer.mode === "edit") {
@@ -596,12 +569,15 @@ export function App() {
         stats={systemsState.stats}
         query={query}
         selectedId={selectedSystemId}
-        onSelect={function (id) { toggleRow("systems", id); }}
-        onCopyId={function (id) { void copySystemId(id); }}
-        onEdit={function (id) {
+        onSelect={function (id) {
           const system = systemsState.systems.find(function (item) { return item.id === id; });
-          if (system) startEditSystem(system);
+          if (!system || editingSystemId === id) {
+            void changeDrawer(null);
+          } else {
+            startEditSystem(system);
+          }
         }}
+        onCopyId={function (id) { void copySystemId(id); }}
         onDelete={setDeleteSystemId}
       />
     );

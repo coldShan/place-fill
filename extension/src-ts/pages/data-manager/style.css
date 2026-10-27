@@ -1540,25 +1540,6 @@ textarea:focus-visible,
   background: var(--dm-warning-soft);
 }
 
-.dm-chip-list {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.dm-chip {
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  padding: 2px 8px;
-  border-radius: 999px;
-  color: var(--dm-ink-2);
-  background: var(--dm-surface-hover);
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-
-.dm-env-list,
 .dm-anomaly-list {
   display: flex;
   flex-direction: column;
@@ -1566,21 +1547,6 @@ textarea:focus-visible,
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-.dm-env-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 9px 12px;
-  border: 1px solid var(--dm-line);
-  border-radius: var(--dm-radius-sm);
-}
-
-.dm-env-host {
-  font-family: var(--dm-font-mono);
-  font-size: 12.5px;
-  overflow-wrap: anywhere;
 }
 
 .dm-anomaly-banner {

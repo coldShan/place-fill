@@ -1,3 +1,4 @@
+import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { SystemProfile } from "../../../shared/system-scope";
 import {
@@ -21,6 +22,7 @@ export function SystemEditor(props: {
   onCancel: () => void;
   onSave: (draft: SystemDraft) => Promise<void>;
   onDirtyChange: (dirty: boolean) => void;
+  notice?: ComponentChildren;
 }) {
   const initialDraft = useMemo(function () {
     return createSystemDraft(props.entry);
@@ -90,7 +92,7 @@ export function SystemEditor(props: {
     <DrawerShell
       eyebrow={props.entry ? "编辑系统" : "新增系统"}
       title={props.entry ? props.entry.name || "未命名系统" : "新的系统"}
-      subtitle={props.entry ? "" : "填写名称和至少一条环境记录；保存后页面按环境匹配到该系统。"}
+      subtitle={props.entry ? "ID " + props.entry.id : "填写名称和至少一条环境记录；保存后页面按环境匹配到该系统。"}
       onClose={props.onCancel}
       footer={
         <>
@@ -122,6 +124,7 @@ export function SystemEditor(props: {
             ) : null}
           </div>
         ) : null}
+        {props.notice}
         <section class="dm-detail-group">
           <h3 class="dm-detail-group-title">基本信息</h3>
           <label class="dm-form-field">
