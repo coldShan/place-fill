@@ -26,12 +26,14 @@ import {
   countAnnotationsBySystem,
   createSystemDraft,
   getDeleteTargets,
+  getSystemRouteParam,
   getSystemStatus,
   isSameSystemDraft,
   matchesSystemQuery,
   validateSystemDraft,
   type SystemDraft
 } from "../extension/src-ts/pages/data-manager/lib/systems";
+import { createSystemCommands } from "../extension/src-ts/pages/data-manager/lib/system-commands";
 import type { SystemProfile } from "../extension/src-ts/shared/system-scope";
 import { matchesQuery, splitHighlight } from "../extension/src-ts/pages/data-manager/lib/record-search";
 import { FIELD_KEYS, normalizeProfile } from "../extension/src-ts/shared/data-records";
@@ -392,4 +394,39 @@ test("isSameSystemDraft ignores blank rows and surrounding whitespace", () => {
   assert.equal(isSameSystemDraft(draft, padded), true);
   padded.titles = ["客户管理", "另一个"];
   assert.equal(isSameSystemDraft(draft, padded), false);
+});
+
+test("getSystemRouteParam keeps the system param while a system drawer is open or the route is pending", () => {
+  assert.equal(getSystemRouteParam("systems", "a", ""), "a");
+  // Before the systems load, the drawer is not open yet: keep the incoming ?system= value.
+  assert.equal(getSystemRouteParam("systems", null, "b"), "b");
+  assert.equal(getSystemRouteParam("systems", "a", "b"), "a");
+  assert.equal(getSystemRouteParam("systems", null, ""), "");
+  assert.equal(getSystemRouteParam("favorites", "a", "b"), "");
+});
+
+test("createSystemCommands sends registry edits as background messages and normalizes replies", async () => {
+  const sent: Record<string, unknown>[] = [];
+  const replies: unknown[] = [{ ok: true }, { ok: false, message: "a.com 已属于系统「A」" }, null, { ok: true }];
+  const commands = createSystemCommands(function (message) {
+    sent.push(message);
+    return Promise.resolve(replies.shift());
+  });
+  const target: SystemProfile = { id: "s1", name: "A", titles: [], environments: [], anomalies: [], createdAt: 1, updatedAt: 1 };
+
+  assert.deepEqual(await commands.save(target), { ok: true });
+  assert.deepEqual(await commands.save(target), { ok: false, message: "a.com 已属于系统「A」" });
+  assert.deepEqual(await commands.remove("s1", "host:a.com"), { ok: false, message: "删除失败，请重试" });
+  assert.deepEqual(await commands.dismiss("s1"), { ok: true });
+  assert.deepEqual(sent, [
+    { type: "save-system", system: target },
+    { type: "save-system", system: target },
+    { type: "delete-system", id: "s1", targetScope: "host:a.com" },
+    { type: "dismiss-anomalies", systemId: "s1" }
+  ]);
+
+  const failing = createSystemCommands(function () {
+    return Promise.reject(new Error("offline"));
+  });
+  assert.deepEqual(await failing.dismiss("s1"), { ok: false, message: "操作失败，请重试" });
 });

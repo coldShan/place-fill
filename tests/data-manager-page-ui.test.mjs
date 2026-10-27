@@ -140,12 +140,16 @@ test("data manager toolbar offers a global systems tab next to favorites and his
   assert.match(readPageFile("app.tsx"), /systems: systemsState\.systems\.length/);
 });
 
-test("systems tab lists, edits and deletes systems through the shared registry", () => {
+test("systems tab lists, edits and deletes systems through background registry messages", () => {
   const app = readPageFile("app.tsx");
   const hook = readPageFile("state/use-systems.ts");
-  assert.match(hook, /saveSystem/);
-  assert.match(hook, /deleteSystem/);
-  assert.match(hook, /dismissAnomalies/);
+  // Writes go through the background queue; the page never calls the registry writers directly.
+  assert.match(hook, /createSystemCommands\(sendRuntimeMessage\)/);
+  assert.match(hook, /systemCommands\.save\(system\)/);
+  assert.match(hook, /systemCommands\.remove\(id, targetScope\)/);
+  assert.match(hook, /systemCommands\.dismiss\(id\)/);
+  assert.doesNotMatch(hook, /\b(saveSystem|deleteSystem|dismissAnomalies)\b/);
+  assert.match(app, /buildDataManagerPageUrl\(window\.location\.href, scope, view, systemRouteParam\)/);
   assert.match(hook, /chrome\.storage\.onChanged\.addListener/);
   assert.match(hook, /chrome\.storage\.onChanged\.removeListener/);
   assert.match(app, /showToast\(result\.message \|\| "保存失败，请重试", "danger"\)/);

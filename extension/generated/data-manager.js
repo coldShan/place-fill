@@ -455,7 +455,7 @@ function readStorageValue$1(storageArea, key) {
     });
   });
 }
-function writeStorageValue$1(storageArea, key, value) {
+function writeStorageValue(storageArea, key, value) {
   if (!storageArea) return Promise.resolve();
   return new Promise(function(resolve) {
     storageArea.set({ [key]: value }, function() {
@@ -547,14 +547,11 @@ function isSameProfile(left, right) {
 async function readGeneratedProfilesMap(env) {
   return normalizeGeneratedProfilesMap(await readStorageValue$1(getStorageArea$2(), GENERATED_PROFILES_STORAGE_KEY));
 }
-async function writeGeneratedProfilesMap(nextMap, env) {
-  await writeStorageValue$1(getStorageArea$2(), GENERATED_PROFILES_STORAGE_KEY, nextMap);
-}
 async function readFavoriteProfilesMap(env) {
   return normalizeFavoriteProfilesMap(await readStorageValue$1(getStorageArea$2(), FAVORITE_PROFILES_STORAGE_KEY));
 }
 async function writeFavoriteProfilesMap(nextMap, env) {
-  await writeStorageValue$1(getStorageArea$2(), FAVORITE_PROFILES_STORAGE_KEY, nextMap);
+  await writeStorageValue(getStorageArea$2(), FAVORITE_PROFILES_STORAGE_KEY, nextMap);
 }
 async function readGeneratedProfiles(scope, env) {
   const normalizedScope = normalizeScopeKey(scope);
@@ -708,43 +705,6 @@ async function copyFavoriteToScopes(scope, favoriteId, targetScopes, env) {
     await writeFavoriteProfilesMap(favoritesMap);
   }
   return results;
-}
-async function moveScopeRecords(fromScope, toScope, env) {
-  const from = normalizeScopeKey(fromScope);
-  const to = normalizeScopeKey(toScope);
-  if (!from || !to || from === to) return;
-  const now = Date.now();
-  const random = Math.random;
-  const favoritesMap = await readFavoriteProfilesMap();
-  if (Object.prototype.hasOwnProperty.call(favoritesMap, from)) {
-    const merged = (favoritesMap[to] || []).slice();
-    const usedIds = collectIds(merged);
-    (favoritesMap[from] || []).forEach(function(entry) {
-      const exists = merged.some(function(current) {
-        return isSameProfile(current.profile, entry.profile);
-      });
-      if (exists) return;
-      merged.push(usedIds.has(entry.id) ? { ...entry, id: createUniqueId(now, random, usedIds) } : entry);
-      usedIds.add(entry.id);
-    });
-    favoritesMap[to] = merged;
-    delete favoritesMap[from];
-    await writeFavoriteProfilesMap(favoritesMap);
-  }
-  const generatedMap = await readGeneratedProfilesMap();
-  if (Object.prototype.hasOwnProperty.call(generatedMap, from)) {
-    const merged = (generatedMap[to] || []).slice();
-    const usedIds = collectIds(merged);
-    (generatedMap[from] || []).forEach(function(entry) {
-      merged.push(usedIds.has(entry.id) ? { ...entry, id: createUniqueId(now, random, usedIds) } : entry);
-      usedIds.add(entry.id);
-    });
-    generatedMap[to] = merged.sort(function(left, right) {
-      return Number(right.createdAt) - Number(left.createdAt);
-    }).slice(0, MAX_GENERATED_RECORDS);
-    delete generatedMap[from];
-    await writeGeneratedProfilesMap(generatedMap);
-  }
 }
 async function importFavoriteProfiles(scope, inputs, env) {
   const normalizedScope = normalizeScopeKey(scope);
@@ -1166,7 +1126,6 @@ function formatScopeLabel(scope, systems) {
 const SYSTEM_PROFILES_STORAGE_KEY = "ctdp.systemProfiles.v1";
 const SITE_FEATURE_STORAGE_KEY = "ctdp.siteFeatureEnabled.v1";
 const OVERRIDES_STORAGE_KEY = "ctdp.smartFillOverrides.v1";
-const AI_MAPPINGS_STORAGE_KEY = "ctdp.aiFieldMappings.v1";
 function getStorageArea$1(env) {
   try {
     if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) return chrome.storage.local;
@@ -1182,18 +1141,6 @@ function readStorageValue(env, key) {
       resolve(result ? result[key] : void 0);
     });
   });
-}
-function writeStorageValue(env, key, value) {
-  const storageArea = getStorageArea$1();
-  if (!storageArea) return Promise.resolve();
-  return new Promise(function(resolve) {
-    storageArea.set({ [key]: value }, function() {
-      resolve();
-    });
-  });
-}
-function currentTime(env) {
-  return Date.now();
 }
 function generateId(env) {
   if (env && typeof env.createId === "function") return env.createId();
@@ -1265,143 +1212,6 @@ async function readSystems(env) {
     return item !== null;
   });
 }
-async function writeSystems(systems, env) {
-  await writeStorageValue(env, SYSTEM_PROFILES_STORAGE_KEY, systems);
-}
-function validateSystems(systems) {
-  const owners = /* @__PURE__ */ new Map();
-  for (const item of systems) {
-    for (const environment of item.environments) {
-      if (classifyHost(environment.hostname) === "local" || classifyHost(environment.hostname) === "none") continue;
-      const encoded = encodeHostname(environment.hostname);
-      const owner = owners.get(encoded);
-      if (owner && owner.id !== item.id) {
-        return { ok: false, message: environment.hostname + " 已属于系统「" + owner.name + "」" };
-      }
-      if (!owner) owners.set(encoded, item);
-    }
-  }
-  return { ok: true };
-}
-function environmentFallbackScope(environment) {
-  return getFallbackScope({ hostname: environment.hostname, port: environment.port });
-}
-async function saveSystem(system, env) {
-  const systems = await readSystems(env);
-  const index = systems.findIndex(function(item) {
-    return item.id === system.id;
-  });
-  const previousScopes = (index === -1 ? [] : systems[index].environments).map(environmentFallbackScope);
-  const others = systems.filter(function(item) {
-    return item.id !== system.id;
-  });
-  const verdict = validateSystems(others.concat([system]));
-  if (!verdict.ok) return { ok: false, message: verdict.message };
-  const next = { ...system, updatedAt: currentTime() };
-  if (index === -1) systems.push(next);
-  else systems[index] = next;
-  await writeSystems(systems, env);
-  const adopted = [];
-  for (const environment of system.environments) {
-    const fallbackScope = environmentFallbackScope(environment);
-    if (previousScopes.indexOf(fallbackScope) !== -1 || adopted.indexOf(fallbackScope) !== -1) continue;
-    adopted.push(fallbackScope);
-    await adoptFallbackScope(fallbackScope, system.id, env);
-  }
-  return { ok: true };
-}
-function recordHasOwn(record, key) {
-  return Object.prototype.hasOwnProperty.call(record, key);
-}
-async function moveKeyPrefix(storageKey, fromScope, toScope, env) {
-  const stored = asRecord(await readStorageValue(env, storageKey));
-  const fromPrefix = fromScope + "::";
-  const toPrefix = toScope + "::";
-  const next = {};
-  const moved = {};
-  let changed = false;
-  Object.keys(stored).forEach(function(key) {
-    if (key.startsWith(fromPrefix)) {
-      moved[toPrefix + key.slice(fromPrefix.length)] = stored[key];
-      changed = true;
-    } else {
-      next[key] = stored[key];
-    }
-  });
-  if (!changed) return;
-  Object.keys(moved).forEach(function(key) {
-    if (!recordHasOwn(next, key)) next[key] = moved[key];
-  });
-  await writeStorageValue(env, storageKey, next);
-}
-async function moveToggle(fromScope, toScope, env) {
-  const stored = asRecord(await readStorageValue(env, SITE_FEATURE_STORAGE_KEY));
-  if (!recordHasOwn(stored, fromScope)) return;
-  const next = { ...stored };
-  if (!recordHasOwn(next, toScope)) next[toScope] = stored[fromScope];
-  delete next[fromScope];
-  await writeStorageValue(env, SITE_FEATURE_STORAGE_KEY, next);
-}
-async function moveScopeData(fromScope, toScope, env) {
-  if (!fromScope || !toScope || fromScope === toScope) return;
-  await moveScopeRecords(fromScope, toScope);
-  await moveKeyPrefix(OVERRIDES_STORAGE_KEY, fromScope, toScope, env);
-  await moveKeyPrefix(AI_MAPPINGS_STORAGE_KEY, fromScope, toScope, env);
-  await moveToggle(fromScope, toScope, env);
-}
-async function deleteSystem(id, targetScope, env) {
-  await moveScopeData(buildSystemScope(id), targetScope, env);
-  const systems = await readSystems(env);
-  await writeSystems(
-    systems.filter(function(item) {
-      return item.id !== id;
-    }),
-    env
-  );
-}
-function isLocalFallbackScope(scope) {
-  return legacyKeyForFallbackScope(scope) !== "";
-}
-function legacyKeyForFallbackScope(scope) {
-  const parsed = parseScopeKey(scope);
-  if (!parsed || parsed.kind !== "host") return "";
-  const value = parsed.value;
-  let hostname = value;
-  if (value.startsWith("v6-")) {
-    const lastDash = value.lastIndexOf(":");
-    const bare = (lastDash === -1 ? value : value.slice(0, lastDash)).slice(3).replace(/-/g, ":");
-    hostname = "[" + bare + "]";
-  } else {
-    const colon = value.indexOf(":");
-    if (colon !== -1) hostname = value.slice(0, colon);
-  }
-  return classifyHost(hostname) === "local" ? "legacy:" + hostname : "";
-}
-async function readScopeEnabled(scope, env) {
-  const stored = asRecord(await readStorageValue(env, SITE_FEATURE_STORAGE_KEY));
-  if (recordHasOwn(stored, scope)) return stored[scope] === true;
-  const legacyKey = legacyKeyForFallbackScope(scope);
-  return legacyKey ? stored[legacyKey] === true : false;
-}
-async function adoptFallbackScope(fallbackScope, systemId, env) {
-  const systemScope = buildSystemScope(systemId);
-  const enabled = await readScopeEnabled(fallbackScope, env);
-  await moveScopeData(fallbackScope, systemScope, env);
-  const stored = asRecord(await readStorageValue(env, SITE_FEATURE_STORAGE_KEY));
-  const next = { ...stored };
-  if (!recordHasOwn(next, systemScope)) next[systemScope] = enabled;
-  if (isLocalFallbackScope(fallbackScope)) next[fallbackScope] = false;
-  await writeStorageValue(env, SITE_FEATURE_STORAGE_KEY, next);
-}
-async function dismissAnomalies(systemId, env) {
-  const systems = await readSystems(env);
-  const target = systems.find(function(item) {
-    return item.id === systemId;
-  });
-  if (!target || !target.anomalies.length) return;
-  target.anomalies = [];
-  await writeSystems(systems, env);
-}
 const SYSTEM_STATUS_LABELS = {
   enabled: "启用",
   disabled: "已停用",
@@ -1412,6 +1222,10 @@ const PORT_PATTERN = /^\d{1,5}$/;
 function getSystemStatus(system, enabledMap) {
   if (system.anomalies.length > 0) return "anomaly";
   return enabledMap["system:" + system.id] === true ? "enabled" : "disabled";
+}
+function getSystemRouteParam(view, selectedSystemId, pendingRouteSystemId) {
+  if (view !== "systems") return "";
+  return selectedSystemId || pendingRouteSystemId || "";
 }
 function formatEnvironmentHost(environment) {
   return environment.hostname + (environment.port ? ":" + environment.port : "");
@@ -3333,6 +3147,47 @@ function useRecords(scope) {
   }, []);
   return { ...records, freshHistoryIds, reload, setFavorites };
 }
+function normalizeResult(response, fallbackMessage) {
+  if (!response || typeof response !== "object") return { ok: false, message: fallbackMessage };
+  const record = response;
+  if (record.ok === true) return { ok: true };
+  return { ok: false, message: typeof record.message === "string" && record.message ? record.message : fallbackMessage };
+}
+function createSystemCommands(send) {
+  function run(message, fallbackMessage) {
+    return send(message).then(
+      function(response) {
+        return normalizeResult(response, fallbackMessage);
+      },
+      function() {
+        return { ok: false, message: fallbackMessage };
+      }
+    );
+  }
+  return {
+    save(system) {
+      return run({ type: "save-system", system }, "保存失败，请重试");
+    },
+    remove(id, targetScope) {
+      return run({ type: "delete-system", id, targetScope }, "删除失败，请重试");
+    },
+    dismiss(systemId) {
+      return run({ type: "dismiss-anomalies", systemId }, "操作失败，请重试");
+    }
+  };
+}
+function sendRuntimeMessage(message) {
+  return new Promise(function(resolve) {
+    try {
+      chrome.runtime.sendMessage(message, function(response) {
+        resolve(chrome.runtime.lastError ? null : response);
+      });
+    } catch (_error) {
+      resolve(null);
+    }
+  });
+}
+const systemCommands = createSystemCommands(sendRuntimeMessage);
 const WATCHED_KEYS = [
   SYSTEM_PROFILES_STORAGE_KEY,
   SITE_FEATURE_STORAGE_KEY,
@@ -3394,16 +3249,18 @@ function useSystems() {
     };
   }, [reload]);
   const save = j(async function(system) {
-    const result = await saveSystem(system);
+    const result = await systemCommands.save(system);
     if (result.ok) await reload();
     return result;
   }, [reload]);
   const remove = j(async function(id, targetScope) {
-    await deleteSystem(id, targetScope);
+    const result = await systemCommands.remove(id, targetScope);
+    if (!result.ok) throw new Error(result.message);
     await reload();
   }, [reload]);
   const dismiss = j(async function(id) {
-    await dismissAnomalies(id);
+    const result = await systemCommands.dismiss(id);
+    if (!result.ok) throw new Error(result.message);
     await reload();
   }, [reload]);
   return { ...state, reload, save, remove, dismiss };
@@ -3486,10 +3343,15 @@ function App() {
     return system.id === deleteSystemId;
   }) || null : null;
   const selectedSystemId = drawerSystemId || editingSystemId;
+  const systemRouteParam = getSystemRouteParam(
+    view,
+    selectedSystemId,
+    routeSystemHandledRef.current ? "" : route.systemId
+  );
   A(function() {
     if (!window.history || typeof window.history.replaceState !== "function") return;
-    window.history.replaceState(null, "", buildDataManagerPageUrl(window.location.href, scope, view));
-  }, [scope, view]);
+    window.history.replaceState(null, "", buildDataManagerPageUrl(window.location.href, scope, view, systemRouteParam));
+  }, [scope, view, systemRouteParam]);
   A(function() {
     if (routeSystemHandledRef.current || !route.systemId || route.view !== "systems" || !systemsState.loaded) return;
     routeSystemHandledRef.current = true;

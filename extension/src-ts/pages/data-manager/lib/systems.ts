@@ -47,6 +47,15 @@ export function getSystemStatus(system: SystemProfile, enabledMap: Record<string
   return enabledMap["system:" + system.id] === true ? "enabled" : "disabled";
 }
 
+/**
+ * `?system=` value to keep in the page URL: the system whose drawer is open, or the incoming route
+ * value while it is still waiting for the systems to load. Only the systems view carries it.
+ */
+export function getSystemRouteParam(view: string, selectedSystemId: string | null, pendingRouteSystemId: string): string {
+  if (view !== "systems") return "";
+  return selectedSystemId || pendingRouteSystemId || "";
+}
+
 export function formatEnvironmentHost(environment: Pick<SystemEnvironment, "hostname" | "port">): string {
   return environment.hostname + (environment.port ? ":" + environment.port : "");
 }

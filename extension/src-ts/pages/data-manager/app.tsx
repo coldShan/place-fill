@@ -34,7 +34,7 @@ import {
 } from "./lib/import-export";
 import { summarizeCopyResults } from "./lib/scope-input";
 import { formatScopeLabel } from "./lib/scope-label";
-import { buildSystemFromDraft, matchesSystemQuery, type SystemDraft } from "./lib/systems";
+import { buildSystemFromDraft, getSystemRouteParam, matchesSystemQuery, type SystemDraft } from "./lib/systems";
 import { ColumnPicker } from "./components/column-picker";
 import { CopyToSitesDialog } from "./components/copy-to-sites-dialog";
 import { DeleteSystemDialog } from "./components/delete-system-dialog";
@@ -135,10 +135,16 @@ export function App() {
     : null;
   const selectedSystemId = drawerSystemId || editingSystemId;
 
+  const systemRouteParam = getSystemRouteParam(
+    view,
+    selectedSystemId,
+    routeSystemHandledRef.current ? "" : route.systemId
+  );
+
   useEffect(function () {
     if (!window.history || typeof window.history.replaceState !== "function") return;
-    window.history.replaceState(null, "", buildDataManagerPageUrl(window.location.href, scope, view));
-  }, [scope, view]);
+    window.history.replaceState(null, "", buildDataManagerPageUrl(window.location.href, scope, view, systemRouteParam));
+  }, [scope, view, systemRouteParam]);
 
   useEffect(function () {
     if (routeSystemHandledRef.current || !route.systemId || route.view !== "systems" || !systemsState.loaded) return;

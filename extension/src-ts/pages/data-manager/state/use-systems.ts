@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import {
-  deleteSystem,
-  dismissAnomalies,
   OVERRIDES_STORAGE_KEY,
   readStorageValue,
   readSystems,
-  saveSystem,
   SITE_FEATURE_STORAGE_KEY,
   SYSTEM_PROFILES_STORAGE_KEY
 } from "../../../shared/system-registry";
 import type { SystemProfile } from "../../../shared/system-scope";
 import { FAVORITE_PROFILES_STORAGE_KEY, GENERATED_PROFILES_STORAGE_KEY, listScopeSummaries } from "../page-model";
 import { countAnnotationsBySystem } from "../lib/systems";
+import { createSystemCommands, sendRuntimeMessage } from "../lib/system-commands";
+
+// Registry writes run in the background's serial queue, shared with page recognition.
+const systemCommands = createSystemCommands(sendRuntimeMessage);
 
 export type SystemStats = { favorites: number; history: number; annotations: number };
 
@@ -92,18 +93,20 @@ export function useSystems(): SystemsState & {
   }, [reload]);
 
   const save = useCallback(async function (system: SystemProfile) {
-    const result = await saveSystem(system);
+    const result = await systemCommands.save(system);
     if (result.ok) await reload();
     return result;
   }, [reload]);
 
   const remove = useCallback(async function (id: string, targetScope: string) {
-    await deleteSystem(id, targetScope);
+    const result = await systemCommands.remove(id, targetScope);
+    if (!result.ok) throw new Error(result.message);
     await reload();
   }, [reload]);
 
   const dismiss = useCallback(async function (id: string) {
-    await dismissAnomalies(id);
+    const result = await systemCommands.dismiss(id);
+    if (!result.ok) throw new Error(result.message);
     await reload();
   }, [reload]);
 
