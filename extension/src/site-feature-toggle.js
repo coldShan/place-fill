@@ -19,27 +19,47 @@
     return null;
   }
 
-  function getLocationHostname(env) {
-    if (env && typeof env.hostname === "string") return String(env.hostname || "").trim().toLowerCase();
-    const locationLike = env && env.location;
-    if (locationLike && typeof locationLike.hostname === "string") return String(locationLike.hostname || "").trim().toLowerCase();
-    try {
-      if (typeof location !== "undefined" && typeof location.hostname === "string") {
-        return String(location.hostname || "").trim().toLowerCase();
-      }
-    } catch (_) {}
-    return "";
+  function getScope(env) {
+    return env && typeof env.scope === "string" ? env.scope.trim() : "";
+  }
+
+  // Mirrors `legacyKeyForFallbackScope` in system-registry.ts: only `host:<local host>[:port]`
+  // scopes fall back to the pre-scope `legacy:<hostname>` record.
+  function isLocalHostname(hostname) {
+    return (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "[::1]" ||
+      hostname === "::1" ||
+      hostname === "0.0.0.0" ||
+      hostname.endsWith(".localhost")
+    );
+  }
+
+  function getLegacyKeyForFallbackScope(scope) {
+    if (scope.indexOf("host:") !== 0) return "";
+    const value = scope.slice("host:".length);
+    let hostname = value;
+    if (value.indexOf("v6-") === 0) {
+      const lastColon = value.lastIndexOf(":");
+      const bare = (lastColon === -1 ? value : value.slice(0, lastColon)).slice(3).replace(/-/g, ":");
+      hostname = "[" + bare + "]";
+    } else {
+      const colon = value.indexOf(":");
+      if (colon !== -1) hostname = value.slice(0, colon);
+    }
+    return isLocalHostname(hostname.trim().toLowerCase()) ? "legacy:" + hostname : "";
   }
 
   function normalizeSiteFeatureEnabledMap(rawValue) {
     if (!rawValue || typeof rawValue !== "object" || Array.isArray(rawValue)) return {};
     return Object.fromEntries(
       Object.entries(rawValue)
-        .map(function ([hostname, enabled]) {
-          return [String(hostname || "").trim().toLowerCase(), enabled === true];
+        .map(function ([scope, enabled]) {
+          return [String(scope || "").trim(), enabled === true];
         })
-        .filter(function ([hostname]) {
-          return Boolean(hostname);
+        .filter(function ([scope]) {
+          return Boolean(scope);
         })
     );
   }
@@ -58,22 +78,26 @@
   }
 
   async function readSiteFeatureEnabled(env) {
-    const hostname = getLocationHostname(env);
-    if (!hostname) return getDefaultSiteFeatureEnabled();
+    const scope = getScope(env);
+    if (!scope) return getDefaultSiteFeatureEnabled();
     const enabledMap = await readSiteFeatureEnabledMap(env);
-    if (!Object.prototype.hasOwnProperty.call(enabledMap, hostname)) return getDefaultSiteFeatureEnabled();
-    return isSiteFeatureEnabled(enabledMap[hostname]);
+    if (Object.prototype.hasOwnProperty.call(enabledMap, scope)) return isSiteFeatureEnabled(enabledMap[scope]);
+    const legacyKey = getLegacyKeyForFallbackScope(scope);
+    if (legacyKey && Object.prototype.hasOwnProperty.call(enabledMap, legacyKey)) {
+      return isSiteFeatureEnabled(enabledMap[legacyKey]);
+    }
+    return getDefaultSiteFeatureEnabled();
   }
 
   async function writeSiteFeatureEnabled(enabled, env) {
     const storageArea = getStorageArea(env);
-    const hostname = getLocationHostname(env);
+    const scope = getScope(env);
     const normalizedEnabled = isSiteFeatureEnabled(enabled);
-    if (!hostname) return normalizedEnabled;
+    if (!scope) return normalizedEnabled;
     if (!storageArea || typeof storageArea.set !== "function") return normalizedEnabled;
 
     const enabledMap = await readSiteFeatureEnabledMap(env);
-    enabledMap[hostname] = normalizedEnabled;
+    enabledMap[scope] = normalizedEnabled;
 
     return new Promise(function (resolve) {
       storageArea.set({ [STORAGE_KEY]: enabledMap }, function () {
