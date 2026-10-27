@@ -46,7 +46,16 @@ function createEnv(options) {
   const windowListeners = {};
   const runtimeListeners = [];
   const messages = [];
-  const document = { documentElement: { id: "html" }, head: { id: "head" }, title: opts.title || "" };
+  const documentListeners = {};
+  const document = {
+    addEventListener(type, listener) {
+      documentListeners[type] = listener;
+    },
+    documentElement: { id: "html" },
+    head: { id: "head" },
+    prerendering: opts.prerendering === true,
+    title: opts.title || ""
+  };
   class FakeMutationObserver {
     constructor(callback) {
       this.callback = callback;
@@ -63,6 +72,7 @@ function createEnv(options) {
   const window = {
     MutationObserver: FakeMutationObserver,
     addEventListener(type, listener) {
+      if (opts.windowListenerThrows) throw new Error("blocked");
       windowListeners[type] = listener;
     },
     clearTimeout(id) {
@@ -101,6 +111,7 @@ function createEnv(options) {
   return {
     client,
     document,
+    documentListeners,
     dispatchRuntimeMessage(message) {
       runtimeListeners.forEach(function (listener) { listener(message); });
     },
@@ -345,4 +356,79 @@ test("onChange returns an unsubscribe function", async () => {
   unsubscribe();
   env.dispatchRuntimeMessage({ resolution: SYSTEM_A, type: "page-scope-changed" });
   assert.deepEqual(changes, []);
+});
+
+test("the top frame re-resolves when the background asks for the page scope", async () => {
+  const env = createEnv({ respond() { return SYSTEM_A; }, title: "客户管理" });
+  await env.client.start();
+  assert.equal(env.messages.length, 1);
+
+  env.dispatchRuntimeMessage({ type: "page-scope-changed", resolution: FALLBACK });
+  env.dispatchRuntimeMessage({ type: "request-page-scope" });
+  await flush();
+
+  assert.deepEqual(env.messages.map(function (message) { return message.type; }), ["resolve-page-scope", "resolve-page-scope"]);
+  // The top frame keeps its own resolution; page-scope-changed is for iframes only.
+  assert.equal(env.client.getScope(), "system:a");
+});
+
+test("iframes ignore request-page-scope", async () => {
+  const env = createEnv({ isTopFrame: false, respond() { return null; } });
+  await env.client.start();
+  env.dispatchRuntimeMessage({ type: "request-page-scope" });
+  await flush();
+  assert.deepEqual(env.messages.map(function (message) { return message.type; }), ["get-tab-scope"]);
+});
+
+test("a prerendering page resolves only after activation", async () => {
+  const env = createEnv({ prerendering: true, respond() { return SYSTEM_A; }, title: "客户管理" });
+  let settled = false;
+  const started = env.client.start().then(function (resolution) {
+    settled = true;
+    return resolution;
+  });
+  await flush();
+  assert.equal(env.messages.length, 0);
+  assert.equal(settled, false);
+  // A background request during prerendering waits for activation as well.
+  env.dispatchRuntimeMessage({ type: "request-page-scope" });
+  await flush();
+  assert.equal(env.messages.length, 0);
+
+  env.document.prerendering = false;
+  env.documentListeners.prerenderingchange();
+  const resolution = await started;
+  assert.equal(env.messages.length, 1);
+  assert.equal(env.messages[0].type, "resolve-page-scope");
+  assert.equal(resolution.scope, "system:a");
+});
+
+test("start never throws synchronously and falls back to the page's own scope", async () => {
+  const env = createEnv({ respond() { return SYSTEM_A; }, windowListenerThrows: true });
+  let started;
+  assert.doesNotThrow(function () {
+    started = env.client.start();
+  });
+  assert.deepEqual(await started, FALLBACK);
+});
+
+test("a failed manual switch restores the previous marker and resolves to null", async () => {
+  const previous = { id: "a", manual: false, name: "客户管理" };
+  const sessionStorage = createSessionStorage({ [MARKER_STORAGE_KEY]: JSON.stringify(previous) });
+  const env = createEnv({
+    respond(message) {
+      if (message.type === "resolve-page-scope") return SYSTEM_A;
+      return null;
+    },
+    sessionStorage,
+    title: "客户管理"
+  });
+  await env.client.start();
+
+  const result = await env.client.selectSystem("b");
+
+  assert.equal(result, null);
+  assert.equal(env.messages.at(-1).type, "select-system");
+  assert.deepEqual(JSON.parse(sessionStorage.values.get(MARKER_STORAGE_KEY)), previous);
+  assert.equal(env.client.getScope(), "system:a");
 });

@@ -999,6 +999,8 @@ test("the current-site settings render the system row below the toggle and route
   assert.match(panelScript, /systemScopeApi\.classifyHost\(win\.location\.hostname\) === "local"/);
   assert.match(panelScript, /type: "open-data-manager-page",\s*scope: getCurrentScopeKey\(\),\s*view: "systems",\s*systemId: resolution && resolution\.system && resolution\.system\.id \? resolution\.system\.id : ""/);
   assert.match(panelScript, /closest\('\[data-role="system-scope-select"\]'\)[\s\S]*?selectSystem\(systemScopeTrigger\.value\)/);
+  // A rejected switch (null from the scope client) re-renders the row and surfaces 「切换系统失败」.
+  assert.match(panelScript, /const selected = await scopeClient\.selectSystem\(systemId \|\| null\);\s*syncSystemScopeRow\(\);\s*if \(!selected\) throw new Error\("切换系统失败"\);/);
   assert.match(panelScript, /if \(scopeClient\) await scopeClient\.setSiteFeatureEnabled\(enabled\)/);
   assert.match(panelStyles, /\.ctdp-system-scope-link\s*\{/);
   assert.match(panelStyles, /\.ctdp-system-scope-switch\s*\{/);

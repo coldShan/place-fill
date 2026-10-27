@@ -642,9 +642,11 @@
     async function selectSystem(systemId) {
       if (!scopeClient) return;
       // A scope change reaches reloadScope through the content script's onChange wiring; the row
-      // is re-rendered here as well because the manual flag can change without the scope changing.
-      await scopeClient.selectSystem(systemId || null);
+      // is re-rendered here as well because the manual flag can change without the scope changing
+      // (and to reset the select after a rejected switch).
+      const selected = await scopeClient.selectSystem(systemId || null);
       syncSystemScopeRow();
+      if (!selected) throw new Error("切换系统失败");
     }
 
     async function openSystemManagerPage() {

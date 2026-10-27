@@ -39,6 +39,7 @@
     let titleTimer = null;
     let started = null;
     let tabScopeBroadcastSeen = false;
+    let activationPromise = null;
 
     function defaultAddRuntimeMessageListener(listener) {
       try {
@@ -155,11 +156,28 @@
       return requestTopResolution({ info, marker: readMarker(), type: "resolve-page-scope" });
     }
 
+    // A prerendered page is not shown yet: recognizing it would record the tab scope (and maybe
+    // create a system) for a page the user may never open, so resolving waits for activation.
+    function isPrerendering() {
+      return !!doc && doc.prerendering === true;
+    }
+
+    function whenActivated() {
+      if (!isPrerendering() || typeof doc.addEventListener !== "function") return Promise.resolve();
+      if (!activationPromise) {
+        activationPromise = new Promise(function (resolve) {
+          doc.addEventListener("prerenderingchange", function () { resolve(); }, { once: true });
+        });
+      }
+      return activationPromise;
+    }
+
     function handleTitleMutation() {
       if (titleTimer !== null) win.clearTimeout(titleTimer);
       titleTimer = win.setTimeout(function () {
         titleTimer = null;
-        if (readTitle() === lastResolvedTitle) return;
+        // Activation resolves with the then-current title anyway.
+        if (isPrerendering() || readTitle() === lastResolvedTitle) return;
         resolvePage();
       }, titleDebounceMs);
     }
@@ -174,7 +192,13 @@
     }
 
     function handleRuntimeMessage(message) {
-      if (isTopFrame || !message || message.type !== "page-scope-changed") return;
+      if (!message) return;
+      if (isTopFrame) {
+        // The background asks again when the tab has no fresh scope after the page finished loading.
+        if (message.type === "request-page-scope" && !isPrerendering()) resolvePage();
+        return;
+      }
+      if (message.type !== "page-scope-changed") return;
       const next = normalizeResolution(message.resolution);
       if (!next) return;
       tabScopeBroadcastSeen = true;
@@ -183,13 +207,14 @@
 
     function startTopFrame() {
       observeTitle();
+      addRuntimeMessageListener(handleRuntimeMessage);
       if (win && typeof win.addEventListener === "function") {
         // The background clears the tab scope on navigation; a bfcache restore needs a new record.
         win.addEventListener("pageshow", function (event) {
           if (event && event.persisted === true) resolvePage();
         });
       }
-      return resolvePage();
+      return whenActivated().then(resolvePage);
     }
 
     function startFrame() {
@@ -201,9 +226,16 @@
       });
     }
 
+    // Never throws synchronously: on any failure the page keeps its own fallback resolution.
     function start() {
       if (!started) {
-        started = (isTopFrame ? startTopFrame() : startFrame()).catch(function () {
+        let run;
+        try {
+          run = isTopFrame ? startTopFrame() : startFrame();
+        } catch (_) {
+          run = Promise.resolve(resolution);
+        }
+        started = Promise.resolve(run).catch(function () {
           return resolution;
         });
       }
@@ -229,12 +261,24 @@
       });
     }
 
+    // Resolves to the new resolution, or null when the background rejected the switch (the
+    // previous marker is restored so the next recognition behaves as before).
     function selectSystem(systemId) {
       if (!isTopFrame) return Promise.resolve(resolution);
       const id = typeof systemId === "string" && systemId ? systemId : null;
+      const previousMarker = readMarker();
       if (id) writeMarker({ id, manual: true, name: systemNames[id] || "" });
       else writeMarker(null);
-      return requestTopResolution({ info: readInfo(), systemId: id, type: "select-system" });
+      const seq = ++requestSeq;
+      return send({ info: readInfo(), systemId: id, type: "select-system" }).then(function (response) {
+        const next = normalizeResolution(response);
+        if (!next) {
+          if (seq === requestSeq) writeMarker(previousMarker);
+          return null;
+        }
+        if (seq === requestSeq) applyResolution(next, true);
+        return resolution;
+      });
     }
 
     function listSystems() {
