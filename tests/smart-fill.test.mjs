@@ -4,10 +4,13 @@ import smartFillPkg from "../extension/src/smart-fill.js";
 import fieldMetaPkg from "../extension/src/field-meta.js";
 
 const {
+  AI_FIELD_MAPPING_STORAGE_KEY,
   MANUAL_FIELD_OVERRIDE_NONE,
+  applyAiFieldMappings,
   clearManualFieldOverride,
   clearAiFieldMappings,
   formatSmartFillButtonLabel,
+  getFieldFingerprint,
   getFieldIconName,
   getSmartFillMenuFieldKeys,
   getSupportedFieldKeys,
@@ -17,7 +20,8 @@ const {
   loadManualFieldOverrides,
   replaceManualFieldOverrides,
   replaceAiFieldMappings,
-  setManualFieldOverride
+  setManualFieldOverride,
+  setScopeResolver
 } = smartFillPkg;
 const { getFieldDefinitions, getFieldKeys } = fieldMetaPkg;
 
@@ -76,8 +80,9 @@ function createStorageArea(initialState) {
 
 function createEnv(overrides) {
   return {
+    scope: overrides && Object.prototype.hasOwnProperty.call(overrides, "scope") ? overrides.scope : "system:abc",
     location: {
-      origin: (overrides && overrides.origin) || "https://example.com",
+      origin: "https://example.com",
       pathname: (overrides && overrides.pathname) || "/apply/form",
       search: "?ignored=1",
       hash: "#ignored"
@@ -351,7 +356,7 @@ test("manual none override suppresses local and ai recognition until cleared", a
   const env = createEnv({ elements: [element] });
 
   await replaceAiFieldMappings({
-    "https://example.com/apply::top::tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=": {
+    "system:abc::top::tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=": {
       confidence: 0.95,
       fieldKey: "companyName",
       localFieldKey: "mobile"
@@ -375,26 +380,112 @@ test("manual smart fill override is scoped to the current field fingerprint", as
   assert.equal(inferFieldKeyForSmartFill(right, env), null);
 });
 
-test("manual smart fill override is shared within the same domain and first-level path", async () => {
-  const element = createElement({ name: "contact", id: "shared-input" });
-  const sharedStorage = createStorageArea();
-  const envA = createEnv({ elements: [element], pathname: "/apply/form", storageArea: sharedStorage });
-  const envB = createEnv({ elements: [element], pathname: "/apply/step-two", storageArea: sharedStorage });
+test("manual smart fill override is keyed by the env scope", async () => {
+  const element = createElement({ name: "contact", id: "keyed-input" });
+  const env = createEnv({ elements: [element] });
 
-  await setManualFieldOverride(element, "fullName", envA);
+  await setManualFieldOverride(element, "fullName", env);
 
-  assert.equal(inferFieldKeyForSmartFill(element, envB), "fullName");
+  const stored = await new Promise(resolve => env.storageArea.get(null, resolve));
+  const keys = Object.keys(stored["ctdp.smartFillOverrides.v1"]);
+  assert.equal(keys.length, 1);
+  assert.equal(keys[0], "system:abc::top::" + getFieldFingerprint(element, env));
 });
 
-test("manual smart fill override stays isolated across different first-level paths", async () => {
-  const element = createElement({ name: "contact", id: "scoped-input" });
+test("manual smart fill override is shared across first-level paths within the same scope", async () => {
+  const element = createElement({ name: "contact", id: "shared-input" });
   const sharedStorage = createStorageArea();
   const envA = createEnv({ elements: [element], pathname: "/apply/form", storageArea: sharedStorage });
   const envB = createEnv({ elements: [element], pathname: "/review/form", storageArea: sharedStorage });
 
   await setManualFieldOverride(element, "fullName", envA);
 
+  assert.equal(inferFieldKeyForSmartFill(element, envB), "fullName");
+});
+
+test("manual smart fill overrides stay isolated across different scopes", async () => {
+  const element = createElement({ name: "contact", id: "scoped-input" });
+  const sharedStorage = createStorageArea();
+  const envA = createEnv({ elements: [element], scope: "system:abc", storageArea: sharedStorage });
+  const envB = createEnv({ elements: [element], scope: "system:def", storageArea: sharedStorage });
+  const envHost = createEnv({ elements: [element], scope: "host:localhost:5173", storageArea: sharedStorage });
+
+  await setManualFieldOverride(element, "fullName", envA);
+
+  assert.equal(inferFieldKeyForSmartFill(element, envA), "fullName");
   assert.equal(inferFieldKeyForSmartFill(element, envB), null);
+  assert.equal(inferFieldKeyForSmartFill(element, envHost), null);
+});
+
+test("ai field mappings are written under the env scope prefix", async () => {
+  const element = createElement({ name: "mobilePhone", id: "contact-input" });
+  const env = createEnv({ elements: [element], scope: "host:localhost:5173" });
+  const fingerprint = getFieldFingerprint(element, env);
+
+  await applyAiFieldMappings([{ fingerprint, fieldKey: "companyName", confidence: 0.9, localFieldKey: "mobile" }], env);
+
+  const stored = await new Promise(resolve => env.storageArea.get(null, resolve));
+  assert.deepEqual(Object.keys(stored[AI_FIELD_MAPPING_STORAGE_KEY]), ["host:localhost:5173::top::" + fingerprint]);
+  assert.equal(inferFieldKeyForSmartFill(element, env), "companyName");
+  assert.equal(inferFieldKeyForSmartFill(element, createEnv({ elements: [element], scope: "system:other", storageArea: env.storageArea })), "mobile");
+});
+
+test("annotations are no-ops without any scope", async () => {
+  const element = createElement({ name: "contact", id: "no-scope-input" });
+  const env = createEnv({ elements: [element], scope: "" });
+  setScopeResolver(null);
+
+  await setManualFieldOverride(element, "fullName", env);
+  await applyAiFieldMappings([{ fingerprint: "fp", fieldKey: "companyName", confidence: 0.9 }], env);
+
+  const stored = await new Promise(resolve => env.storageArea.get(null, resolve));
+  assert.equal(stored["ctdp.smartFillOverrides.v1"], undefined);
+  assert.equal(inferFieldKeyForSmartFill(element, env), null);
+});
+
+test("scope resolver is used when env.scope is absent and env.scope wins when present", async () => {
+  const element = createElement({ name: "contact", id: "resolver-input" });
+  const sharedStorage = createStorageArea();
+  const envNoScope = createEnv({ elements: [element], scope: "", storageArea: sharedStorage });
+  setScopeResolver(() => "system:resolved");
+  try {
+    await setManualFieldOverride(element, "fullName", envNoScope);
+    const stored = await new Promise(resolve => sharedStorage.get(null, resolve));
+    assert.deepEqual(Object.keys(stored["ctdp.smartFillOverrides.v1"]), [
+      "system:resolved::top::" + getFieldFingerprint(element, envNoScope)
+    ]);
+    assert.equal(inferFieldKeyForSmartFill(element, envNoScope), "fullName");
+    const envExplicit = createEnv({ elements: [element], scope: "system:abc", storageArea: sharedStorage });
+    assert.equal(inferFieldKeyForSmartFill(element, envExplicit), null);
+  } finally {
+    setScopeResolver(null);
+  }
+});
+
+test("scope falls back to ChromeTestDataSystemScope.getFallbackScope(location) without env.scope or resolver", async () => {
+  const { runInNewContext } = await import("node:vm");
+  const { readFileSync } = await import("node:fs");
+  const calls = [];
+  const context = {
+    ChromeTestDataFieldMeta: fieldMetaPkg,
+    ChromeTestDataSystemScope: {
+      getFallbackScope(info) {
+        calls.push(info);
+        return "host:" + info.hostname;
+      }
+    }
+  };
+  runInNewContext(readFileSync(new URL("../extension/src/smart-fill.js", import.meta.url), "utf8"), context);
+  const api = context.ChromeTestDataSmartFill;
+  const element = createElement({ name: "contact", id: "fallback-input" });
+  const env = createEnv({ elements: [element], scope: "" });
+  env.location = { hostname: "example.com", protocol: "https:", port: "", origin: "https://example.com", pathname: "/x" };
+  await api.setManualFieldOverride(element, "fullName", env);
+  const stored = await new Promise(resolve => env.storageArea.get(null, resolve));
+  assert.deepEqual(Object.keys(stored["ctdp.smartFillOverrides.v1"]), [
+    "host:example.com::top::" + api.getFieldFingerprint(element, env)
+  ]);
+  assert.ok(calls.length > 0);
 });
 
 test("manual overrides can be loaded from chrome storage before inference", async () => {
@@ -402,7 +493,7 @@ test("manual overrides can be loaded from chrome storage before inference", asyn
   const env = createEnv({
     elements: [element],
     storageValue: {
-      "https://example.com/apply::top::tag=input&type=text&id=loadedinput&name=contact&autocomplete=&placeholder=&aria=&labels=":
+      "system:abc::top::tag=input&type=text&id=loadedinput&name=contact&autocomplete=&placeholder=&aria=&labels=":
         "fullName"
     }
   });
@@ -436,7 +527,7 @@ test("manual override replacement refreshes the in-memory cache", async () => {
   await setManualFieldOverride(element, "fullName", env);
 
   await replaceManualFieldOverrides({
-    "https://example.com/apply::top::tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=":
+    "system:abc::top::tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=":
       "companyName"
   }, env);
 
@@ -448,7 +539,7 @@ test("ai field mapping can override heuristic inference when confidence is high"
   const env = createEnv({ elements: [element] });
 
   await replaceAiFieldMappings({
-    "https://example.com/apply::top::tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=": {
+    "system:abc::top::tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=": {
       fieldKey: "companyName",
       confidence: 0.91,
       localFieldKey: "mobile",
@@ -465,13 +556,13 @@ test("ai field mapping supplements unknown fields but low confidence falls back 
   const env = createEnv({ elements: [unknown, local] });
 
   await replaceAiFieldMappings({
-    "https://example.com/apply::top::tag=input&type=text&id=contactinput&name=contact&autocomplete=&placeholder=&aria=&labels=": {
+    "system:abc::top::tag=input&type=text&id=contactinput&name=contact&autocomplete=&placeholder=&aria=&labels=": {
       fieldKey: "fullName",
       confidence: 0.7,
       localFieldKey: "",
       updatedAt: "2026-06-23T00:00:00.000Z"
     },
-    "https://example.com/apply::top::tag=input&type=text&id=mobileinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=": {
+    "system:abc::top::tag=input&type=text&id=mobileinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=": {
       fieldKey: "companyName",
       confidence: 0.7,
       localFieldKey: "mobile",
@@ -488,7 +579,7 @@ test("manual field override remains higher priority than ai mapping", async () =
   const env = createEnv({ elements: [element] });
 
   await replaceAiFieldMappings({
-    "https://example.com/apply::top::tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=": {
+    "system:abc::top::tag=input&type=text&id=contactinput&name=mobilephone&autocomplete=&placeholder=&aria=&labels=": {
       fieldKey: "companyName",
       confidence: 0.99,
       localFieldKey: "mobile",
@@ -504,7 +595,7 @@ test("ai field mappings can be loaded and cleared from storage", async () => {
   const element = createElement({ name: "contact", id: "contact-input" });
   const storageArea = createStorageArea({
     "ctdp.aiFieldMappings.v1": {
-      "https://example.com/apply::top::tag=input&type=text&id=contactinput&name=contact&autocomplete=&placeholder=&aria=&labels=": {
+      "system:abc::top::tag=input&type=text&id=contactinput&name=contact&autocomplete=&placeholder=&aria=&labels=": {
         fieldKey: "fullName",
         confidence: 0.66,
         localFieldKey: "",
@@ -549,4 +640,19 @@ test("annotation cache follows changes from another page", async () => {
   assert.equal(api.inferFieldKeyForSmartFill(element, env), "companyName");
   onChanged({ "ctdp.smartFillOverrides.v1": { newValue: {} } }, "local");
   assert.equal(api.inferFieldKeyForSmartFill(element, env), "mobile");
+});
+
+test("override storage accepts system and host scope keys and drops malformed ones", async () => {
+  const env = createEnv({ scope: "" });
+  await replaceManualFieldOverrides({
+    "system:abc::top::fp1": "fullName",
+    "host:localhost:5173::top::fp2": "mobile",
+    "system:abc::top": "fullName",
+    "system:abc::top::fp3": "notAField"
+  }, env);
+  const stored = await new Promise(resolve => env.storageArea.get(null, resolve));
+  assert.deepEqual(stored["ctdp.smartFillOverrides.v1"], {
+    "system:abc::top::fp1": "fullName",
+    "host:localhost:5173::top::fp2": "mobile"
+  });
 });

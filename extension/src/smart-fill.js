@@ -286,39 +286,35 @@
     return frameParts.length ? frameParts.join("|") : "top";
   }
 
-  function getFirstPathSegment(pathname) {
-    return (
-      String(pathname || "")
-        .split("/")
-        .filter(Boolean)[0] || ""
-    );
+  let scopeResolver = null;
+
+  function setScopeResolver(resolver) {
+    scopeResolver = typeof resolver === "function" ? resolver : null;
   }
 
-  function getScopedPathname(pathname) {
-    const firstSegment = getFirstPathSegment(pathname);
-    return firstSegment ? "/" + firstSegment : "";
-  }
-
+  // Annotations and AI mappings share one scope: env.scope, then the injected resolver, then the
+  // host fallback scope. Without any of them there is no scope, so nothing is read or written.
   function getPageScope(env) {
+    if (env && typeof env.scope === "string" && env.scope) return env.scope;
+    if (scopeResolver) {
+      try {
+        const resolved = scopeResolver();
+        if (typeof resolved === "string" && resolved) return resolved;
+      } catch (_) {}
+    }
+    const systemScope = rootScope.ChromeTestDataSystemScope;
     const currentLocation = getEnvLocation(env);
-    if (!currentLocation) return "";
-    return String(currentLocation.origin || "") + getScopedPathname(currentLocation.pathname);
+    if (systemScope && typeof systemScope.getFallbackScope === "function" && currentLocation) {
+      try {
+        const fallback = systemScope.getFallbackScope(currentLocation);
+        if (typeof fallback === "string") return fallback;
+      } catch (_) {}
+    }
+    return "";
   }
 
   function getSiteScope(env) {
-    const currentLocation = getEnvLocation(env);
-    if (!currentLocation) return "";
-    return String(currentLocation.origin || "");
-  }
-
-  function foldPageScopeToFirstLevelPath(pageScope) {
-    if (!pageScope) return "";
-    try {
-      const parsedUrl = new URL(String(pageScope));
-      return String(parsedUrl.origin || "") + getScopedPathname(parsedUrl.pathname);
-    } catch (_) {
-      return String(pageScope || "");
-    }
+    return getPageScope(env);
   }
 
   function isEditableCandidate(node) {
@@ -463,12 +459,16 @@
 
   function getTargetStorageKey(element, env) {
     if (!element) return "";
-    return buildStorageKey(getPageScope(env), getFrameScope(env), getFieldFingerprint(element, env));
+    const pageScope = getPageScope(env);
+    if (!pageScope) return "";
+    return buildStorageKey(pageScope, getFrameScope(env), getFieldFingerprint(element, env));
   }
 
   function getSanitizedStorageKey(element, env) {
     if (!element) return "";
-    return buildStorageKey(getSiteScope(env), SANITIZED_FRAME_SCOPE, getFieldFingerprint(element, env));
+    const siteScope = getSiteScope(env);
+    if (!siteScope) return "";
+    return buildStorageKey(siteScope, SANITIZED_FRAME_SCOPE, getFieldFingerprint(element, env));
   }
 
   function normalizeOverrideMap(overrides) {
@@ -742,7 +742,8 @@
     loadManualFieldOverrides,
     replaceAiFieldMappings,
     replaceManualFieldOverrides,
-    setManualFieldOverride
+    setManualFieldOverride,
+    setScopeResolver
   };
 
   rootScope.ChromeTestDataSmartFill = api;
