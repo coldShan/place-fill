@@ -21,6 +21,8 @@
     "ctdp.dockTop.v1"
   ];
 
+  const SYSTEM_PROFILES_STORAGE_KEY = "ctdp.systemProfiles.v1";
+
   function hasOwn(object, key) {
     return Object.prototype.hasOwnProperty.call(object || {}, key);
   }
@@ -179,7 +181,12 @@
     const removeKeys = [];
     const values = {};
     STORAGE_KEYS.forEach(function (key) {
-      if (!hasOwn(payload.storage, key)) return;
+      if (!hasOwn(payload.storage, key)) {
+        // Backups from before systems existed restore URL-scoped data: today's systems would
+        // otherwise point at system:<id> data the restore just replaced (overwrite semantics).
+        if (key === SYSTEM_PROFILES_STORAGE_KEY) removeKeys.push(key);
+        return;
+      }
       if (payload.storage[key] == null) removeKeys.push(key);
       else values[key] = payload.storage[key];
     });

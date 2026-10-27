@@ -81,6 +81,24 @@ test("local file and manual export share the full backup shape", () => {
   });
 });
 
+test("restoring a backup made before systems existed clears the current systems", () => {
+  // 0.9.9 backups have no ctdp.systemProfiles.v1 at all; keeping today's systems would leave them
+  // pointing at system:<id> data the restore just replaced.
+  const legacyPayload = {
+    format: "place-fill-full-backup",
+    storage: {
+      "ctdp.favoriteProfiles.v1": { "example.com": [{ id: "fav-1" }] },
+      "ctdp.siteFeatureEnabled.v1": { "example.com": true }
+    },
+    version: 1
+  };
+
+  const changes = storageMirror.getFullBackupStorageChanges(legacyPayload);
+
+  assert.deepEqual(changes.removeKeys, ["ctdp.systemProfiles.v1"]);
+  assert.deepEqual(Object.keys(changes.values), ["ctdp.favoriteProfiles.v1", "ctdp.siteFeatureEnabled.v1"]);
+});
+
 test("storage mirror restores chrome local data only when local storage is empty", async () => {
   const storageArea = createStorageArea({});
   const mirrorStore = createMirrorStore({
