@@ -96,7 +96,7 @@ pnpm release:verify --carrier /tmp/place-fill-update.png
 - Plain-JS modules under `extension/src/` use IIFE wrappers; shared modules expose `ChromeTestData*` globals for browser use and CommonJS exports for Node.js tests.
 - TypeScript is bundled by `scripts/build-extension.mjs` (Vite library mode) into `extension/generated/`, targeting `chrome109` without minification or source maps. The build clears `extension/generated/` first.
 - The data manager page is written in Preact TSX (`jsxImportSource: "preact"` in both the Vite build and `tsconfig.json`). `preact` is the only runtime dependency and is bundled into `generated/data-manager.js`; the IIFE bridges stay framework-free.
-- `extension/data-manager.html` loads `src/theme.css`, `generated/data-manager.css`, `src/icon-assets.js`, `src/generators.js` (field generators and validators), and `src/data-manager-page.js`, which dynamically imports `generated/data-manager.js?v=<manifest version>` to bust caches after updates. The app mounts into `#app`.
+- `extension/data-manager.html` only loads `src/data-manager-loader.js`. The loader fetches `src/theme.css`, `generated/data-manager.css`, `src/icon-assets.js`, `src/generators.js` (field generators and validators), and `generated/data-manager.js` with `cache: "no-store"`, then attaches or imports each with `?v=<content hash>` (falling back to the manifest version). Chrome derives extension-file ETags from modification time only, so overwriting the extension folder or repackaging the same version could otherwise serve stale assets. Keep the loader stable; add new page assets to its asset list rather than to the HTML. The app mounts into `#app`.
 - Keep data manager logic that does not touch the DOM in `pages/data-manager/lib/` so it stays testable with `tsx --test` (see `tests/data-manager-lib.test.ts`); `tests/data-manager-page-ui.test.mjs` guards page structure and styling conventions.
 - Generated IIFE bridges expose shared TypeScript logic to content scripts and the background worker.
 - `background.js` runs as the extension service worker (context menus, action click, backup reminder alarms, GitHub update check, data-manager bridge, opening permission pages).
@@ -151,7 +151,7 @@ When adding a background dependency, keep this list, `tests/background-runtime.t
 
 - `data-manager.html`: per-site favorites and generated-history management (Preact TSX, `generated/data-manager.js`): search, per-field copy, detail drawer editing, copying favorites to other sites, favorites JSON import/export, and live refresh through `chrome.storage.onChanged`.
 - `ai-permission.html` + `src/ai-permission-page.js`: requests optional host permission for the configured AI endpoint origin.
-- `local-annotation-permission.html` + `src/local-annotation-permission-page.js`: picks and grants the persistent backup directory (Chrome `122+`), using `storage-mirror.js` and `local-annotation-file.js`.
+- `local-annotation-permission.html` + `src/local-annotation-permission-page.js`: picks and grants the persistent backup directory (Chrome `122+`), using `storage-mirror.js` and `local-annotation-file.js`. With `?mode=change` (opened from the panel's 「更换目录」 button) it always shows the picker and calls `changeDirectory`, which keeps the previous folder and auto-backup state if the switch fails.
 
 ### Storage Isolation
 

@@ -7,7 +7,7 @@ import { dirname, join, relative } from "node:path";
 const here = dirname(fileURLToPath(import.meta.url));
 const pageDir = join(here, "../extension/src-ts/pages/data-manager");
 const pageHtml = readFileSync(join(here, "../extension/data-manager.html"), "utf8");
-const pageBootstrap = readFileSync(join(here, "../extension/src/data-manager-page.js"), "utf8");
+const pageLoader = readFileSync(join(here, "../extension/src/data-manager-loader.js"), "utf8");
 const themeStyles = readFileSync(join(here, "../extension/src/theme.css"), "utf8");
 const buildScript = readFileSync(join(here, "../scripts/build-extension.mjs"), "utf8");
 
@@ -45,16 +45,14 @@ test("data manager page mounts a Preact app into a dedicated node", () => {
   }).join(", "));
 });
 
-test("data manager bootstrap busts module caches with the manifest version", () => {
-  assert.match(pageHtml, /<script src="\.\/src\/icon-assets\.js"><\/script>[\s\S]*<script type="module" src="\.\/src\/data-manager-page\.js">/);
-  assert.match(pageBootstrap, /new URL\("\.\.\/generated\/data-manager\.js", import\.meta\.url\)/);
-  assert.match(pageBootstrap, /searchParams\.set\("v", chrome\.runtime\.getManifest\(\)\.version\)/);
-  assert.match(pageBootstrap, /await import\(dataManagerModuleUrl\.href\)/);
+test("data manager page loads every asset through the fingerprinting loader", () => {
+  assert.match(pageHtml, /<script type="module" src="\.\/src\/data-manager-loader\.js"><\/script>/);
+  assert.doesNotMatch(pageHtml, /<link rel="stylesheet"/);
+  assert.doesNotMatch(pageHtml, /<script src=/);
 });
 
 test("data manager blue actions use the shared brand blue", () => {
   assert.match(themeStyles, /--place-fill-accent-rgb:\s*43 127 216;/);
-  assert.match(pageHtml, /<link rel="stylesheet" href="\.\/src\/theme\.css">\s*<link rel="stylesheet" href="\.\/generated\/data-manager\.css">/);
   assert.match(pageStyles, /\.dm-primary-btn\s*\{[\s\S]*?background:\s*rgb\(var\(--place-fill-accent-rgb\)\);/);
 });
 
@@ -85,7 +83,7 @@ test("records open in a detail drawer with per-field copy and search", () => {
 });
 
 test("favorites are edited in the drawer with advisory validation and an unsaved-changes guard", () => {
-  assert.match(pageHtml, /<script src="\.\/src\/generators\.js"><\/script>/);
+  assert.match(pageLoader, /\{ kind: "script", path: "src\/generators\.js" \}/);
   assert.match(pageSource, /getFieldWarning/);
   assert.match(pageSource, /generateFieldValue/);
   assert.match(pageSource, /放弃未保存的修改/);
