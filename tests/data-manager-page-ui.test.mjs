@@ -132,6 +132,38 @@ test("table headers stay sticky while the table body scrolls", () => {
   assert.match(pageStyles, /\.dm-table-shell\s*\{[\s\S]*overflow:\s*auto/);
 });
 
+test("data manager toolbar offers a global systems tab next to favorites and history", () => {
+  const toolbar = readPageFile("components/toolbar.tsx");
+  assert.match(toolbar, /systems: "系统标注"/);
+  assert.match(toolbar, /favorites: "常用数据"/);
+  assert.match(toolbar, /history: "生成记录"/);
+  assert.match(readPageFile("app.tsx"), /systems: systemsState\.systems\.length/);
+});
+
+test("systems tab lists, edits and deletes systems through the shared registry", () => {
+  const app = readPageFile("app.tsx");
+  const hook = readPageFile("state/use-systems.ts");
+  assert.match(hook, /saveSystem/);
+  assert.match(hook, /deleteSystem/);
+  assert.match(hook, /dismissAnomalies/);
+  assert.match(hook, /chrome\.storage\.onChanged\.addListener/);
+  assert.match(hook, /chrome\.storage\.onChanged\.removeListener/);
+  assert.match(app, /showToast\(result\.message \|\| "保存失败，请重试", "danger"\)/);
+  assert.match(app, /route\.view !== "systems"/);
+  assert.match(app, /mode: "system-edit"/);
+  assert.match(readPageFile("components/systems-table.tsx"), /复制系统 ID/);
+  assert.match(readPageFile("components/system-editor.tsx"), /添加环境/);
+  assert.match(readPageFile("components/system-editor.tsx"), /添加参数/);
+  assert.match(readPageFile("components/system-editor.tsx"), /自动/);
+  assert.match(readPageFile("components/system-details.tsx"), /忽略/);
+  assert.match(readPageFile("components/delete-system-dialog.tsx"), /type="radio"/);
+});
+
+test("scopes are displayed through formatScopeLabel in the header and copy dialog", () => {
+  assert.match(readPageFile("components/header.tsx"), /formatScopeLabel\(props\.scope, props\.systems\)/);
+  assert.match(readPageFile("components/copy-to-sites-dialog.tsx"), /formatScopeLabel\(site\.scope, props\.systems\)/);
+});
+
 test("data manager styles avoid native CSS nesting for Chrome 109", () => {
   assert.doesNotMatch(pageStyles, /\{[^{}]*&[^{}]*\{/);
 });

@@ -1,11 +1,28 @@
 import { useEffect, useState } from "preact/hooks";
 import { listScopeSummaries, type ScopeSummary } from "../page-model";
+import { parseScopeKey, type SystemProfile } from "../../../shared/system-scope";
 import { parseScopeInput } from "../lib/scope-input";
+import { formatScopeLabel } from "../lib/scope-label";
 import { Dialog } from "./dialog";
 import { Icon } from "./icon";
 
+const TARGET_KIND_ORDER = ["system", "host", "file"];
+
+/** Legacy groups only hold un-migrated data; they are never a copy target. */
+function isCopyTarget(scope: string): boolean {
+  const parsed = parseScopeKey(scope);
+  return !parsed || parsed.kind !== "legacy";
+}
+
+function compareTargets(left: ScopeSummary, right: ScopeSummary): number {
+  const leftKind = TARGET_KIND_ORDER.indexOf(parseScopeKey(left.scope)?.kind || "host");
+  const rightKind = TARGET_KIND_ORDER.indexOf(parseScopeKey(right.scope)?.kind || "host");
+  return leftKind - rightKind;
+}
+
 export function CopyToSitesDialog(props: {
   scope: string;
+  systems: SystemProfile[];
   title: string;
   onClose: () => void;
   onConfirm: (targetScopes: string[]) => Promise<void>;
@@ -19,7 +36,11 @@ export function CopyToSitesDialog(props: {
 
   useEffect(function () {
     void listScopeSummaries().then(function (summaries) {
-      setSites(summaries.filter(function (summary) { return summary.scope !== props.scope; }));
+      setSites(
+        summaries
+          .filter(function (summary) { return summary.scope !== props.scope && isCopyTarget(summary.scope); })
+          .sort(compareTargets)
+      );
     }, function () {
       setSites([]);
     });
@@ -27,7 +48,9 @@ export function CopyToSitesDialog(props: {
 
   const keyword = filter.trim().toLowerCase();
   const visibleSites = (sites || []).filter(function (site) {
-    return !keyword || site.scope.includes(keyword);
+    return !keyword
+      || site.scope.includes(keyword)
+      || formatScopeLabel(site.scope, props.systems).toLowerCase().includes(keyword);
   });
 
   function toggle(scope: string): void {
@@ -109,7 +132,7 @@ export function CopyToSitesDialog(props: {
             return (
               <label key={site.scope} class={"dm-site-option" + (checked ? " is-checked" : "")}>
                 <input type="checkbox" checked={checked} onChange={function () { toggle(site.scope); }} />
-                <span class="dm-site-option-name" title={site.scope}>{site.scope}</span>
+                <span class="dm-site-option-name" title={site.scope}>{formatScopeLabel(site.scope, props.systems)}</span>
                 <span class="dm-site-option-meta">常用 {site.favorites} · 记录 {site.history}</span>
               </label>
             );

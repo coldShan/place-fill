@@ -17,7 +17,7 @@ import {
 export const SYSTEM_PROFILES_STORAGE_KEY = "ctdp.systemProfiles.v1";
 export const SITE_FEATURE_STORAGE_KEY = "ctdp.siteFeatureEnabled.v1";
 
-const OVERRIDES_STORAGE_KEY = "ctdp.smartFillOverrides.v1";
+export const OVERRIDES_STORAGE_KEY ="ctdp.smartFillOverrides.v1";
 const AI_MAPPINGS_STORAGE_KEY = "ctdp.aiFieldMappings.v1";
 const MAX_ANOMALIES = 20;
 
@@ -71,7 +71,7 @@ function currentTime(env?: RegistryEnv): number {
   return env && typeof env.now === "function" ? env.now() : Date.now();
 }
 
-function generateId(env?: RegistryEnv): string {
+export function generateId(env?: RegistryEnv): string {
   if (env && typeof env.createId === "function") return env.createId();
   let raw = "";
   try {

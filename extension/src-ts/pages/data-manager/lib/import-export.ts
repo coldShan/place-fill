@@ -34,7 +34,7 @@ function pad2(value: number): string {
 
 export function buildExportFileName(scope: string, now: Date): string {
   const stamp = String(now.getFullYear()) + pad2(now.getMonth() + 1) + pad2(now.getDate());
-  return "place-fill-" + (scope || "data") + "-favorites-" + stamp + ".json";
+  return "place-fill-" + (scope.replace(/[^a-z0-9._-]/gi, "-") || "data") + "-favorites-" + stamp + ".json";
 }
 
 export function parseImportPayload(text: string): ImportParseResult {

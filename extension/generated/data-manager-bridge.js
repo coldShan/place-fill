@@ -27,18 +27,25 @@ var ChromeTestDataDataManagerBridgeBundle = (function() {
   const DATA_MANAGER_PAGE_PATH = "data-manager.html";
   function normalizeDataManagerView(value) {
     const normalized = String(value || "").trim().toLowerCase();
-    return normalized === "history" ? "history" : "favorites";
+    if (normalized === "history" || normalized === "systems") return normalized;
+    return "favorites";
   }
-  function buildDataManagerPageUrl(baseUrl, scope, view) {
+  function normalizeSystemId(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    return /^[a-z0-9-]+$/.test(normalized) ? normalized : "";
+  }
+  function buildDataManagerPageUrl(baseUrl, scope, view, systemId) {
     const url = new URL(DATA_MANAGER_PAGE_PATH, baseUrl);
     const normalizedScope = normalizeScopeKey(scope);
     const normalizedView = normalizeDataManagerView(view);
+    const normalizedSystemId = normalizeSystemId(systemId);
     if (normalizedScope) {
       url.searchParams.set("scope", normalizedScope);
     } else {
       url.searchParams.delete("scope");
     }
     url.searchParams.set("view", normalizedView);
+    if (normalizedSystemId) url.searchParams.set("system", normalizedSystemId);
     return url.toString();
   }
   const api = {

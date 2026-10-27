@@ -5,6 +5,8 @@ export function SearchBox(props: {
   value: string;
   inputRef: Ref<HTMLInputElement>;
   onChange: (value: string) => void;
+  placeholder?: string;
+  label?: string;
 }) {
   return (
     <label class="dm-search">
@@ -14,8 +16,8 @@ export function SearchBox(props: {
         type="search"
         class="dm-search-input"
         value={props.value}
-        placeholder="搜索姓名、手机号、身份证…"
-        aria-label="搜索数据"
+        placeholder={props.placeholder || "搜索姓名、手机号、身份证…"}
+        aria-label={props.label || "搜索数据"}
         onInput={function (event) {
           props.onChange(event.currentTarget.value);
         }}

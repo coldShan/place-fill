@@ -737,11 +737,13 @@ var ChromeTestDataSystemScopeBundle = (function() {
   }
   const systemRegistry = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
+    OVERRIDES_STORAGE_KEY: OVERRIDES_STORAGE_KEY$1,
     SITE_FEATURE_STORAGE_KEY,
     SYSTEM_PROFILES_STORAGE_KEY,
     asRecord,
     deleteSystem,
     dismissAnomalies,
+    generateId,
     moveScopeData,
     readScopeEnabled,
     readStorageValue,

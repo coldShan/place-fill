@@ -997,7 +997,7 @@ test("the current-site settings render the system row below the toggle and route
   assert.match(panelScript, /renderSettingsSectionMarkup\(\s*"site"[\s\S]*?renderSiteFeatureToggleMarkup\(\) \+ renderSystemScopeRowMarkup\(\)/);
   assert.match(panelScript, /class="ctdp-settings-row ctdp-settings-row-static ctdp-system-scope" data-role="system-scope"/);
   assert.match(panelScript, /systemScopeApi\.classifyHost\(win\.location\.hostname\) === "local"/);
-  assert.match(panelScript, /type: "open-data-manager-page",\s*scope: getCurrentScopeKey\(\),\s*view: "systems"/);
+  assert.match(panelScript, /type: "open-data-manager-page",\s*scope: getCurrentScopeKey\(\),\s*view: "systems",\s*systemId: resolution && resolution\.system && resolution\.system\.id \? resolution\.system\.id : ""/);
   assert.match(panelScript, /closest\('\[data-role="system-scope-select"\]'\)[\s\S]*?selectSystem\(systemScopeTrigger\.value\)/);
   assert.match(panelScript, /if \(scopeClient\) await scopeClient\.setSiteFeatureEnabled\(enabled\)/);
   assert.match(panelStyles, /\.ctdp-system-scope-link\s*\{/);

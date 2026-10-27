@@ -440,14 +440,14 @@ function formatProfileForCopy(profile) {
 const GENERATED_PROFILES_STORAGE_KEY = "ctdp.generatedProfiles.v1";
 const FAVORITE_PROFILES_STORAGE_KEY = "ctdp.favoriteProfiles.v1";
 const MAX_GENERATED_RECORDS = 30;
-function getStorageArea$1(env) {
+function getStorageArea$2(env) {
   try {
     if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) return chrome.storage.local;
   } catch (_error) {
   }
   return null;
 }
-function readStorageValue(storageArea, key) {
+function readStorageValue$1(storageArea, key) {
   if (!storageArea) return Promise.resolve(void 0);
   return new Promise(function(resolve) {
     storageArea.get([key], function(result) {
@@ -455,7 +455,7 @@ function readStorageValue(storageArea, key) {
     });
   });
 }
-function writeStorageValue(storageArea, key, value) {
+function writeStorageValue$1(storageArea, key, value) {
   if (!storageArea) return Promise.resolve();
   return new Promise(function(resolve) {
     storageArea.set({ [key]: value }, function() {
@@ -545,13 +545,16 @@ function isSameProfile(left, right) {
   });
 }
 async function readGeneratedProfilesMap(env) {
-  return normalizeGeneratedProfilesMap(await readStorageValue(getStorageArea$1(), GENERATED_PROFILES_STORAGE_KEY));
+  return normalizeGeneratedProfilesMap(await readStorageValue$1(getStorageArea$2(), GENERATED_PROFILES_STORAGE_KEY));
+}
+async function writeGeneratedProfilesMap(nextMap, env) {
+  await writeStorageValue$1(getStorageArea$2(), GENERATED_PROFILES_STORAGE_KEY, nextMap);
 }
 async function readFavoriteProfilesMap(env) {
-  return normalizeFavoriteProfilesMap(await readStorageValue(getStorageArea$1(), FAVORITE_PROFILES_STORAGE_KEY));
+  return normalizeFavoriteProfilesMap(await readStorageValue$1(getStorageArea$2(), FAVORITE_PROFILES_STORAGE_KEY));
 }
 async function writeFavoriteProfilesMap(nextMap, env) {
-  await writeStorageValue(getStorageArea$1(), FAVORITE_PROFILES_STORAGE_KEY, nextMap);
+  await writeStorageValue$1(getStorageArea$2(), FAVORITE_PROFILES_STORAGE_KEY, nextMap);
 }
 async function readGeneratedProfiles(scope, env) {
   const normalizedScope = normalizeScopeKey(scope);
@@ -706,6 +709,43 @@ async function copyFavoriteToScopes(scope, favoriteId, targetScopes, env) {
   }
   return results;
 }
+async function moveScopeRecords(fromScope, toScope, env) {
+  const from = normalizeScopeKey(fromScope);
+  const to = normalizeScopeKey(toScope);
+  if (!from || !to || from === to) return;
+  const now = Date.now();
+  const random = Math.random;
+  const favoritesMap = await readFavoriteProfilesMap();
+  if (Object.prototype.hasOwnProperty.call(favoritesMap, from)) {
+    const merged = (favoritesMap[to] || []).slice();
+    const usedIds = collectIds(merged);
+    (favoritesMap[from] || []).forEach(function(entry) {
+      const exists = merged.some(function(current) {
+        return isSameProfile(current.profile, entry.profile);
+      });
+      if (exists) return;
+      merged.push(usedIds.has(entry.id) ? { ...entry, id: createUniqueId(now, random, usedIds) } : entry);
+      usedIds.add(entry.id);
+    });
+    favoritesMap[to] = merged;
+    delete favoritesMap[from];
+    await writeFavoriteProfilesMap(favoritesMap);
+  }
+  const generatedMap = await readGeneratedProfilesMap();
+  if (Object.prototype.hasOwnProperty.call(generatedMap, from)) {
+    const merged = (generatedMap[to] || []).slice();
+    const usedIds = collectIds(merged);
+    (generatedMap[from] || []).forEach(function(entry) {
+      merged.push(usedIds.has(entry.id) ? { ...entry, id: createUniqueId(now, random, usedIds) } : entry);
+      usedIds.add(entry.id);
+    });
+    generatedMap[to] = merged.sort(function(left, right) {
+      return Number(right.createdAt) - Number(left.createdAt);
+    }).slice(0, MAX_GENERATED_RECORDS);
+    delete generatedMap[from];
+    await writeGeneratedProfilesMap(generatedMap);
+  }
+}
 async function importFavoriteProfiles(scope, inputs, env) {
   const normalizedScope = normalizeScopeKey(scope);
   if (!normalizedScope) throw new Error("Invalid scope");
@@ -743,34 +783,42 @@ async function importFavoriteProfiles(scope, inputs, env) {
 const DATA_MANAGER_PAGE_PATH = "data-manager.html";
 function normalizeDataManagerView(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return normalized === "history" ? "history" : "favorites";
+  if (normalized === "history" || normalized === "systems") return normalized;
+  return "favorites";
+}
+function normalizeSystemId(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return /^[a-z0-9-]+$/.test(normalized) ? normalized : "";
 }
 function parseDataManagerPageLocation(search) {
   const params = typeof search === "string" ? new URLSearchParams(search) : search;
   return {
     scope: normalizeScopeKey(params.get("scope") || ""),
-    view: normalizeDataManagerView(params.get("view"))
+    view: normalizeDataManagerView(params.get("view")),
+    systemId: normalizeSystemId(params.get("system"))
   };
 }
-function buildDataManagerPageUrl(baseUrl, scope, view) {
+function buildDataManagerPageUrl(baseUrl, scope, view, systemId) {
   const url = new URL(DATA_MANAGER_PAGE_PATH, baseUrl);
   const normalizedScope = normalizeScopeKey(scope);
   const normalizedView = normalizeDataManagerView(view);
+  const normalizedSystemId = normalizeSystemId(systemId);
   if (normalizedScope) {
     url.searchParams.set("scope", normalizedScope);
   } else {
     url.searchParams.delete("scope");
   }
   url.searchParams.set("view", normalizedView);
+  if (normalizedSystemId) url.searchParams.set("system", normalizedSystemId);
   return url.toString();
 }
-async function copyText(text) {
+async function copyText(text2) {
   try {
-    await navigator.clipboard.writeText(text);
+    await navigator.clipboard.writeText(text2);
     return true;
   } catch (_error) {
     const textarea = document.createElement("textarea");
-    textarea.value = text;
+    textarea.value = text2;
     textarea.setAttribute("readonly", "");
     textarea.style.position = "fixed";
     textarea.style.opacity = "0";
@@ -882,8 +930,8 @@ function matchesQuery(profile, extraTexts, query) {
     return haystack.includes(token);
   });
 }
-function splitHighlight(text, query) {
-  const value = String(text || "");
+function splitHighlight(text2, query) {
+  const value = String(text2 || "");
   const tokens = tokenizeQuery(query);
   if (!value || !tokens.length) return [{ text: value, match: false }];
   const lower = value.toLowerCase();
@@ -925,12 +973,12 @@ function pad2(value) {
 }
 function buildExportFileName(scope, now) {
   const stamp = String(now.getFullYear()) + pad2(now.getMonth() + 1) + pad2(now.getDate());
-  return "place-fill-" + (scope || "data") + "-favorites-" + stamp + ".json";
+  return "place-fill-" + (scope.replace(/[^a-z0-9._-]/gi, "-") || "data") + "-favorites-" + stamp + ".json";
 }
-function parseImportPayload(text) {
+function parseImportPayload(text2) {
   let raw;
   try {
-    raw = JSON.parse(String(text || "").replace(/^﻿/, ""));
+    raw = JSON.parse(String(text2 || "").replace(/^﻿/, ""));
   } catch (_error) {
     return { ok: false, error: "文件不是有效的 JSON" };
   }
@@ -974,21 +1022,83 @@ function planImport(existing, incoming) {
   });
   return { toCreate, duplicates };
 }
+const GENERIC_TITLES = ["vite app", "react app", "vue app", "document", "untitled"];
+const FILE_SCOPE = "file:local";
+const SCOPE_PREFIXES = ["system:", "host:", "legacy:", "file:"];
+const IPV4_PATTERN = /^\d{1,3}(?:\.\d{1,3}){3}$/;
+const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1", "[::1]", "::1", "0.0.0.0"];
+function normalizeHostname(hostname) {
+  return String(hostname || "").trim().toLowerCase();
+}
+function classifyHost(hostname) {
+  const host = normalizeHostname(hostname);
+  if (!host) {
+    return "none";
+  }
+  if (LOCAL_HOSTNAMES.indexOf(host) !== -1 || host.endsWith(".localhost")) {
+    return "local";
+  }
+  if (IPV4_PATTERN.test(host) || host.indexOf(":") !== -1) {
+    return "ip";
+  }
+  return "domain";
+}
+function encodeHostname(hostname) {
+  const host = normalizeHostname(hostname);
+  if (host.indexOf(":") === -1 && host.charAt(0) !== "[") {
+    return host;
+  }
+  const bare = host.replace(/^\[/, "").replace(/\]$/, "");
+  return "v6-" + bare.replace(/:/g, "-");
+}
+function getFallbackScope(info) {
+  const kind = classifyHost(info.hostname);
+  if (kind === "none") {
+    return FILE_SCOPE;
+  }
+  const encoded = encodeHostname(info.hostname);
+  if (kind === "local" && info.port) {
+    return "host:" + encoded + ":" + info.port;
+  }
+  return "host:" + encoded;
+}
+function buildSystemScope(id) {
+  return "system:" + id;
+}
+function parseScopeKey(scope) {
+  const text2 = String(scope || "");
+  if (text2.startsWith("file://")) return null;
+  for (const prefix of SCOPE_PREFIXES) {
+    if (text2.startsWith(prefix)) {
+      return { kind: prefix.slice(0, -1), value: text2.slice(prefix.length) };
+    }
+  }
+  return null;
+}
+function isGenericTitle(title) {
+  const normalized = String(title || "").trim().toLowerCase();
+  return normalized === "" || GENERIC_TITLES.indexOf(normalized) !== -1;
+}
 function parseScopeInput(input, currentScope) {
   const raw = String(input || "").trim();
   if (!raw) return { scope: "", error: "请输入域名或网址" };
-  let hostname = "";
+  let url = null;
   try {
-    hostname = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : "http://" + raw).hostname;
+    url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : "http://" + raw);
   } catch (_error) {
-    hostname = "";
+    url = null;
   }
-  const scope = normalizeScopeKey(hostname);
-  if (!scope || !scope.includes(".") && scope !== "localhost") return { scope: "", error: "请输入有效的域名，例如 test.example.com" };
+  const hostname = url ? normalizeScopeKey(url.hostname) : "";
+  if (!url || !hostname || !hostname.includes(".") && classifyHost(hostname) !== "local") {
+    return { scope: "", error: "请输入有效的域名，例如 test.example.com" };
+  }
+  const scope = getFallbackScope({ protocol: url.protocol, hostname, port: url.port });
   if (scope === normalizeScopeKey(currentScope)) return { scope: "", error: "不能复制到当前站点" };
   return { scope, error: "" };
 }
-function summarizeCopyResults(results) {
+function summarizeCopyResults(results, formatLabel = function(scope) {
+  return scope;
+}) {
   const created = results.filter(function(result) {
     return result.status === "created";
   });
@@ -996,15 +1106,386 @@ function summarizeCopyResults(results) {
     return result.status === "duplicate";
   });
   const skippedNames = skipped.length > 2 ? skipped.slice(0, 2).map(function(result) {
-    return result.scope;
+    return formatLabel(result.scope);
   }).join("、") + " 等 " + skipped.length + " 个站点" : skipped.map(function(result) {
-    return result.scope;
+    return formatLabel(result.scope);
   }).join("、");
   if (!created.length) {
     return { message: skippedNames + " 已存在相同数据，未重复复制", tone: "warning" };
   }
   const base = "已复制到 " + created.length + " 个站点";
   return skipped.length ? { message: base + "；" + skippedNames + " 已存在相同数据，已跳过", tone: "success" } : { message: base, tone: "success" };
+}
+const DELETED_SYSTEM_LABEL = "已删除的系统";
+const LOCAL_FILE_LABEL = "本地文件";
+function formatScopeLabel(scope, systems) {
+  const parsed = parseScopeKey(scope);
+  if (!parsed) return scope;
+  if (parsed.kind === "system") {
+    const system = systems.find(function(item) {
+      return item.id === parsed.value;
+    });
+    if (!system) return DELETED_SYSTEM_LABEL;
+    return system.name.trim() || "未命名系统";
+  }
+  if (parsed.kind === "legacy") return parsed.value + "（旧数据）";
+  if (parsed.kind === "file") return LOCAL_FILE_LABEL;
+  return parsed.value;
+}
+const SYSTEM_PROFILES_STORAGE_KEY = "ctdp.systemProfiles.v1";
+const SITE_FEATURE_STORAGE_KEY = "ctdp.siteFeatureEnabled.v1";
+const OVERRIDES_STORAGE_KEY = "ctdp.smartFillOverrides.v1";
+const AI_MAPPINGS_STORAGE_KEY = "ctdp.aiFieldMappings.v1";
+function getStorageArea$1(env) {
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) return chrome.storage.local;
+  } catch (_error) {
+  }
+  return null;
+}
+function readStorageValue(env, key) {
+  const storageArea = getStorageArea$1();
+  if (!storageArea) return Promise.resolve(void 0);
+  return new Promise(function(resolve) {
+    storageArea.get([key], function(result) {
+      resolve(result ? result[key] : void 0);
+    });
+  });
+}
+function writeStorageValue(env, key, value) {
+  const storageArea = getStorageArea$1();
+  if (!storageArea) return Promise.resolve();
+  return new Promise(function(resolve) {
+    storageArea.set({ [key]: value }, function() {
+      resolve();
+    });
+  });
+}
+function currentTime(env) {
+  return Date.now();
+}
+function generateId(env) {
+  if (env && typeof env.createId === "function") return env.createId();
+  let raw = "";
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") raw = crypto.randomUUID();
+  } catch (_error) {
+  }
+  if (!raw) raw = Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e9).toString(36);
+  return raw.toLowerCase().replace(/[^a-z0-9-]/g, "");
+}
+function asRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function text(value) {
+  return typeof value === "string" ? value : "";
+}
+function normalizeEnvironment(raw) {
+  const record = asRecord(raw);
+  const hostname = text(record.hostname).trim().toLowerCase();
+  if (!hostname) return null;
+  const query = {};
+  Object.entries(asRecord(record.query)).forEach(function([key, value]) {
+    if (typeof value === "string") query[key] = value;
+  });
+  return {
+    id: text(record.id),
+    hostname,
+    port: text(record.port),
+    query,
+    lastPath: text(record.lastPath),
+    autoAdded: record.autoAdded === true,
+    createdAt: Number(record.createdAt) || 0
+  };
+}
+function normalizeAnomaly(raw) {
+  const record = asRecord(raw);
+  const titleSystemId = text(record.titleSystemId);
+  const url = text(record.url);
+  if (!titleSystemId || !url) return null;
+  return { titleSystemId, url, at: Number(record.at) || 0 };
+}
+function normalizeSystem(raw) {
+  const record = asRecord(raw);
+  const id = text(record.id).trim();
+  if (!id) return null;
+  const environments = (Array.isArray(record.environments) ? record.environments : []).map(normalizeEnvironment).filter(function(item) {
+    return item !== null;
+  });
+  const anomalies = (Array.isArray(record.anomalies) ? record.anomalies : []).map(normalizeAnomaly).filter(function(item) {
+    return item !== null;
+  });
+  return {
+    id,
+    name: text(record.name),
+    titles: (Array.isArray(record.titles) ? record.titles : []).filter(function(item) {
+      return typeof item === "string";
+    }),
+    environments,
+    anomalies,
+    createdAt: Number(record.createdAt) || 0,
+    updatedAt: Number(record.updatedAt) || 0
+  };
+}
+async function readSystems(env) {
+  const stored = await readStorageValue(env, SYSTEM_PROFILES_STORAGE_KEY);
+  if (!Array.isArray(stored)) return [];
+  return stored.map(normalizeSystem).filter(function(item) {
+    return item !== null;
+  });
+}
+async function writeSystems(systems, env) {
+  await writeStorageValue(env, SYSTEM_PROFILES_STORAGE_KEY, systems);
+}
+function validateSystems(systems) {
+  const owners = /* @__PURE__ */ new Map();
+  for (const item of systems) {
+    for (const environment of item.environments) {
+      if (classifyHost(environment.hostname) === "local" || classifyHost(environment.hostname) === "none") continue;
+      const encoded = encodeHostname(environment.hostname);
+      const owner = owners.get(encoded);
+      if (owner && owner.id !== item.id) {
+        return { ok: false, message: environment.hostname + " 已属于系统「" + owner.name + "」" };
+      }
+      if (!owner) owners.set(encoded, item);
+    }
+  }
+  return { ok: true };
+}
+async function saveSystem(system, env) {
+  const systems = await readSystems(env);
+  const index = systems.findIndex(function(item) {
+    return item.id === system.id;
+  });
+  const others = systems.filter(function(item) {
+    return item.id !== system.id;
+  });
+  const verdict = validateSystems(others.concat([system]));
+  if (!verdict.ok) return { ok: false, message: verdict.message };
+  const next = { ...system, updatedAt: currentTime() };
+  if (index === -1) systems.push(next);
+  else systems[index] = next;
+  await writeSystems(systems, env);
+  return { ok: true };
+}
+function recordHasOwn(record, key) {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+async function moveKeyPrefix(storageKey, fromScope, toScope, env) {
+  const stored = asRecord(await readStorageValue(env, storageKey));
+  const fromPrefix = fromScope + "::";
+  const toPrefix = toScope + "::";
+  const next = {};
+  const moved = {};
+  let changed = false;
+  Object.keys(stored).forEach(function(key) {
+    if (key.startsWith(fromPrefix)) {
+      moved[toPrefix + key.slice(fromPrefix.length)] = stored[key];
+      changed = true;
+    } else {
+      next[key] = stored[key];
+    }
+  });
+  if (!changed) return;
+  Object.keys(moved).forEach(function(key) {
+    if (!recordHasOwn(next, key)) next[key] = moved[key];
+  });
+  await writeStorageValue(env, storageKey, next);
+}
+async function moveToggle(fromScope, toScope, env) {
+  const stored = asRecord(await readStorageValue(env, SITE_FEATURE_STORAGE_KEY));
+  if (!recordHasOwn(stored, fromScope)) return;
+  const next = { ...stored };
+  if (!recordHasOwn(next, toScope)) next[toScope] = stored[fromScope];
+  delete next[fromScope];
+  await writeStorageValue(env, SITE_FEATURE_STORAGE_KEY, next);
+}
+async function moveScopeData(fromScope, toScope, env) {
+  if (!fromScope || !toScope || fromScope === toScope) return;
+  await moveScopeRecords(fromScope, toScope);
+  await moveKeyPrefix(OVERRIDES_STORAGE_KEY, fromScope, toScope, env);
+  await moveKeyPrefix(AI_MAPPINGS_STORAGE_KEY, fromScope, toScope, env);
+  await moveToggle(fromScope, toScope, env);
+}
+async function deleteSystem(id, targetScope, env) {
+  await moveScopeData(buildSystemScope(id), targetScope, env);
+  const systems = await readSystems(env);
+  await writeSystems(
+    systems.filter(function(item) {
+      return item.id !== id;
+    }),
+    env
+  );
+}
+async function dismissAnomalies(systemId, env) {
+  const systems = await readSystems(env);
+  const target = systems.find(function(item) {
+    return item.id === systemId;
+  });
+  if (!target || !target.anomalies.length) return;
+  target.anomalies = [];
+  await writeSystems(systems, env);
+}
+const SYSTEM_STATUS_LABELS = {
+  enabled: "启用",
+  disabled: "已停用",
+  anomaly: "异常"
+};
+const HOSTNAME_PATTERN = /^(?:\[[0-9a-f:]+\]|[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?)$/;
+const PORT_PATTERN = /^\d{1,5}$/;
+function getSystemStatus(system, enabledMap) {
+  if (system.anomalies.length > 0) return "anomaly";
+  return enabledMap["system:" + system.id] === true ? "enabled" : "disabled";
+}
+function formatEnvironmentHost(environment) {
+  return environment.hostname + (environment.port ? ":" + environment.port : "");
+}
+function matchesSystemQuery(system, query) {
+  const tokens = tokenizeQuery(query);
+  if (!tokens.length) return true;
+  const haystack = [system.name].concat(system.titles).concat(
+    system.environments.map(function(environment) {
+      return formatEnvironmentHost(environment);
+    })
+  ).join("\n").toLowerCase();
+  return tokens.every(function(token) {
+    return haystack.includes(token);
+  });
+}
+function countAnnotationsBySystem(overrides) {
+  const counts = {};
+  if (!overrides || typeof overrides !== "object" || Array.isArray(overrides)) return counts;
+  const prefix = "system:";
+  Object.keys(overrides).forEach(function(key) {
+    if (!key.startsWith(prefix)) return;
+    const end = key.indexOf("::");
+    if (end <= prefix.length) return;
+    const id = key.slice(prefix.length, end);
+    counts[id] = (counts[id] || 0) + 1;
+  });
+  return counts;
+}
+function getDeleteTargets(system) {
+  const scopes = [];
+  system.environments.forEach(function(environment) {
+    const scope = getFallbackScope({ hostname: environment.hostname, port: environment.port });
+    if (!scopes.includes(scope)) scopes.push(scope);
+  });
+  if (!scopes.length) scopes.push(FILE_SCOPE);
+  return scopes.map(function(scope) {
+    return { scope, label: formatScopeLabel(scope, []) };
+  });
+}
+function createEnvironmentDraft(environment) {
+  return {
+    id: environment ? environment.id : "",
+    hostname: environment ? environment.hostname : "",
+    port: environment ? environment.port : "",
+    lastPath: environment ? environment.lastPath : "",
+    query: environment ? Object.keys(environment.query).map(function(key) {
+      return { key, value: environment.query[key] || "" };
+    }) : [],
+    autoAdded: environment ? environment.autoAdded : false,
+    createdAt: environment ? environment.createdAt : 0
+  };
+}
+function createBlankEnvironmentDraft() {
+  return createEnvironmentDraft(null);
+}
+function createSystemDraft(system) {
+  if (!system) return { name: "", titles: [], environments: [createEnvironmentDraft(null)] };
+  return {
+    name: system.name,
+    titles: system.titles.slice(),
+    environments: system.environments.map(createEnvironmentDraft)
+  };
+}
+function cleanTitles(titles) {
+  const result = [];
+  titles.forEach(function(title) {
+    const value = title.trim();
+    if (value && !result.includes(value)) result.push(value);
+  });
+  return result;
+}
+function cleanLastPath(value) {
+  return value.trim().replace(/^\/+|\/+$/g, "");
+}
+function cleanQuery(rows) {
+  return rows.map(function(row) {
+    return { key: row.key.trim(), value: row.value.trim() };
+  }).filter(function(row) {
+    return row.key !== "" || row.value !== "";
+  });
+}
+function validateSystemDraft(draft) {
+  if (!draft.name.trim()) return "请填写系统名称";
+  const generic = cleanTitles(draft.titles).find(isGenericTitle);
+  if (generic) return "「" + generic + "」属于通用标题，不能作为标题关键词";
+  if (!draft.environments.length) return "至少需要一条环境记录";
+  for (let index = 0; index < draft.environments.length; index += 1) {
+    const environment = draft.environments[index];
+    const label = "环境 " + (index + 1);
+    const hostname = environment.hostname.trim().toLowerCase();
+    if (!hostname) return label + " 的 hostname 不能为空";
+    if (!HOSTNAME_PATTERN.test(hostname)) return label + " 的 hostname 无效，请只填写主机名，例如 test.example.com";
+    const port = environment.port.trim();
+    if (port && !PORT_PATTERN.test(port)) return label + " 的端口必须是数字";
+    if (cleanLastPath(environment.lastPath).includes("/")) return label + " 的末端 path 只需填写最后一段";
+    const seen = /* @__PURE__ */ new Set();
+    for (const row of cleanQuery(environment.query)) {
+      if (!row.key) return label + " 的标识参数缺少参数名";
+      if (seen.has(row.key)) return label + " 的参数名「" + row.key + "」重复";
+      seen.add(row.key);
+    }
+  }
+  return "";
+}
+function buildSystemFromDraft(draft, existing, options = {}) {
+  const createId2 = options.createId || generateId;
+  const now = (options.now || Date.now)();
+  return {
+    id: existing ? existing.id : createId2(),
+    name: draft.name.trim(),
+    titles: cleanTitles(draft.titles),
+    environments: draft.environments.map(function(environment) {
+      const query = {};
+      cleanQuery(environment.query).forEach(function(row) {
+        query[row.key] = row.value;
+      });
+      const isNew = !environment.id;
+      return {
+        id: isNew ? createId2() : environment.id,
+        hostname: environment.hostname.trim().toLowerCase(),
+        port: environment.port.trim(),
+        query,
+        lastPath: cleanLastPath(environment.lastPath),
+        autoAdded: isNew ? false : environment.autoAdded,
+        createdAt: isNew ? now : environment.createdAt
+      };
+    }),
+    anomalies: existing ? existing.anomalies : [],
+    createdAt: existing ? existing.createdAt : now,
+    updatedAt: existing ? existing.updatedAt : now
+  };
+}
+function canonicalDraft(draft) {
+  return JSON.stringify({
+    name: draft.name.trim(),
+    titles: cleanTitles(draft.titles),
+    environments: draft.environments.map(function(environment) {
+      return {
+        id: environment.id,
+        hostname: environment.hostname.trim().toLowerCase(),
+        port: environment.port.trim(),
+        lastPath: cleanLastPath(environment.lastPath),
+        query: cleanQuery(environment.query)
+      };
+    })
+  });
+}
+function isSameSystemDraft(left, right) {
+  return canonicalDraft(left) === canonicalDraft(right);
 }
 function Icon(props) {
   const iconAssets = typeof window !== "undefined" ? window.ChromeTestDataIconAssets : void 0;
@@ -1195,6 +1676,16 @@ function Dialog(props) {
     }
   );
 }
+const TARGET_KIND_ORDER = ["system", "host", "file"];
+function isCopyTarget(scope) {
+  const parsed = parseScopeKey(scope);
+  return !parsed || parsed.kind !== "legacy";
+}
+function compareTargets(left, right) {
+  const leftKind = TARGET_KIND_ORDER.indexOf(parseScopeKey(left.scope)?.kind || "host");
+  const rightKind = TARGET_KIND_ORDER.indexOf(parseScopeKey(right.scope)?.kind || "host");
+  return leftKind - rightKind;
+}
 function CopyToSitesDialog(props) {
   const [sites, setSites] = d(null);
   const [selected, setSelected] = d([]);
@@ -1204,16 +1695,18 @@ function CopyToSitesDialog(props) {
   const [submitting, setSubmitting] = d(false);
   A(function() {
     void listScopeSummaries().then(function(summaries) {
-      setSites(summaries.filter(function(summary) {
-        return summary.scope !== props.scope;
-      }));
+      setSites(
+        summaries.filter(function(summary) {
+          return summary.scope !== props.scope && isCopyTarget(summary.scope);
+        }).sort(compareTargets)
+      );
     }, function() {
       setSites([]);
     });
   }, [props.scope]);
   const keyword = filter.trim().toLowerCase();
   const visibleSites = (sites || []).filter(function(site) {
-    return !keyword || site.scope.includes(keyword);
+    return !keyword || site.scope.includes(keyword) || formatScopeLabel(site.scope, props.systems).toLowerCase().includes(keyword);
   });
   function toggle(scope) {
     setSelected(function(current) {
@@ -1297,7 +1790,7 @@ function CopyToSitesDialog(props) {
               /* @__PURE__ */ u$1("input", { type: "checkbox", checked, onChange: function() {
                 toggle(site.scope);
               } }),
-              /* @__PURE__ */ u$1("span", { class: "dm-site-option-name", title: site.scope, children: site.scope }),
+              /* @__PURE__ */ u$1("span", { class: "dm-site-option-name", title: site.scope, children: formatScopeLabel(site.scope, props.systems) }),
               /* @__PURE__ */ u$1("span", { class: "dm-site-option-meta", children: [
                 "常用 ",
                 site.favorites,
@@ -1341,6 +1834,53 @@ function CopyToSitesDialog(props) {
           ] }) : null
         ] })
       ] })
+    }
+  );
+}
+function DeleteSystemDialog(props) {
+  const targets = getDeleteTargets(props.system);
+  const [selected, setSelected] = d(targets[0]?.scope || "");
+  const [submitting, setSubmitting] = d(false);
+  async function submit() {
+    if (!selected || submitting) return;
+    setSubmitting(true);
+    try {
+      await props.onConfirm(selected);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+  return /* @__PURE__ */ u$1(
+    Dialog,
+    {
+      title: "删除系统「" + (props.system.name || "未命名系统") + "」",
+      description: "系统记录将被删除，它的常用数据、生成记录、字段标注和开关会退回到下面选中的站点，之后可继续使用或手动清理。",
+      onClose: props.onClose,
+      footer: /* @__PURE__ */ u$1(M, { children: [
+        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", "data-autofocus": true, onClick: props.onClose, children: "取消" }),
+        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-danger-btn", disabled: !selected || submitting, onClick: function() {
+          void submit();
+        }, children: "删除系统" })
+      ] }),
+      children: /* @__PURE__ */ u$1("div", { class: "dm-radio-list", role: "radiogroup", "aria-label": "数据退回的站点", children: targets.map(function(target) {
+        const checked = selected === target.scope;
+        return /* @__PURE__ */ u$1("label", { class: "dm-site-option" + (checked ? " is-checked" : ""), children: [
+          /* @__PURE__ */ u$1(
+            "input",
+            {
+              type: "radio",
+              name: "dm-delete-system-target",
+              value: target.scope,
+              checked,
+              onChange: function() {
+                setSelected(target.scope);
+              }
+            }
+          ),
+          /* @__PURE__ */ u$1("span", { class: "dm-site-option-name", title: target.scope, children: target.label }),
+          /* @__PURE__ */ u$1("span", { class: "dm-site-option-meta", children: "退回此站点" })
+        ] }, target.scope);
+      }) })
     }
   );
 }
@@ -1453,7 +1993,7 @@ function ProfileDetails(props) {
   }) });
 }
 const NOTE_MAX_LENGTH = 120;
-const NAME_MAX_LENGTH = 40;
+const NAME_MAX_LENGTH$1 = 40;
 function createInitialDraft(entry) {
   return {
     name: entry ? getCustomFavoriteName(entry.name) : "",
@@ -1589,7 +2129,7 @@ function FavoriteEditor(props) {
                   {
                     class: "dm-input",
                     type: "text",
-                    maxLength: NAME_MAX_LENGTH,
+                    maxLength: NAME_MAX_LENGTH$1,
                     value: draft.name,
                     placeholder: "如：主账号；留空则显示姓名",
                     onInput: function(event) {
@@ -1892,15 +2432,16 @@ function getLogoUrl() {
   return iconAssets?.getIconAssetUrl ? iconAssets.getIconAssetUrl("app-logo") : "";
 }
 function Header(props) {
+  const scopeLabel = props.scope ? formatScopeLabel(props.scope, props.systems) : "";
   return /* @__PURE__ */ u$1("header", { class: "dm-header", children: [
     /* @__PURE__ */ u$1("div", { class: "dm-header-brand", children: [
       /* @__PURE__ */ u$1("img", { class: "dm-header-logo", src: getLogoUrl(), alt: "" }),
       /* @__PURE__ */ u$1("h1", { class: "dm-header-title", children: "数据管理" }),
       props.scope ? /* @__PURE__ */ u$1(M, { children: [
         /* @__PURE__ */ u$1("span", { class: "dm-header-divider", "aria-hidden": "true" }),
-        /* @__PURE__ */ u$1("span", { class: "dm-site-chip", title: "当前站点：" + props.scope, children: [
+        /* @__PURE__ */ u$1("span", { class: "dm-site-chip", title: "当前站点：" + scopeLabel, children: [
           /* @__PURE__ */ u$1(Icon, { name: "globe" }),
-          /* @__PURE__ */ u$1("span", { class: "dm-site-chip-text", children: props.scope })
+          /* @__PURE__ */ u$1("span", { class: "dm-site-chip-text", children: scopeLabel })
         ] })
       ] }) : null
     ] }),
@@ -1990,9 +2531,9 @@ function ImportDialog(props) {
         ] }),
         props.sourceScope && props.sourceScope !== props.scope ? /* @__PURE__ */ u$1("p", { class: "dm-banner is-info", children: [
           "文件导出自 ",
-          props.sourceScope,
+          formatScopeLabel(props.sourceScope, props.systems),
           "，将导入到当前站点 ",
-          props.scope,
+          formatScopeLabel(props.scope, props.systems),
           "。"
         ] }) : null,
         count ? /* @__PURE__ */ u$1("ul", { class: "dm-import-preview", children: [
@@ -2022,8 +2563,8 @@ function SearchBox(props) {
         type: "search",
         class: "dm-search-input",
         value: props.value,
-        placeholder: "搜索姓名、手机号、身份证…",
-        "aria-label": "搜索数据",
+        placeholder: props.placeholder || "搜索姓名、手机号、身份证…",
+        "aria-label": props.label || "搜索数据",
         onInput: function(event) {
           props.onChange(event.currentTarget.value);
         },
@@ -2049,9 +2590,519 @@ function SearchBox(props) {
     ) : /* @__PURE__ */ u$1("kbd", { class: "dm-kbd", "aria-hidden": "true", children: "/" })
   ] });
 }
+function SystemDetails(props) {
+  const { system, stats } = props;
+  function titleSystemName(id) {
+    const found = props.systems.find(function(item) {
+      return item.id === id;
+    });
+    return found ? found.name || "未命名系统" : DELETED_SYSTEM_LABEL;
+  }
+  return /* @__PURE__ */ u$1(M, { children: [
+    system.anomalies.length ? /* @__PURE__ */ u$1("section", { class: "dm-detail-group", children: [
+      /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: "异常提醒" }),
+      /* @__PURE__ */ u$1("div", { class: "dm-banner is-warning dm-anomaly-banner", role: "alert", children: [
+        /* @__PURE__ */ u$1(Icon, { name: "circle-alert" }),
+        /* @__PURE__ */ u$1("span", { class: "dm-banner-text", children: "以下页面所在的域名属于本系统，但页面标题命中了其他系统，可能需要调整归属。" }),
+        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-link-btn", onClick: function() {
+          props.onDismissAnomalies(system.id);
+        }, children: "忽略" })
+      ] }),
+      /* @__PURE__ */ u$1("ul", { class: "dm-anomaly-list", children: system.anomalies.map(function(anomaly) {
+        return /* @__PURE__ */ u$1("li", { class: "dm-anomaly-item", children: [
+          /* @__PURE__ */ u$1("span", { class: "dm-anomaly-title", children: [
+            "标题命中「",
+            titleSystemName(anomaly.titleSystemId),
+            "」"
+          ] }),
+          /* @__PURE__ */ u$1("span", { class: "dm-anomaly-url", title: anomaly.url, children: anomaly.url }),
+          /* @__PURE__ */ u$1("span", { class: "dm-anomaly-time", children: formatDisplayTime(String(anomaly.at)) })
+        ] }, anomaly.titleSystemId + anomaly.url);
+      }) })
+    ] }) : null,
+    /* @__PURE__ */ u$1("section", { class: "dm-detail-group", children: [
+      /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: "基本信息" }),
+      /* @__PURE__ */ u$1("dl", { class: "dm-detail-list", children: [
+        /* @__PURE__ */ u$1("div", { class: "dm-detail-row", children: [
+          /* @__PURE__ */ u$1("dt", { children: "系统 ID" }),
+          /* @__PURE__ */ u$1("dd", { children: /* @__PURE__ */ u$1(
+            "button",
+            {
+              type: "button",
+              class: "dm-detail-value is-mono",
+              title: "点击复制",
+              onClick: function() {
+                props.onCopyId(system.id);
+              },
+              children: [
+                /* @__PURE__ */ u$1("span", { children: system.id }),
+                /* @__PURE__ */ u$1(Icon, { name: "copy", class: "dm-copy-cell-icon" })
+              ]
+            }
+          ) })
+        ] }),
+        /* @__PURE__ */ u$1("div", { class: "dm-detail-row", children: [
+          /* @__PURE__ */ u$1("dt", { children: "标题关键词" }),
+          /* @__PURE__ */ u$1("dd", { children: system.titles.length ? /* @__PURE__ */ u$1("span", { class: "dm-chip-list", children: system.titles.map(function(title) {
+            return /* @__PURE__ */ u$1("span", { class: "dm-chip", children: title }, title);
+          }) }) : /* @__PURE__ */ u$1("span", { class: "dm-cell-empty", children: "— 仅按端口、参数识别" }) })
+        ] }),
+        /* @__PURE__ */ u$1("div", { class: "dm-detail-row", children: [
+          /* @__PURE__ */ u$1("dt", { children: "关联数据" }),
+          /* @__PURE__ */ u$1("dd", { children: [
+            "常用 ",
+            stats.favorites,
+            " · 记录 ",
+            stats.history,
+            " · 标注 ",
+            stats.annotations
+          ] })
+        ] }),
+        /* @__PURE__ */ u$1("div", { class: "dm-detail-row", children: [
+          /* @__PURE__ */ u$1("dt", { children: "最近更新" }),
+          /* @__PURE__ */ u$1("dd", { children: formatDisplayTime(String(system.updatedAt)) })
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ u$1("section", { class: "dm-detail-group", children: [
+      /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: [
+        "环境（",
+        system.environments.length,
+        "）"
+      ] }),
+      system.environments.length ? /* @__PURE__ */ u$1("ul", { class: "dm-env-list", children: system.environments.map(function(environment) {
+        const params = Object.keys(environment.query);
+        return /* @__PURE__ */ u$1("li", { class: "dm-env-item", children: [
+          /* @__PURE__ */ u$1("span", { class: "dm-env-host", children: [
+            formatEnvironmentHost(environment),
+            environment.autoAdded ? /* @__PURE__ */ u$1("span", { class: "dm-badge", children: "自动" }) : null
+          ] }),
+          environment.lastPath || params.length ? /* @__PURE__ */ u$1("span", { class: "dm-chip-list", children: [
+            environment.lastPath ? /* @__PURE__ */ u$1("span", { class: "dm-chip", children: [
+              "path = ",
+              environment.lastPath
+            ] }) : null,
+            params.map(function(key) {
+              return /* @__PURE__ */ u$1("span", { class: "dm-chip", children: [
+                key,
+                "=",
+                environment.query[key]
+              ] }, key);
+            })
+          ] }) : null
+        ] }, environment.id || formatEnvironmentHost(environment));
+      }) }) : /* @__PURE__ */ u$1("span", { class: "dm-cell-empty", children: "—" })
+    ] })
+  ] });
+}
+const NAME_MAX_LENGTH = 40;
+function SystemEditor(props) {
+  const initialDraft = b(function() {
+    return createSystemDraft(props.entry);
+  }, [props.entry ? props.entry.id + ":" + props.entry.updatedAt : ""]);
+  const [draft, setDraft] = d(initialDraft);
+  const [saving, setSaving] = d(false);
+  const formRef = T(null);
+  const dirty = !isSameSystemDraft(draft, initialDraft);
+  const problem = validateSystemDraft(draft);
+  const formId = "dm-system-editor";
+  F(function() {
+    props.onDirtyChange(dirty);
+  }, [dirty]);
+  A(function() {
+    return function() {
+      props.onDirtyChange(false);
+    };
+  }, []);
+  A(function() {
+    formRef.current?.querySelector("input")?.focus();
+  }, []);
+  A(function() {
+    function handleKeydown(event) {
+      if (event.key.toLowerCase() !== "s" || !(event.metaKey || event.ctrlKey)) return;
+      event.preventDefault();
+      formRef.current?.requestSubmit();
+    }
+    document.addEventListener("keydown", handleKeydown);
+    return function() {
+      document.removeEventListener("keydown", handleKeydown);
+    };
+  }, []);
+  function updateTitles(update) {
+    setDraft(function(current) {
+      return { ...current, titles: update(current.titles) };
+    });
+  }
+  function updateEnvironment(index, patch) {
+    setDraft(function(current) {
+      return {
+        ...current,
+        environments: current.environments.map(function(environment, position) {
+          return position === index ? { ...environment, ...patch } : environment;
+        })
+      };
+    });
+  }
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (problem || saving) return;
+    setSaving(true);
+    try {
+      await props.onSave(draft);
+    } finally {
+      setSaving(false);
+    }
+  }
+  return /* @__PURE__ */ u$1(
+    DrawerShell,
+    {
+      eyebrow: props.entry ? "编辑系统" : "新增系统",
+      title: props.entry ? props.entry.name || "未命名系统" : "新的系统",
+      subtitle: props.entry ? "" : "填写名称和至少一条环境记录；保存后页面按环境匹配到该系统。",
+      onClose: props.onCancel,
+      footer: /* @__PURE__ */ u$1(M, { children: [
+        /* @__PURE__ */ u$1("span", { class: "dm-drawer-foot-hint", children: problem || "⌘/Ctrl + S 保存" }),
+        /* @__PURE__ */ u$1("span", { class: "dm-drawer-foot-spacer" }),
+        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: props.onCancel, children: "取消" }),
+        /* @__PURE__ */ u$1("button", { type: "submit", form: formId, class: "dm-primary-btn", disabled: !!problem || saving, children: "保存" })
+      ] }),
+      children: /* @__PURE__ */ u$1(
+        "form",
+        {
+          id: formId,
+          ref: formRef,
+          class: "dm-editor",
+          onSubmit: function(event) {
+            void handleSubmit(event);
+          },
+          children: [
+            props.entry && props.liveEntry === null ? /* @__PURE__ */ u$1("div", { class: "dm-banner is-warning", role: "status", children: [
+              /* @__PURE__ */ u$1(Icon, { name: "circle-alert" }),
+              /* @__PURE__ */ u$1("span", { class: "dm-banner-text", children: "这个系统已在其他页面被删除，保存后将重新创建。" })
+            ] }) : null,
+            props.entry && props.liveEntry && props.liveEntry.updatedAt !== props.entry.updatedAt ? /* @__PURE__ */ u$1("div", { class: "dm-banner is-info", role: "status", children: [
+              /* @__PURE__ */ u$1(Icon, { name: "circle-alert" }),
+              /* @__PURE__ */ u$1("span", { class: "dm-banner-text", children: "这个系统已在其他页面更新，保存将覆盖那次修改。" }),
+              props.onLoadLatest ? /* @__PURE__ */ u$1("button", { type: "button", class: "dm-link-btn", onClick: props.onLoadLatest, children: "载入最新" }) : null
+            ] }) : null,
+            /* @__PURE__ */ u$1("section", { class: "dm-detail-group", children: [
+              /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: "基本信息" }),
+              /* @__PURE__ */ u$1("label", { class: "dm-form-field", children: [
+                /* @__PURE__ */ u$1("span", { class: "dm-form-label", children: "名称" }),
+                /* @__PURE__ */ u$1(
+                  "input",
+                  {
+                    class: "dm-input",
+                    type: "text",
+                    maxLength: NAME_MAX_LENGTH,
+                    value: draft.name,
+                    placeholder: "如：客户管理系统",
+                    onInput: function(event) {
+                      const value = event.currentTarget.value;
+                      setDraft(function(current) {
+                        return { ...current, name: value };
+                      });
+                    }
+                  }
+                )
+              ] })
+            ] }),
+            /* @__PURE__ */ u$1("section", { class: "dm-detail-group is-compact", children: [
+              /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: "标题关键词" }),
+              /* @__PURE__ */ u$1("p", { class: "dm-form-hint", children: "页面标题包含任一关键词时归入该系统。「Vite App」等通用标题不能作为关键词。" }),
+              draft.titles.map(function(title, index) {
+                return /* @__PURE__ */ u$1("div", { class: "dm-row-field", children: [
+                  /* @__PURE__ */ u$1(
+                    "input",
+                    {
+                      class: "dm-input",
+                      type: "text",
+                      value: title,
+                      placeholder: "如：客户管理",
+                      "aria-label": "标题关键词 " + (index + 1),
+                      onInput: function(event) {
+                        const value = event.currentTarget.value;
+                        updateTitles(function(titles) {
+                          return titles.map(function(item, position) {
+                            return position === index ? value : item;
+                          });
+                        });
+                      }
+                    }
+                  ),
+                  /* @__PURE__ */ u$1(
+                    IconButton,
+                    {
+                      icon: "x",
+                      label: "删除关键词",
+                      onClick: function() {
+                        updateTitles(function(titles) {
+                          return titles.filter(function(_item, position) {
+                            return position !== index;
+                          });
+                        });
+                      }
+                    }
+                  )
+                ] }, index);
+              }),
+              /* @__PURE__ */ u$1("div", { children: /* @__PURE__ */ u$1(
+                "button",
+                {
+                  type: "button",
+                  class: "dm-ghost-btn is-small",
+                  onClick: function() {
+                    updateTitles(function(titles) {
+                      return titles.concat("");
+                    });
+                  },
+                  children: [
+                    /* @__PURE__ */ u$1(Icon, { name: "plus" }),
+                    "添加关键词"
+                  ]
+                }
+              ) })
+            ] }),
+            /* @__PURE__ */ u$1("section", { class: "dm-detail-group is-compact", children: [
+              /* @__PURE__ */ u$1("h3", { class: "dm-detail-group-title", children: "环境" }),
+              draft.environments.map(function(environment, index) {
+                const prefix = "dm-env-" + index;
+                return /* @__PURE__ */ u$1("div", { class: "dm-env-card", "data-env-index": index, children: [
+                  /* @__PURE__ */ u$1("div", { class: "dm-env-card-head", children: [
+                    /* @__PURE__ */ u$1("span", { class: "dm-env-card-title", children: [
+                      "环境 ",
+                      index + 1,
+                      environment.autoAdded ? /* @__PURE__ */ u$1("span", { class: "dm-badge", children: "自动" }) : null
+                    ] }),
+                    /* @__PURE__ */ u$1(
+                      IconButton,
+                      {
+                        icon: "trash-2",
+                        label: "删除环境 " + (index + 1),
+                        tone: "danger",
+                        onClick: function() {
+                          setDraft(function(current) {
+                            return {
+                              ...current,
+                              environments: current.environments.filter(function(_item, position) {
+                                return position !== index;
+                              })
+                            };
+                          });
+                        }
+                      }
+                    )
+                  ] }),
+                  /* @__PURE__ */ u$1("div", { class: "dm-env-grid", children: [
+                    /* @__PURE__ */ u$1("div", { class: "dm-form-field", children: [
+                      /* @__PURE__ */ u$1("label", { class: "dm-form-label", for: prefix + "-host", children: "hostname" }),
+                      /* @__PURE__ */ u$1(
+                        "input",
+                        {
+                          id: prefix + "-host",
+                          class: "dm-input",
+                          type: "text",
+                          value: environment.hostname,
+                          placeholder: "如：localhost 或 test.example.com",
+                          onInput: function(event) {
+                            updateEnvironment(index, { hostname: event.currentTarget.value });
+                          }
+                        }
+                      )
+                    ] }),
+                    /* @__PURE__ */ u$1("div", { class: "dm-form-field", children: [
+                      /* @__PURE__ */ u$1("label", { class: "dm-form-label", for: prefix + "-port", children: "端口" }),
+                      /* @__PURE__ */ u$1(
+                        "input",
+                        {
+                          id: prefix + "-port",
+                          class: "dm-input",
+                          type: "text",
+                          inputMode: "numeric",
+                          value: environment.port,
+                          placeholder: "可留空",
+                          onInput: function(event) {
+                            updateEnvironment(index, { port: event.currentTarget.value });
+                          }
+                        }
+                      )
+                    ] }),
+                    /* @__PURE__ */ u$1("div", { class: "dm-form-field is-wide", children: [
+                      /* @__PURE__ */ u$1("label", { class: "dm-form-label", for: prefix + "-path", children: "末端 path（可选）" }),
+                      /* @__PURE__ */ u$1(
+                        "input",
+                        {
+                          id: prefix + "-path",
+                          class: "dm-input",
+                          type: "text",
+                          value: environment.lastPath,
+                          placeholder: "URL 路径的最后一段，如 login；留空则不参与匹配",
+                          onInput: function(event) {
+                            updateEnvironment(index, { lastPath: event.currentTarget.value });
+                          }
+                        }
+                      )
+                    ] })
+                  ] }),
+                  /* @__PURE__ */ u$1("div", { class: "dm-form-field", children: [
+                    /* @__PURE__ */ u$1("span", { class: "dm-form-label", children: "标识参数（可选）" }),
+                    environment.query.map(function(row, rowIndex) {
+                      return /* @__PURE__ */ u$1("div", { class: "dm-query-row", children: [
+                        /* @__PURE__ */ u$1(
+                          "input",
+                          {
+                            class: "dm-input",
+                            type: "text",
+                            value: row.key,
+                            placeholder: "参数名",
+                            "aria-label": "环境 " + (index + 1) + " 参数名 " + (rowIndex + 1),
+                            onInput: function(event) {
+                              const value = event.currentTarget.value;
+                              updateEnvironment(index, {
+                                query: environment.query.map(function(item, position) {
+                                  return position === rowIndex ? { ...item, key: value } : item;
+                                })
+                              });
+                            }
+                          }
+                        ),
+                        /* @__PURE__ */ u$1("span", { class: "dm-query-equals", "aria-hidden": "true", children: "=" }),
+                        /* @__PURE__ */ u$1(
+                          "input",
+                          {
+                            class: "dm-input",
+                            type: "text",
+                            value: row.value,
+                            placeholder: "值",
+                            "aria-label": "环境 " + (index + 1) + " 参数值 " + (rowIndex + 1),
+                            onInput: function(event) {
+                              const value = event.currentTarget.value;
+                              updateEnvironment(index, {
+                                query: environment.query.map(function(item, position) {
+                                  return position === rowIndex ? { ...item, value } : item;
+                                })
+                              });
+                            }
+                          }
+                        ),
+                        /* @__PURE__ */ u$1(
+                          IconButton,
+                          {
+                            icon: "x",
+                            label: "删除参数",
+                            onClick: function() {
+                              updateEnvironment(index, {
+                                query: environment.query.filter(function(_item, position) {
+                                  return position !== rowIndex;
+                                })
+                              });
+                            }
+                          }
+                        )
+                      ] }, rowIndex);
+                    }),
+                    /* @__PURE__ */ u$1("div", { children: /* @__PURE__ */ u$1(
+                      "button",
+                      {
+                        type: "button",
+                        class: "dm-ghost-btn is-small",
+                        onClick: function() {
+                          updateEnvironment(index, { query: environment.query.concat({ key: "", value: "" }) });
+                        },
+                        children: [
+                          /* @__PURE__ */ u$1(Icon, { name: "plus" }),
+                          "添加参数"
+                        ]
+                      }
+                    ) })
+                  ] })
+                ] }, index);
+              }),
+              /* @__PURE__ */ u$1("div", { children: /* @__PURE__ */ u$1(
+                "button",
+                {
+                  type: "button",
+                  class: "dm-ghost-btn is-small",
+                  onClick: function() {
+                    setDraft(function(current) {
+                      return { ...current, environments: current.environments.concat(createBlankEnvironmentDraft()) };
+                    });
+                  },
+                  children: [
+                    /* @__PURE__ */ u$1(Icon, { name: "plus" }),
+                    "添加环境"
+                  ]
+                }
+              ) })
+            ] })
+          ]
+        }
+      )
+    }
+  );
+}
+function SystemsTable(props) {
+  return /* @__PURE__ */ u$1("div", { class: "dm-table-shell", children: /* @__PURE__ */ u$1("table", { class: "dm-table dm-systems-table", children: [
+    /* @__PURE__ */ u$1("thead", { children: /* @__PURE__ */ u$1("tr", { children: [
+      /* @__PURE__ */ u$1("th", { children: "名称" }),
+      /* @__PURE__ */ u$1("th", { children: "ID" }),
+      /* @__PURE__ */ u$1("th", { class: "dm-col-number", children: "环境" }),
+      /* @__PURE__ */ u$1("th", { children: "状态" }),
+      /* @__PURE__ */ u$1("th", { class: "dm-col-number", children: "常用" }),
+      /* @__PURE__ */ u$1("th", { class: "dm-col-number", children: "记录" }),
+      /* @__PURE__ */ u$1("th", { class: "dm-col-number", children: "标注" }),
+      /* @__PURE__ */ u$1("th", { class: "dm-col-actions", children: "操作" })
+    ] }) }),
+    /* @__PURE__ */ u$1("tbody", { children: props.systems.map(function(system) {
+      const status = getSystemStatus(system, props.enabledMap);
+      const stats = props.stats[system.id] || { favorites: 0, history: 0, annotations: 0 };
+      return /* @__PURE__ */ u$1(
+        "tr",
+        {
+          "data-system-id": system.id,
+          tabIndex: 0,
+          class: "dm-row" + (props.selectedId === system.id ? " is-selected" : ""),
+          onClick: function() {
+            props.onSelect(system.id);
+          },
+          onKeyDown: function(event) {
+            if (event.key === "Enter" && event.target === event.currentTarget) props.onSelect(system.id);
+          },
+          children: [
+            /* @__PURE__ */ u$1("td", { children: /* @__PURE__ */ u$1("div", { class: "dm-title-cell", children: [
+              /* @__PURE__ */ u$1("span", { class: "dm-title-text", children: /* @__PURE__ */ u$1(Highlight, { text: system.name || "未命名系统", query: props.query }) }),
+              system.titles.length ? /* @__PURE__ */ u$1("span", { class: "dm-title-note", title: system.titles.join("、"), children: /* @__PURE__ */ u$1(Highlight, { text: system.titles.join("、"), query: props.query }) }) : null
+            ] }) }),
+            /* @__PURE__ */ u$1("td", { children: /* @__PURE__ */ u$1("div", { class: "dm-id-cell", children: [
+              /* @__PURE__ */ u$1("span", { class: "dm-cell-value is-mono", title: system.id, children: system.id }),
+              /* @__PURE__ */ u$1(IconButton, { icon: "copy", label: "复制系统 ID", onClick: function() {
+                props.onCopyId(system.id);
+              } })
+            ] }) }),
+            /* @__PURE__ */ u$1("td", { class: "dm-col-number", children: system.environments.length }),
+            /* @__PURE__ */ u$1("td", { children: /* @__PURE__ */ u$1("span", { class: "dm-status is-" + status, children: SYSTEM_STATUS_LABELS[status] }) }),
+            /* @__PURE__ */ u$1("td", { class: "dm-col-number", children: stats.favorites }),
+            /* @__PURE__ */ u$1("td", { class: "dm-col-number", children: stats.history }),
+            /* @__PURE__ */ u$1("td", { class: "dm-col-number", children: stats.annotations }),
+            /* @__PURE__ */ u$1("td", { class: "dm-col-actions", children: /* @__PURE__ */ u$1("div", { class: "dm-row-actions", children: [
+              /* @__PURE__ */ u$1(IconButton, { icon: "pencil", label: "编辑", onClick: function() {
+                props.onEdit(system.id);
+              } }),
+              /* @__PURE__ */ u$1(IconButton, { icon: "trash-2", label: "删除", tone: "danger", onClick: function() {
+                props.onDelete(system.id);
+              } })
+            ] }) })
+          ]
+        },
+        system.id
+      );
+    }) })
+  ] }) });
+}
 const VIEW_LABELS = {
   favorites: "常用数据",
-  history: "生成记录"
+  history: "生成记录",
+  systems: "系统标注"
 };
 function Toolbar(props) {
   const views = Object.keys(VIEW_LABELS);
@@ -2220,6 +3271,81 @@ function useRecords(scope) {
   }, []);
   return { ...records, freshHistoryIds, reload, setFavorites };
 }
+const WATCHED_KEYS = [
+  SYSTEM_PROFILES_STORAGE_KEY,
+  SITE_FEATURE_STORAGE_KEY,
+  OVERRIDES_STORAGE_KEY,
+  FAVORITE_PROFILES_STORAGE_KEY,
+  GENERATED_PROFILES_STORAGE_KEY
+];
+function readEnabledMap(value) {
+  const map = {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return map;
+  Object.entries(value).forEach(function([scope, enabled]) {
+    if (typeof enabled === "boolean") map[scope] = enabled;
+  });
+  return map;
+}
+function useSystems() {
+  const [state, setState] = d({ systems: [], enabledMap: {}, stats: {}, loaded: false });
+  const latestRequestRef = T(0);
+  const reload = j(async function() {
+    const requestId = latestRequestRef.current + 1;
+    latestRequestRef.current = requestId;
+    const [systems, enabled, overrides, summaries] = await Promise.all([
+      readSystems(),
+      readStorageValue(void 0, SITE_FEATURE_STORAGE_KEY),
+      readStorageValue(void 0, OVERRIDES_STORAGE_KEY),
+      listScopeSummaries()
+    ]);
+    if (requestId !== latestRequestRef.current) return;
+    const annotations = countAnnotationsBySystem(overrides);
+    const summaryByScope = new Map(summaries.map(function(summary) {
+      return [summary.scope, summary];
+    }));
+    const stats = {};
+    systems.forEach(function(system) {
+      const summary = summaryByScope.get("system:" + system.id);
+      stats[system.id] = {
+        favorites: summary ? summary.favorites : 0,
+        history: summary ? summary.history : 0,
+        annotations: annotations[system.id] || 0
+      };
+    });
+    setState({ systems, enabledMap: readEnabledMap(enabled), stats, loaded: true });
+  }, []);
+  A(function() {
+    void reload();
+  }, [reload]);
+  A(function() {
+    if (typeof chrome === "undefined" || !chrome.storage || !chrome.storage.onChanged) return;
+    function handleChange(changes, areaName) {
+      if (areaName !== "local") return;
+      if (!WATCHED_KEYS.some(function(key) {
+        return !!changes[key];
+      })) return;
+      void reload();
+    }
+    chrome.storage.onChanged.addListener(handleChange);
+    return function() {
+      chrome.storage.onChanged.removeListener(handleChange);
+    };
+  }, [reload]);
+  const save = j(async function(system) {
+    const result = await saveSystem(system);
+    if (result.ok) await reload();
+    return result;
+  }, [reload]);
+  const remove = j(async function(id, targetScope) {
+    await deleteSystem(id, targetScope);
+    await reload();
+  }, [reload]);
+  const dismiss = j(async function(id) {
+    await dismissAnomalies(id);
+    await reload();
+  }, [reload]);
+  return { ...state, reload, save, remove, dismiss };
+}
 const TOAST_DURATION_MS = 2400;
 function useToast() {
   const [toast, setToast] = d(null);
@@ -2248,11 +3374,14 @@ function App() {
   const [query, setQuery] = d("");
   const [drawer, setDrawer] = d(null);
   const [copyTargetId, setCopyTargetId] = d(null);
+  const [deleteSystemId, setDeleteSystemId] = d(null);
+  const routeSystemHandledRef = T(false);
   const [importPreview, setImportPreview] = d(null);
   const importInputRef = T(null);
   const editorDirtyRef = T(false);
   const searchInputRef = T(null);
   const records = useRecords(scope);
+  const systemsState = useSystems();
   const { columns, setViewColumns } = useColumnPreferences();
   const { toast, showToast } = useToast();
   const { confirm, confirmDialog } = useConfirm();
@@ -2261,6 +3390,9 @@ function App() {
   });
   const visibleHistory = records.history.filter(function(entry) {
     return matchesQuery(entry.profile, [formatDisplayTime(entry.createdAt)], query);
+  });
+  const visibleSystems = systemsState.systems.filter(function(system) {
+    return matchesSystemQuery(system, query);
   });
   const favoriteIdByHistoryId = /* @__PURE__ */ new Map();
   records.history.forEach(function(historyEntry) {
@@ -2280,16 +3412,40 @@ function App() {
   const drawerHistory = drawer && drawer.mode === "view" && drawer.view === "history" ? records.history.find(function(entry) {
     return entry.id === drawer.id;
   }) || null : null;
+  const drawerSystemId = drawer && drawer.mode === "view" && drawer.view === "systems" ? drawer.id : null;
+  const drawerSystem = drawerSystemId ? systemsState.systems.find(function(system) {
+    return system.id === drawerSystemId;
+  }) || null : null;
+  const editingSystemId = drawer && drawer.mode === "system-edit" && drawer.snapshot ? drawer.snapshot.id : null;
+  const editingSystemLive = editingSystemId ? systemsState.systems.find(function(system) {
+    return system.id === editingSystemId;
+  }) || null : void 0;
+  const deleteSystemTarget = deleteSystemId ? systemsState.systems.find(function(system) {
+    return system.id === deleteSystemId;
+  }) || null : null;
+  const selectedSystemId = drawerSystemId || editingSystemId;
   A(function() {
     if (!window.history || typeof window.history.replaceState !== "function") return;
     window.history.replaceState(null, "", buildDataManagerPageUrl(window.location.href, scope, view));
   }, [scope, view]);
   A(function() {
+    if (routeSystemHandledRef.current || !route.systemId || route.view !== "systems" || !systemsState.loaded) return;
+    routeSystemHandledRef.current = true;
+    const target = systemsState.systems.find(function(system) {
+      return system.id === route.systemId;
+    });
+    if (target) {
+      setDrawer({ mode: "system-edit", snapshot: target });
+    } else {
+      showToast("没有找到要管理的系统，可能已被删除", "warning");
+    }
+  }, [systemsState.loaded]);
+  A(function() {
     function handleKeydown(event) {
-      if (event.defaultPrevented || confirmDialog || copyTarget || importPreview) return;
+      if (event.defaultPrevented || confirmDialog || copyTarget || importPreview || deleteSystemTarget) return;
       const target = event.target;
       const typing = !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
-      if (event.key === "/" && !typing && scope) {
+      if (event.key === "/" && !typing && (scope || view === "systems")) {
         event.preventDefault();
         searchInputRef.current?.focus();
         return;
@@ -2323,7 +3479,7 @@ function App() {
     }
   }
   async function changeDrawer(next) {
-    const editing = drawer && (drawer.mode === "edit" || drawer.mode === "create");
+    const editing = drawer && (drawer.mode === "edit" || drawer.mode === "create" || drawer.mode === "system-edit");
     if (editing && editorDirtyRef.current) {
       const discard = await confirm({
         title: "放弃未保存的修改？",
@@ -2412,6 +3568,48 @@ function App() {
     await records.reload();
     showToast("已收藏为常用数据", "success");
   }
+  async function copySystemId(id) {
+    if (await copyText(id)) {
+      showToast("已复制系统 ID", "success");
+    } else {
+      showToast("自动复制失败，请手动复制", "warning");
+    }
+  }
+  async function handleSaveSystem(draft) {
+    if (!drawer || drawer.mode !== "system-edit") return;
+    try {
+      const snapshot = drawer.snapshot;
+      const live = snapshot ? systemsState.systems.find(function(system) {
+        return system.id === snapshot.id;
+      }) || snapshot : null;
+      const built = buildSystemFromDraft(draft, live);
+      const result = await systemsState.save(built);
+      if (!result.ok) {
+        showToast(result.message || "保存失败，请重试", "danger");
+        return;
+      }
+      showToast(snapshot ? "系统已更新" : "已新增系统", "success");
+      editorDirtyRef.current = false;
+      setDrawer({ mode: "view", view: "systems", id: built.id });
+    } catch (_error) {
+      showToast("保存失败，请重试", "danger");
+    }
+  }
+  async function handleDeleteSystem(targetScope) {
+    const target = deleteSystemTarget;
+    if (!target) return;
+    try {
+      await systemsState.remove(target.id, targetScope);
+      if (selectedSystemId === target.id) {
+        editorDirtyRef.current = false;
+        setDrawer(null);
+      }
+      setDeleteSystemId(null);
+      showToast("已删除系统，数据已退回「" + formatScopeLabel(targetScope, []) + "」", "success");
+    } catch (_error) {
+      showToast("删除失败，请重试", "danger");
+    }
+  }
   async function handleCopyToSites(targetScopes) {
     if (!copyTarget) return;
     try {
@@ -2419,7 +3617,9 @@ function App() {
       if (!results) {
         showToast("这组常用数据已不存在", "warning");
       } else {
-        const summary = summarizeCopyResults(results);
+        const summary = summarizeCopyResults(results, function(target) {
+          return formatScopeLabel(target, systemsState.systems);
+        });
         showToast(summary.message, summary.tone);
       }
       setCopyTargetId(null);
@@ -2474,6 +3674,12 @@ function App() {
   function openCreate() {
     void changeDrawer({ mode: "create" });
   }
+  function openCreateSystem() {
+    void changeDrawer({ mode: "system-edit", snapshot: null });
+  }
+  function startEditSystem(system) {
+    void changeDrawer({ mode: "system-edit", snapshot: system });
+  }
   function renderNoMatch() {
     return /* @__PURE__ */ u$1(EmptyState, { icon: "search", title: "没有匹配的数据", description: "没有找到包含「" + query.trim() + "」的数据。", children: /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: function() {
       setQuery("");
@@ -2481,6 +3687,73 @@ function App() {
   }
   function renderDrawer() {
     if (!drawer) return null;
+    if (drawer.mode === "system-edit") {
+      const snapshot = drawer.snapshot;
+      return /* @__PURE__ */ u$1(
+        SystemEditor,
+        {
+          entry: snapshot,
+          liveEntry: snapshot ? editingSystemLive : void 0,
+          onLoadLatest: function() {
+            if (editingSystemLive) {
+              editorDirtyRef.current = false;
+              setDrawer({ mode: "system-edit", snapshot: editingSystemLive });
+            }
+          },
+          onCancel: function() {
+            void changeDrawer(snapshot ? { mode: "view", view: "systems", id: snapshot.id } : null);
+          },
+          onSave: handleSaveSystem,
+          onDirtyChange: function(dirty) {
+            editorDirtyRef.current = dirty;
+          }
+        },
+        snapshot ? "edit-" + snapshot.id + "-" + snapshot.updatedAt : "create-system"
+      );
+    }
+    if (drawerSystem) {
+      const system = drawerSystem;
+      const stats = systemsState.stats[system.id] || { favorites: 0, history: 0, annotations: 0 };
+      return /* @__PURE__ */ u$1(
+        DrawerShell,
+        {
+          eyebrow: "系统",
+          title: system.name || "未命名系统",
+          subtitle: system.titles.join("、"),
+          onClose: function() {
+            void changeDrawer(null);
+          },
+          footer: /* @__PURE__ */ u$1(M, { children: [
+            /* @__PURE__ */ u$1("button", { type: "button", class: "dm-secondary-btn", onClick: function() {
+              startEditSystem(system);
+            }, children: [
+              /* @__PURE__ */ u$1(Icon, { name: "pencil" }),
+              "编辑"
+            ] }),
+            /* @__PURE__ */ u$1("span", { class: "dm-drawer-foot-spacer" }),
+            /* @__PURE__ */ u$1(IconButton, { icon: "trash-2", label: "删除", tone: "danger", onClick: function() {
+              setDeleteSystemId(system.id);
+            } })
+          ] }),
+          children: /* @__PURE__ */ u$1(
+            SystemDetails,
+            {
+              system,
+              systems: systemsState.systems,
+              stats,
+              onCopyId: function(id) {
+                void copySystemId(id);
+              },
+              onDismissAnomalies: function(id) {
+                void runSafely(function() {
+                  return systemsState.dismiss(id);
+                });
+              }
+            }
+          )
+        }
+      );
+    }
     if (drawer.mode === "create" || drawer.mode === "edit") {
       const snapshot = drawer.mode === "edit" ? drawer.snapshot : null;
       return /* @__PURE__ */ u$1(
@@ -2601,7 +3874,49 @@ function App() {
     }
     return null;
   }
+  function renderSystemsWorkspace() {
+    if (!systemsState.loaded) return null;
+    if (!systemsState.systems.length) {
+      return /* @__PURE__ */ u$1(
+        EmptyState,
+        {
+          icon: "building-2",
+          title: "还没有系统",
+          description: "在目标网站打开 place-fill 并开启智能功能后，会自动记录系统；也可以手动新增，把多个环境归到同一个系统。",
+          children: /* @__PURE__ */ u$1("button", { type: "button", class: "dm-primary-btn", onClick: openCreateSystem, children: [
+            /* @__PURE__ */ u$1(Icon, { name: "plus" }),
+            "新增系统"
+          ] })
+        }
+      );
+    }
+    if (!visibleSystems.length) return renderNoMatch();
+    return /* @__PURE__ */ u$1(
+      SystemsTable,
+      {
+        systems: visibleSystems,
+        enabledMap: systemsState.enabledMap,
+        stats: systemsState.stats,
+        query,
+        selectedId: selectedSystemId,
+        onSelect: function(id) {
+          toggleRow("systems", id);
+        },
+        onCopyId: function(id) {
+          void copySystemId(id);
+        },
+        onEdit: function(id) {
+          const system = systemsState.systems.find(function(item) {
+            return item.id === id;
+          });
+          if (system) startEditSystem(system);
+        },
+        onDelete: setDeleteSystemId
+      }
+    );
+  }
   function renderWorkspace() {
+    if (view === "systems") return renderSystemsWorkspace();
     if (!scope) {
       return /* @__PURE__ */ u$1(
         EmptyState,
@@ -2706,75 +4021,95 @@ function App() {
     );
   }
   return /* @__PURE__ */ u$1("div", { class: "dm-app", children: [
-    /* @__PURE__ */ u$1(Header, { scope, children: scope && view === "favorites" ? /* @__PURE__ */ u$1(M, { children: [
-      /* @__PURE__ */ u$1(
-        "button",
-        {
-          type: "button",
-          class: "dm-ghost-btn",
-          title: "从导出的 JSON 文件导入常用数据",
-          onClick: function() {
-            importInputRef.current?.click();
-          },
-          children: [
-            /* @__PURE__ */ u$1(Icon, { name: "upload" }),
-            "导入"
-          ]
-        }
-      ),
-      /* @__PURE__ */ u$1(
-        "button",
-        {
-          type: "button",
-          class: "dm-ghost-btn",
-          title: "导出当前站点的常用数据",
-          disabled: !records.favorites.length,
-          onClick: handleExport,
-          children: [
-            /* @__PURE__ */ u$1(Icon, { name: "download" }),
-            "导出"
-          ]
-        }
-      ),
-      /* @__PURE__ */ u$1("button", { type: "button", class: "dm-primary-btn", onClick: openCreate, children: [
+    /* @__PURE__ */ u$1(Header, { scope, systems: systemsState.systems, children: [
+      view === "systems" ? /* @__PURE__ */ u$1("button", { type: "button", class: "dm-primary-btn", onClick: openCreateSystem, children: [
         /* @__PURE__ */ u$1(Icon, { name: "plus" }),
-        "新增"
-      ] }),
-      /* @__PURE__ */ u$1(
-        "input",
-        {
-          ref: importInputRef,
-          type: "file",
-          accept: ".json,application/json",
-          hidden: true,
-          onChange: function(event) {
-            const input = event.currentTarget;
-            const file = input.files && input.files[0];
-            input.value = "";
-            if (file) void runSafely(function() {
-              return handleImportFile(file);
-            });
+        "新增系统"
+      ] }) : null,
+      scope && view === "favorites" ? /* @__PURE__ */ u$1(M, { children: [
+        /* @__PURE__ */ u$1(
+          "button",
+          {
+            type: "button",
+            class: "dm-ghost-btn",
+            title: "从导出的 JSON 文件导入常用数据",
+            onClick: function() {
+              importInputRef.current?.click();
+            },
+            children: [
+              /* @__PURE__ */ u$1(Icon, { name: "upload" }),
+              "导入"
+            ]
           }
-        }
-      )
-    ] }) : null }),
-    scope ? /* @__PURE__ */ u$1(
+        ),
+        /* @__PURE__ */ u$1(
+          "button",
+          {
+            type: "button",
+            class: "dm-ghost-btn",
+            title: "导出当前站点的常用数据",
+            disabled: !records.favorites.length,
+            onClick: handleExport,
+            children: [
+              /* @__PURE__ */ u$1(Icon, { name: "download" }),
+              "导出"
+            ]
+          }
+        ),
+        /* @__PURE__ */ u$1("button", { type: "button", class: "dm-primary-btn", onClick: openCreate, children: [
+          /* @__PURE__ */ u$1(Icon, { name: "plus" }),
+          "新增"
+        ] }),
+        /* @__PURE__ */ u$1(
+          "input",
+          {
+            ref: importInputRef,
+            type: "file",
+            accept: ".json,application/json",
+            hidden: true,
+            onChange: function(event) {
+              const input = event.currentTarget;
+              const file = input.files && input.files[0];
+              input.value = "";
+              if (file) void runSafely(function() {
+                return handleImportFile(file);
+              });
+            }
+          }
+        )
+      ] }) : null
+    ] }),
+    /* @__PURE__ */ u$1(
       Toolbar,
       {
         view,
-        counts: { favorites: records.favorites.length, history: records.history.length },
+        counts: {
+          favorites: records.favorites.length,
+          history: records.history.length,
+          systems: systemsState.systems.length
+        },
         hint: view === "history" ? "仅保留最近 " + MAX_GENERATED_RECORDS + " 条" : "",
         onViewChange: function(nextView) {
           if (nextView === view) return;
           void changeDrawer(null).then(function(changed) {
             if (!changed) return;
+            if (nextView === "systems" || view === "systems") setQuery("");
             setView(nextView);
             void records.reload();
           });
         },
         children: [
-          /* @__PURE__ */ u$1(SearchBox, { inputRef: searchInputRef, value: query, onChange: setQuery }),
-          /* @__PURE__ */ u$1(
+          scope || view === "systems" ? /* @__PURE__ */ u$1(
+            SearchBox,
+            {
+              inputRef: searchInputRef,
+              value: query,
+              onChange: setQuery,
+              placeholder: view === "systems" ? "搜索系统名称、关键词、域名…" : void 0,
+              label: view === "systems" ? "搜索系统" : void 0
+            }
+          ) : null,
+          scope && view !== "systems" ? /* @__PURE__ */ u$1(
             ColumnPicker,
             {
               columns: columns[view],
@@ -2783,10 +4118,10 @@ function App() {
                 setViewColumns(view, nextColumns);
               }
             }
-          )
+          ) : null
         ]
       }
-    ) : null,
+    ),
     /* @__PURE__ */ u$1("div", { class: "dm-body", children: [
       /* @__PURE__ */ u$1("section", { class: "dm-main", role: "tabpanel", "aria-label": VIEW_LABELS[view], children: renderWorkspace() }),
       renderDrawer()
@@ -2796,6 +4131,7 @@ function App() {
       CopyToSitesDialog,
       {
         scope,
+        systems: systemsState.systems,
         title: getFavoriteTitle(copyTarget),
         onClose: function() {
           setCopyTargetId(null);
@@ -2807,11 +4143,22 @@ function App() {
       ImportDialog,
       {
         scope,
+        systems: systemsState.systems,
         ...importPreview,
         onClose: function() {
           setImportPreview(null);
         },
         onConfirm: confirmImport
+      }
+    ) : null,
+    deleteSystemTarget ? /* @__PURE__ */ u$1(
+      DeleteSystemDialog,
+      {
+        system: deleteSystemTarget,
+        onClose: function() {
+          setDeleteSystemId(null);
+        },
+        onConfirm: handleDeleteSystem
       }
     ) : null,
     confirmDialog

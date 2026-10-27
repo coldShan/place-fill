@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
-import type { DataManagerView } from "../../../shared/data-manager-routing";
 import type { ProfileFieldKey } from "../page-model";
 import {
   COLUMN_PREFERENCES_STORAGE_KEY,
   DEFAULT_COLUMNS,
   normalizeColumnPreferences,
-  type ColumnPreferences
+  type ColumnPreferences,
+  type ColumnView
 } from "../lib/columns";
 
 function getStorageArea(): chrome.storage.LocalStorageArea | null {
@@ -18,7 +18,7 @@ function getStorageArea(): chrome.storage.LocalStorageArea | null {
 
 export function useColumnPreferences(): {
   columns: ColumnPreferences;
-  setViewColumns: (view: DataManagerView, columns: ProfileFieldKey[]) => void;
+  setViewColumns: (view: ColumnView, columns: ProfileFieldKey[]) => void;
 } {
   const [columns, setColumns] = useState<ColumnPreferences>(normalizeColumnPreferences(DEFAULT_COLUMNS));
 
@@ -30,7 +30,7 @@ export function useColumnPreferences(): {
     });
   }, []);
 
-  const setViewColumns = useCallback(function (view: DataManagerView, nextColumns: ProfileFieldKey[]) {
+  const setViewColumns = useCallback(function (view: ColumnView, nextColumns: ProfileFieldKey[]) {
     setColumns(function (current) {
       const next = normalizeColumnPreferences({ ...current, [view]: nextColumns });
       getStorageArea()?.set({ [COLUMN_PREFERENCES_STORAGE_KEY]: next });

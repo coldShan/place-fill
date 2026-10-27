@@ -20,6 +20,7 @@ import {
   type ProfileFieldKey,
   type ProfileFieldMap
 } from "./page-model";
+import type { SystemProfile } from "../../shared/system-scope";
 import { copyText } from "./lib/clipboard";
 import { DEFAULT_COLUMNS } from "./lib/columns";
 import { formatDisplayTime, getFavoriteTitle } from "./lib/display";
@@ -32,8 +33,11 @@ import {
   type ImportedFavorite
 } from "./lib/import-export";
 import { summarizeCopyResults } from "./lib/scope-input";
+import { formatScopeLabel } from "./lib/scope-label";
+import { buildSystemFromDraft, matchesSystemQuery, type SystemDraft } from "./lib/systems";
 import { ColumnPicker } from "./components/column-picker";
 import { CopyToSitesDialog } from "./components/copy-to-sites-dialog";
+import { DeleteSystemDialog } from "./components/delete-system-dialog";
 import { EmptyState } from "./components/empty-state";
 import { FavoriteEditor, type FavoriteDraft } from "./components/favorite-editor";
 import { FavoritesTable } from "./components/favorites-table";
@@ -44,10 +48,14 @@ import { Icon } from "./components/icon";
 import { IconButton } from "./components/icon-button";
 import { DrawerShell, ProfileDetails } from "./components/record-drawer";
 import { SearchBox } from "./components/search-box";
+import { SystemDetails } from "./components/system-details";
+import { SystemEditor } from "./components/system-editor";
+import { SystemsTable } from "./components/systems-table";
 import { Toolbar, VIEW_LABELS } from "./components/toolbar";
 import { useColumnPreferences } from "./state/use-column-preferences";
 import { useConfirm } from "./state/use-confirm";
 import { useRecords } from "./state/use-records";
+import { useSystems } from "./state/use-systems";
 import { useToast } from "./state/use-toast";
 
 type ImportPreview = {
@@ -61,7 +69,8 @@ type DrawerState =
   | null
   | { mode: "view"; view: DataManagerView; id: string }
   | { mode: "edit"; id: string; snapshot: FavoriteEntry }
-  | { mode: "create" };
+  | { mode: "create" }
+  | { mode: "system-edit"; snapshot: SystemProfile | null };
 
 export function App() {
   const route = useMemo(function () {
@@ -72,11 +81,14 @@ export function App() {
   const [query, setQuery] = useState("");
   const [drawer, setDrawer] = useState<DrawerState>(null);
   const [copyTargetId, setCopyTargetId] = useState<string | null>(null);
+  const [deleteSystemId, setDeleteSystemId] = useState<string | null>(null);
+  const routeSystemHandledRef = useRef(false);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const editorDirtyRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const records = useRecords(scope);
+  const systemsState = useSystems();
   const { columns, setViewColumns } = useColumnPreferences();
   const { toast, showToast } = useToast();
   const { confirm, confirmDialog } = useConfirm();
@@ -86,6 +98,9 @@ export function App() {
   });
   const visibleHistory = records.history.filter(function (entry) {
     return matchesQuery(entry.profile, [formatDisplayTime(entry.createdAt)], query);
+  });
+  const visibleSystems = systemsState.systems.filter(function (system) {
+    return matchesSystemQuery(system, query);
   });
   const favoriteIdByHistoryId = new Map<string, string>();
   records.history.forEach(function (historyEntry) {
@@ -107,6 +122,18 @@ export function App() {
   const drawerHistory = drawer && drawer.mode === "view" && drawer.view === "history"
     ? records.history.find(function (entry) { return entry.id === drawer.id; }) || null
     : null;
+  const drawerSystemId = drawer && drawer.mode === "view" && drawer.view === "systems" ? drawer.id : null;
+  const drawerSystem = drawerSystemId
+    ? systemsState.systems.find(function (system) { return system.id === drawerSystemId; }) || null
+    : null;
+  const editingSystemId = drawer && drawer.mode === "system-edit" && drawer.snapshot ? drawer.snapshot.id : null;
+  const editingSystemLive = editingSystemId
+    ? systemsState.systems.find(function (system) { return system.id === editingSystemId; }) || null
+    : undefined;
+  const deleteSystemTarget = deleteSystemId
+    ? systemsState.systems.find(function (system) { return system.id === deleteSystemId; }) || null
+    : null;
+  const selectedSystemId = drawerSystemId || editingSystemId;
 
   useEffect(function () {
     if (!window.history || typeof window.history.replaceState !== "function") return;
@@ -114,11 +141,22 @@ export function App() {
   }, [scope, view]);
 
   useEffect(function () {
+    if (routeSystemHandledRef.current || !route.systemId || route.view !== "systems" || !systemsState.loaded) return;
+    routeSystemHandledRef.current = true;
+    const target = systemsState.systems.find(function (system) { return system.id === route.systemId; });
+    if (target) {
+      setDrawer({ mode: "system-edit", snapshot: target });
+    } else {
+      showToast("没有找到要管理的系统，可能已被删除", "warning");
+    }
+  }, [systemsState.loaded]);
+
+  useEffect(function () {
     function handleKeydown(event: KeyboardEvent): void {
-      if (event.defaultPrevented || confirmDialog || copyTarget || importPreview) return;
+      if (event.defaultPrevented || confirmDialog || copyTarget || importPreview || deleteSystemTarget) return;
       const target = event.target as HTMLElement | null;
       const typing = !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
-      if (event.key === "/" && !typing && scope) {
+      if (event.key === "/" && !typing && (scope || view === "systems")) {
         event.preventDefault();
         searchInputRef.current?.focus();
         return;
@@ -155,7 +193,7 @@ export function App() {
   }
 
   async function changeDrawer(next: DrawerState): Promise<boolean> {
-    const editing = drawer && (drawer.mode === "edit" || drawer.mode === "create");
+    const editing = drawer && (drawer.mode === "edit" || drawer.mode === "create" || drawer.mode === "system-edit");
     if (editing && editorDirtyRef.current) {
       const discard = await confirm({
         title: "放弃未保存的修改？",
@@ -251,6 +289,51 @@ export function App() {
     showToast("已收藏为常用数据", "success");
   }
 
+  async function copySystemId(id: string): Promise<void> {
+    if (await copyText(id)) {
+      showToast("已复制系统 ID", "success");
+    } else {
+      showToast("自动复制失败，请手动复制", "warning");
+    }
+  }
+
+  async function handleSaveSystem(draft: SystemDraft): Promise<void> {
+    if (!drawer || drawer.mode !== "system-edit") return;
+    try {
+      const snapshot = drawer.snapshot;
+      const live = snapshot
+        ? systemsState.systems.find(function (system) { return system.id === snapshot.id; }) || snapshot
+        : null;
+      const built = buildSystemFromDraft(draft, live);
+      const result = await systemsState.save(built);
+      if (!result.ok) {
+        showToast(result.message || "保存失败，请重试", "danger");
+        return;
+      }
+      showToast(snapshot ? "系统已更新" : "已新增系统", "success");
+      editorDirtyRef.current = false;
+      setDrawer({ mode: "view", view: "systems", id: built.id });
+    } catch (_error) {
+      showToast("保存失败，请重试", "danger");
+    }
+  }
+
+  async function handleDeleteSystem(targetScope: string): Promise<void> {
+    const target = deleteSystemTarget;
+    if (!target) return;
+    try {
+      await systemsState.remove(target.id, targetScope);
+      if (selectedSystemId === target.id) {
+        editorDirtyRef.current = false;
+        setDrawer(null);
+      }
+      setDeleteSystemId(null);
+      showToast("已删除系统，数据已退回「" + formatScopeLabel(targetScope, []) + "」", "success");
+    } catch (_error) {
+      showToast("删除失败，请重试", "danger");
+    }
+  }
+
   async function handleCopyToSites(targetScopes: string[]): Promise<void> {
     if (!copyTarget) return;
     try {
@@ -258,7 +341,9 @@ export function App() {
       if (!results) {
         showToast("这组常用数据已不存在", "warning");
       } else {
-        const summary = summarizeCopyResults(results);
+        const summary = summarizeCopyResults(results, function (target) {
+          return formatScopeLabel(target, systemsState.systems);
+        });
         showToast(summary.message, summary.tone);
       }
       setCopyTargetId(null);
@@ -317,6 +402,14 @@ export function App() {
     void changeDrawer({ mode: "create" });
   }
 
+  function openCreateSystem(): void {
+    void changeDrawer({ mode: "system-edit", snapshot: null });
+  }
+
+  function startEditSystem(system: SystemProfile): void {
+    void changeDrawer({ mode: "system-edit", snapshot: system });
+  }
+
   function renderNoMatch() {
     return (
       <EmptyState icon="search" title="没有匹配的数据" description={"没有找到包含「" + query.trim() + "」的数据。"}>
@@ -327,6 +420,57 @@ export function App() {
 
   function renderDrawer() {
     if (!drawer) return null;
+    if (drawer.mode === "system-edit") {
+      const snapshot = drawer.snapshot;
+      return (
+        <SystemEditor
+          key={snapshot ? "edit-" + snapshot.id + "-" + snapshot.updatedAt : "create-system"}
+          entry={snapshot}
+          liveEntry={snapshot ? editingSystemLive : undefined}
+          onLoadLatest={function () {
+            if (editingSystemLive) {
+              editorDirtyRef.current = false;
+              setDrawer({ mode: "system-edit", snapshot: editingSystemLive });
+            }
+          }}
+          onCancel={function () {
+            void changeDrawer(snapshot ? { mode: "view", view: "systems", id: snapshot.id } : null);
+          }}
+          onSave={handleSaveSystem}
+          onDirtyChange={function (dirty) { editorDirtyRef.current = dirty; }}
+        />
+      );
+    }
+    if (drawerSystem) {
+      const system = drawerSystem;
+      const stats = systemsState.stats[system.id] || { favorites: 0, history: 0, annotations: 0 };
+      return (
+        <DrawerShell
+          eyebrow="系统"
+          title={system.name || "未命名系统"}
+          subtitle={system.titles.join("、")}
+          onClose={function () { void changeDrawer(null); }}
+          footer={
+            <>
+              <button type="button" class="dm-secondary-btn" onClick={function () { startEditSystem(system); }}>
+                <Icon name="pencil" />
+                编辑
+              </button>
+              <span class="dm-drawer-foot-spacer" />
+              <IconButton icon="trash-2" label="删除" tone="danger" onClick={function () { setDeleteSystemId(system.id); }} />
+            </>
+          }
+        >
+          <SystemDetails
+            system={system}
+            systems={systemsState.systems}
+            stats={stats}
+            onCopyId={function (id) { void copySystemId(id); }}
+            onDismissAnomalies={function (id) { void runSafely(function () { return systemsState.dismiss(id); }); }}
+          />
+        </DrawerShell>
+      );
+    }
     if (drawer.mode === "create" || drawer.mode === "edit") {
       const snapshot = drawer.mode === "edit" ? drawer.snapshot : null;
       return (
@@ -422,7 +566,43 @@ export function App() {
     return null;
   }
 
+  function renderSystemsWorkspace() {
+    if (!systemsState.loaded) return null;
+    if (!systemsState.systems.length) {
+      return (
+        <EmptyState
+          icon="building-2"
+          title="还没有系统"
+          description="在目标网站打开 place-fill 并开启智能功能后，会自动记录系统；也可以手动新增，把多个环境归到同一个系统。"
+        >
+          <button type="button" class="dm-primary-btn" onClick={openCreateSystem}>
+            <Icon name="plus" />
+            新增系统
+          </button>
+        </EmptyState>
+      );
+    }
+    if (!visibleSystems.length) return renderNoMatch();
+    return (
+      <SystemsTable
+        systems={visibleSystems}
+        enabledMap={systemsState.enabledMap}
+        stats={systemsState.stats}
+        query={query}
+        selectedId={selectedSystemId}
+        onSelect={function (id) { toggleRow("systems", id); }}
+        onCopyId={function (id) { void copySystemId(id); }}
+        onEdit={function (id) {
+          const system = systemsState.systems.find(function (item) { return item.id === id; });
+          if (system) startEditSystem(system);
+        }}
+        onDelete={setDeleteSystemId}
+      />
+    );
+  }
+
   function renderWorkspace() {
+    if (view === "systems") return renderSystemsWorkspace();
     if (!scope) {
       return (
         <EmptyState
@@ -503,7 +683,13 @@ export function App() {
 
   return (
     <div class="dm-app">
-      <Header scope={scope}>
+      <Header scope={scope} systems={systemsState.systems}>
+        {view === "systems" ? (
+          <button type="button" class="dm-primary-btn" onClick={openCreateSystem}>
+            <Icon name="plus" />
+            新增系统
+          </button>
+        ) : null}
         {scope && view === "favorites" ? (
           <>
             <button
@@ -544,28 +730,41 @@ export function App() {
           </>
         ) : null}
       </Header>
-      {scope ? (
-        <Toolbar
-          view={view}
-          counts={{ favorites: records.favorites.length, history: records.history.length }}
-          hint={view === "history" ? "仅保留最近 " + MAX_GENERATED_RECORDS + " 条" : ""}
-          onViewChange={function (nextView) {
-            if (nextView === view) return;
-            void changeDrawer(null).then(function (changed) {
-              if (!changed) return;
-              setView(nextView);
-              void records.reload();
-            });
-          }}
-        >
-          <SearchBox inputRef={searchInputRef} value={query} onChange={setQuery} />
+      <Toolbar
+        view={view}
+        counts={{
+          favorites: records.favorites.length,
+          history: records.history.length,
+          systems: systemsState.systems.length
+        }}
+        hint={view === "history" ? "仅保留最近 " + MAX_GENERATED_RECORDS + " 条" : ""}
+        onViewChange={function (nextView) {
+          if (nextView === view) return;
+          void changeDrawer(null).then(function (changed) {
+            if (!changed) return;
+            if (nextView === "systems" || view === "systems") setQuery("");
+            setView(nextView);
+            void records.reload();
+          });
+        }}
+      >
+        {scope || view === "systems" ? (
+          <SearchBox
+            inputRef={searchInputRef}
+            value={query}
+            onChange={setQuery}
+            placeholder={view === "systems" ? "搜索系统名称、关键词、域名…" : undefined}
+            label={view === "systems" ? "搜索系统" : undefined}
+          />
+        ) : null}
+        {scope && view !== "systems" ? (
           <ColumnPicker
             columns={columns[view]}
             defaultColumns={DEFAULT_COLUMNS[view]}
             onChange={function (nextColumns) { setViewColumns(view, nextColumns); }}
           />
-        </Toolbar>
-      ) : null}
+        ) : null}
+      </Toolbar>
       <div class="dm-body">
         <section class="dm-main" role="tabpanel" aria-label={VIEW_LABELS[view]}>
           {renderWorkspace()}
@@ -578,6 +777,7 @@ export function App() {
       {copyTarget ? (
         <CopyToSitesDialog
           scope={scope}
+          systems={systemsState.systems}
           title={getFavoriteTitle(copyTarget)}
           onClose={function () { setCopyTargetId(null); }}
           onConfirm={handleCopyToSites}
@@ -586,9 +786,17 @@ export function App() {
       {importPreview ? (
         <ImportDialog
           scope={scope}
+          systems={systemsState.systems}
           {...importPreview}
           onClose={function () { setImportPreview(null); }}
           onConfirm={confirmImport}
+        />
+      ) : null}
+      {deleteSystemTarget ? (
+        <DeleteSystemDialog
+          system={deleteSystemTarget}
+          onClose={function () { setDeleteSystemId(null); }}
+          onConfirm={handleDeleteSystem}
         />
       ) : null}
       {confirmDialog}

@@ -1,12 +1,15 @@
 import { useState } from "preact/hooks";
 import type { ImportedFavorite } from "../lib/import-export";
+import type { SystemProfile } from "../../../shared/system-scope";
 import { getFavoriteTitle } from "../lib/display";
+import { formatScopeLabel } from "../lib/scope-label";
 import { Dialog } from "./dialog";
 
 const PREVIEW_LIMIT = 5;
 
 export function ImportDialog(props: {
   scope: string;
+  systems: SystemProfile[];
   fileName: string;
   sourceScope: string;
   toCreate: ImportedFavorite[];
@@ -55,7 +58,7 @@ export function ImportDialog(props: {
         </div>
         {props.sourceScope && props.sourceScope !== props.scope ? (
           <p class="dm-banner is-info">
-            文件导出自 {props.sourceScope}，将导入到当前站点 {props.scope}。
+            文件导出自 {formatScopeLabel(props.sourceScope, props.systems)}，将导入到当前站点 {formatScopeLabel(props.scope, props.systems)}。
           </p>
         ) : null}
         {count ? (

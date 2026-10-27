@@ -743,8 +743,8 @@ function createScopeHarness(options = {}) {
     navigator: { userAgent: "Mozilla/5.0 Chrome/125.0.0.0 Safari/537.36" },
     crypto: { randomUUID() { idCounter += 1; return "id-" + idCounter; } },
     ChromeTestDataDataManagerBridge: {
-      buildDataManagerPageUrl(baseUrl, scope, view) {
-        return baseUrl + "data-manager.html?scope=" + scope + "&view=" + (view || "favorites");
+      buildDataManagerPageUrl(baseUrl, scope, view, systemId) {
+        return baseUrl + "data-manager.html?scope=" + scope + "&view=" + (view || "favorites") + (systemId ? "&system=" + systemId : "");
       }
     }
   };
@@ -937,12 +937,15 @@ test("registry writes run through one serial queue", async () => {
   assert.equal(results[1].scope.startsWith("system:"), true);
 });
 
-test("open-data-manager-page passes the requested view through", async () => {
+test("open-data-manager-page passes the requested view and system id through", async () => {
   const harness = createScopeHarness();
   await harness.send({ type: "open-data-manager-page", scope: "system:a", view: "systems" });
   assert.match(harness.createdTab.url, /scope=system%3Aa&view=systems/);
   await harness.send({ type: "open-data-manager-page", scope: "system:a" });
   assert.match(harness.createdTab.url, /scope=system%3Aa&view=favorites/);
+  assert.doesNotMatch(harness.createdTab.url, /system=/);
+  await harness.send({ type: "open-data-manager-page", scope: "system:a", view: "systems", systemId: "a" });
+  assert.match(harness.createdTab.url, /view=systems&system=a/);
 });
 
 test("migration runs at startup and when a legacy-shaped key changes without looping", async () => {

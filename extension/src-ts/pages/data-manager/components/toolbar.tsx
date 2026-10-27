@@ -3,7 +3,8 @@ import type { DataManagerView } from "../../../shared/data-manager-routing";
 
 export const VIEW_LABELS: Record<DataManagerView, string> = {
   favorites: "常用数据",
-  history: "生成记录"
+  history: "生成记录",
+  systems: "系统标注"
 };
 
 export function Toolbar(props: {

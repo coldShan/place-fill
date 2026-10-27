@@ -648,10 +648,12 @@
     }
 
     async function openSystemManagerPage() {
+      const resolution = getScopeResolution();
       const response = await sendRuntimeMessage({
         type: "open-data-manager-page",
         scope: getCurrentScopeKey(),
-        view: "systems"
+        view: "systems",
+        systemId: resolution && resolution.system && resolution.system.id ? resolution.system.id : ""
       });
       if (response && response.error) setSettingsStatus(response.error, "error");
     }

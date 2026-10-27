@@ -440,11 +440,11 @@ function openExtensionPage(url) {
   chrome.tabs.create({ url: url });
 }
 
-function openDataManagerPage(scope, view) {
+function openDataManagerPage(scope, view, systemId) {
   if (!chrome.runtime || typeof chrome.runtime.getURL !== "function") return;
   const baseUrl = chrome.runtime.getURL("");
   const url = dataManagerBridgeApi && typeof dataManagerBridgeApi.buildDataManagerPageUrl === "function"
-    ? dataManagerBridgeApi.buildDataManagerPageUrl(baseUrl, scope, view)
+    ? dataManagerBridgeApi.buildDataManagerPageUrl(baseUrl, scope, view, systemId)
     : chrome.runtime.getURL("data-manager.html");
   const versionedUrl = new URL(url);
   versionedUrl.searchParams.set("v", chrome.runtime.getManifest().version);
@@ -794,7 +794,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return;
   }
   if (message.type === "open-data-manager-page") {
-    openDataManagerPage(message.scope, message.view);
+    openDataManagerPage(message.scope, message.view, message.systemId);
     sendResponse({ ok: true });
     return;
   }

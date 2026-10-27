@@ -2,7 +2,10 @@ import type { DataManagerView } from "../../../shared/data-manager-routing";
 import { FIELD_KEYS, type ProfileFieldKey } from "../page-model";
 import { DISPLAY_FIELD_ORDER } from "./field-groups";
 
-export type ColumnPreferences = Record<DataManagerView, ProfileFieldKey[]>;
+/** Views that render profile field columns; the systems view has fixed columns. */
+export type ColumnView = Exclude<DataManagerView, "systems">;
+
+export type ColumnPreferences = Record<ColumnView, ProfileFieldKey[]>;
 
 export const COLUMN_PREFERENCES_STORAGE_KEY = "ctdp.dataManagerColumns.v1";
 
@@ -44,7 +47,7 @@ export function normalizeColumnPreferences(rawValue: unknown): ColumnPreferences
   const source = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
     ? rawValue as Record<string, unknown>
     : {};
-  function readColumns(view: DataManagerView): ProfileFieldKey[] {
+  function readColumns(view: ColumnView): ProfileFieldKey[] {
     const value = source[view];
     if (!Array.isArray(value)) return DEFAULT_COLUMNS[view].slice();
     const columns = sortColumns(value.filter(function (item): item is string {
