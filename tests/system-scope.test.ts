@@ -186,65 +186,31 @@ test("decideScope 1: manual marker wins even when another system matches the tit
   assert.deepEqual(decision, { action: "use", systemId: "A", anomaly: null });
 });
 
-test("decideScope 2/3: local marker is kept for blank title or title hit", () => {
-  const a = system("A", ["客户管理"], [env()]);
-  const marker = { id: "A", name: "A", manual: false };
-  assert.deepEqual(decideScope({ systems: [a], info: page({ title: "" }), marker, fallbackEnabled: true }), {
-    action: "use",
-    systemId: "A",
-    anomaly: null
-  });
-  assert.deepEqual(
-    decideScope({
-      systems: [a],
-      info: page({ title: "列表 - 客户管理", hostname: "127.0.0.1", port: "9999" }),
-      marker,
-      fallbackEnabled: true
-    }),
-    { action: "use", systemId: "A", anomaly: null }
-  );
-});
-
-test("decideScope 4: a local marker is dropped only when the title hits another system or the port is unknown", () => {
+test("decideScope 2: an existing marker wins whatever the title says", () => {
   const a = system("A", ["客户管理"], [env()]);
   const b = system("B", ["办公平台"], [env()]);
   const marker = { id: "A", name: "A", manual: false };
-  // The new title matches a different system: switch to it.
-  assert.deepEqual(decideScope({ systems: [a, b], info: page({ title: "办公平台" }), marker, fallbackEnabled: true }), {
-    action: "use",
-    systemId: "B",
-    anomaly: null
-  });
-  // A route title that matches nothing keeps the marker while host:port is one of its environments.
-  assert.deepEqual(decideScope({ systems: [a, b], info: page({ title: "登录" }), marker, fallbackEnabled: false }), {
-    action: "use",
-    systemId: "A",
-    anomaly: null
-  });
-  // Same title on a port the marker system does not know: the marker is dropped.
+  const use = { action: "use", systemId: "A", anomaly: null };
+  // Blank, matching, route-only and generic titles.
+  for (const title of ["", "列表 - 客户管理", "登录", "Vite App"]) {
+    assert.deepEqual(decideScope({ systems: [a, b], info: page({ title }), marker, fallbackEnabled: false }), use);
+  }
+  // A title that matches another system does not switch away from the marker.
+  assert.deepEqual(decideScope({ systems: [a, b], info: page({ title: "办公平台" }), marker, fallbackEnabled: true }), use);
+  // Nor does a port the marker system does not list, or a keyword-less marker system.
   assert.deepEqual(
     decideScope({ systems: [a], info: page({ title: "别的东西", port: "8080" }), marker, fallbackEnabled: false }),
-    { action: "fallback" }
+    use
   );
-  // A title that also matches the marker system keeps it even if another system matches too.
-  const broad = system("BROAD", ["管理"], [env()]);
+  const bare = system("BARE", [], [env({ port: "5173" })]);
   assert.deepEqual(
-    decideScope({ systems: [a, broad], info: page({ title: "订单列表 - 客户管理" }), marker, fallbackEnabled: true }),
-    { action: "use", systemId: "A", anomaly: null }
-  );
-});
-
-test("decideScope 5: marker to a system without keywords is kept when host:port is a known environment", () => {
-  const a = system("A", [], [env({ port: "5173" })]);
-  const marker = { id: "A", name: "A", manual: false };
-  assert.deepEqual(decideScope({ systems: [a], info: page({ title: "Whatever Page" }), marker, fallbackEnabled: true }), {
-    action: "use",
-    systemId: "A",
-    anomaly: null
-  });
-  assert.deepEqual(
-    decideScope({ systems: [a], info: page({ title: "Whatever Page", port: "8080" }), marker, fallbackEnabled: false }),
-    { action: "fallback" }
+    decideScope({
+      systems: [bare],
+      info: page({ title: "Whatever Page" }),
+      marker: { id: "BARE", name: "BARE", manual: false },
+      fallbackEnabled: false
+    }),
+    { action: "use", systemId: "BARE", anomaly: null }
   );
 });
 

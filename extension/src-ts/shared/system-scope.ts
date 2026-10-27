@@ -225,15 +225,6 @@ function environmentConditionCount(environment: SystemEnvironment): number {
   return 1 + Object.keys(environment.query || {}).length + (environment.lastPath ? 1 : 0);
 }
 
-function hasHostPort(system: SystemProfile, info: PageInfo): boolean {
-  return system.environments.some(function (environment) {
-    return (
-      encodeHostname(environment.hostname) === encodeHostname(info.hostname) &&
-      (environment.port || "") === (info.port || "")
-    );
-  });
-}
-
 function findBestTitleMatch(systems: SystemProfile[], title: string): SystemProfile | null {
   let best: SystemProfile | null = null;
   let bestLength = 0;
@@ -273,25 +264,6 @@ function findLocalEnvironmentMatch(systems: SystemProfile[], info: PageInfo): Sy
   return best;
 }
 
-/**
- * A non-manual marker on a local host survives SPA route titles: it is dropped only when the new
- * title matches a different system (switch to it), or matches nothing while host:port is not one of
- * the marker system's environments. Another project on the same port is therefore detected only by
- * a title hit or in a new tab (the marker lives in per-tab sessionStorage).
- */
-function isMarkerStillValid(system: SystemProfile, systems: SystemProfile[], info: PageInfo): boolean {
-  if (isGenericTitle(info.title)) {
-    return true;
-  }
-  if (titleMatchesSystem(system, info.title) !== "") {
-    return true;
-  }
-  const otherSystemMatches = systems.some(function (candidate) {
-    return candidate.id !== system.id && titleMatchesSystem(candidate, info.title) !== "";
-  });
-  return !otherSystemMatches && hasHostPort(system, info);
-}
-
 export function decideScope(input: {
   systems: SystemProfile[];
   info: PageInfo;
@@ -309,7 +281,9 @@ export function decideScope(input: {
     const markerSystem = systems.find(function (item) {
       return item.id === marker.id;
     });
-    if (markerSystem && (marker.manual || !isLocal || isMarkerStillValid(markerSystem, systems, info))) {
+    // The marker lives in per-origin, per-tab sessionStorage and is the first priority while its system
+    // exists: titles never re-identify, and another project on the same port is picked up in a new tab.
+    if (markerSystem) {
       return { action: "use", systemId: markerSystem.id, anomaly: null };
     }
   }

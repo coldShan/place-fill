@@ -328,11 +328,6 @@ var ChromeTestDataSystemScopeBundle = (function() {
   function environmentConditionCount(environment) {
     return 1 + Object.keys(environment.query || {}).length + (environment.lastPath ? 1 : 0);
   }
-  function hasHostPort(system, info) {
-    return system.environments.some(function(environment) {
-      return encodeHostname(environment.hostname) === encodeHostname(info.hostname) && (environment.port || "") === (info.port || "");
-    });
-  }
   function findBestTitleMatch(systems, title) {
     let best = null;
     let bestLength = 0;
@@ -368,18 +363,6 @@ var ChromeTestDataSystemScopeBundle = (function() {
     }
     return best;
   }
-  function isMarkerStillValid(system, systems, info) {
-    if (isGenericTitle(info.title)) {
-      return true;
-    }
-    if (titleMatchesSystem(system, info.title) !== "") {
-      return true;
-    }
-    const otherSystemMatches = systems.some(function(candidate) {
-      return candidate.id !== system.id && titleMatchesSystem(candidate, info.title) !== "";
-    });
-    return !otherSystemMatches && hasHostPort(system, info);
-  }
   function decideScope(input) {
     const { systems, info, marker, fallbackEnabled } = input;
     const hostKind = classifyHost(info.hostname);
@@ -391,7 +374,7 @@ var ChromeTestDataSystemScopeBundle = (function() {
       const markerSystem = systems.find(function(item) {
         return item.id === marker.id;
       });
-      if (markerSystem && (marker.manual || !isLocal || isMarkerStillValid(markerSystem, systems, info))) {
+      if (markerSystem) {
         return { action: "use", systemId: markerSystem.id, anomaly: null };
       }
     }

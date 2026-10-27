@@ -310,7 +310,7 @@ for (const withLegacy of [false, true]) {
         assert.equal(result.scope, "system:sys1", title);
         marker = result.marker;
       }
-      // A route title without the stable segment keeps the tab's marker (host:port is known).
+      // A route title without the stable segment keeps the tab's marker (the marker always wins).
       assert.equal((await resolvePageScope({ info: pageInfo({ title: "登录" }), marker }, env)).scope, "system:sys1");
 
       // New tabs (no marker) land on the same system for every route.
