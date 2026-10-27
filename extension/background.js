@@ -275,9 +275,9 @@ function openAiPermissionPage(origin) {
   return true;
 }
 
-function openLocalAnnotationPermissionPage() {
+function openLocalAnnotationPermissionPage(mode) {
   if (!localAnnotationFileApi || !chrome.runtime || typeof chrome.runtime.getURL !== "function") return false;
-  openExtensionPage(chrome.runtime.getURL("local-annotation-permission.html"));
+  openExtensionPage(chrome.runtime.getURL("local-annotation-permission.html" + (mode === "change" ? "?mode=change" : "")));
   return true;
 }
 
@@ -647,7 +647,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return true;
   }
   if (message.type === "open-local-annotation-permission") {
-    sendResponse({ ok: openLocalAnnotationPermissionPage() });
+    sendResponse({ ok: openLocalAnnotationPermissionPage(message.mode) });
     return;
   }
   if (message.type === "disable-local-annotation-file") {

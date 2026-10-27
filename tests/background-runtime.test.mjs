@@ -199,7 +199,7 @@ test("background accepts explicit site feature menu sync messages", () => {
   assert.equal(updateCalls.every(function (call) { return call.props.visible === false; }), true);
 });
 
-test("background opens the data manager page with a normalized scope", () => {
+test("background opens the data manager and backup directory pages", () => {
   let onMessageListener = null;
   let createdTab = null;
 
@@ -268,6 +268,7 @@ test("background opens the data manager page with a normalized scope", () => {
           return baseUrl + "data-manager.html?scope=" + String(scope || "").trim().toLowerCase() + "&view=favorites";
         }
       },
+      ChromeTestDataLocalAnnotationFile: {},
       ChromeTestDataSiteFeatureToggle: {
         STORAGE_KEY: "ctdp.siteFeatureEnabled.v1",
         getDefaultSiteFeatureEnabled() {
@@ -298,6 +299,13 @@ test("background opens the data manager page with a normalized scope", () => {
   assert.equal(typeof onMessageListener, "function");
   onMessageListener({ type: "open-data-manager-page", scope: " Example.COM " }, {}, function () {});
   assert.equal(createdTab && createdTab.url, "chrome-extension://testing/data-manager.html?scope=example.com&view=favorites&v=0.3.5");
+
+  let response = null;
+  onMessageListener({ type: "open-local-annotation-permission" }, {}, function (value) { response = value; });
+  assert.equal(createdTab.url, "chrome-extension://testing/local-annotation-permission.html");
+  assert.equal(response && response.ok, true);
+  onMessageListener({ type: "open-local-annotation-permission", mode: "change" }, {}, function () {});
+  assert.equal(createdTab.url, "chrome-extension://testing/local-annotation-permission.html?mode=change");
 });
 
 test("background exposes storage mirror runtime messages", async () => {

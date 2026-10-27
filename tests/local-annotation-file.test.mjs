@@ -7,6 +7,7 @@ const {
   ENABLED_STORAGE_KEY,
   FILE_NAME,
   buildPayload,
+  changeDirectory,
   disable,
   enable,
   getEnabled,
@@ -225,6 +226,57 @@ test("turning auto-save off keeps the handle and restores without selecting agai
   const result = await resumeStored(env);
   assert.equal(result.enabled, true);
   assert.equal(result.source, "file");
+  assert.equal(await getEnabled(env), true);
+});
+
+test("changing the directory moves later backups to the new folder", async () => {
+  const storageArea = createStorageArea({ "ctdp.favoriteProfiles.v1": [{ id: "favorite-1" }] });
+  const handleStore = createHandleStore();
+  const env = createEnv({ handleStore, storageArea });
+  const oldDirectory = createDirectoryHandle();
+  const newDirectory = createDirectoryHandle();
+  await enable(oldDirectory, env);
+  const oldText = oldDirectory.getText();
+
+  const result = await changeDirectory(newDirectory, env, false);
+  storageArea.state["ctdp.favoriteProfiles.v1"] = [{ id: "favorite-2" }];
+  await syncFromStorage(env);
+
+  assert.equal(result.enabled, true);
+  assert.equal(result.source, "storage");
+  assert.equal(handleStore.read(), newDirectory);
+  assert.equal(await getEnabled(env), true);
+  assert.equal(oldDirectory.getText(), oldText, "old folder keeps its last backup");
+  assert.deepEqual(JSON.parse(newDirectory.getText()).storage["ctdp.favoriteProfiles.v1"], [{ id: "favorite-2" }]);
+});
+
+test("changing to a folder with an existing backup can restore it", async () => {
+  const storageArea = createStorageArea({ "ctdp.smartFillOverrides.v1": { browser: "mobile" } });
+  const env = createEnv({ storageArea });
+  await enable(createDirectoryHandle(), env);
+  const newDirectory = createDirectoryHandle(JSON.stringify(buildPayload({
+    "ctdp.smartFillOverrides.v1": { local: "companyName" }
+  })));
+
+  const result = await changeDirectory(newDirectory, env, true);
+
+  assert.equal(result.source, "file");
+  assert.deepEqual(storageArea.state["ctdp.smartFillOverrides.v1"], { local: "companyName" });
+});
+
+test("a failed directory change keeps the original folder and auto-backup", async () => {
+  const handleStore = createHandleStore();
+  const env = createEnv({ handleStore, storageArea: createStorageArea({ "ctdp.smartFillOverrides.v1": {} }) });
+  const oldDirectory = createDirectoryHandle();
+  await enable(oldDirectory, env);
+  const deniedDirectory = createDirectoryHandle();
+  deniedDirectory.setPermission("denied");
+  const brokenDirectory = createDirectoryHandle("not-json");
+
+  await assert.rejects(changeDirectory(deniedDirectory, env, false), /未获得目录读写权限/);
+  await assert.rejects(changeDirectory(brokenDirectory, env, true), /不是有效 JSON/);
+
+  assert.equal(handleStore.read(), oldDirectory);
   assert.equal(await getEnabled(env), true);
 });
 

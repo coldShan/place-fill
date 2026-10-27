@@ -175,6 +175,33 @@
     );
   }
 
+  // HTTP 页面没有 navigator.clipboard，借助扩展的 clipboardWrite 权限走 execCommand 兜底
+  function copyTextWithExecCommand(text, doc) {
+    const container = doc && (doc.body || doc.documentElement);
+    if (!container || typeof doc.execCommand !== "function") return false;
+    const previousActive = doc.activeElement;
+    const textarea = doc.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.top = "0";
+    textarea.style.left = "0";
+    textarea.style.opacity = "0";
+    container.appendChild(textarea);
+    textarea.select();
+    let copied = false;
+    try {
+      copied = doc.execCommand("copy") === true;
+    } catch (_) {
+      copied = false;
+    }
+    textarea.remove();
+    if (previousActive && previousActive !== textarea && typeof previousActive.focus === "function") {
+      try { previousActive.focus({ preventScroll: true }); } catch (_) {}
+    }
+    return copied;
+  }
+
   function resolveAutoFillScope(doc) {
     const scopes = Array.from(doc.querySelectorAll(
       'dialog[open], [role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"], .el-dialog__wrapper, .el-overlay-dialog, .el-drawer__container'
@@ -322,6 +349,7 @@
     let localAnnotationFileToggle = null;
     let localAnnotationFileNote = null;
     let localAnnotationFileAuthorizeButton = null;
+    let localAnnotationFileChangeDirectoryButton = null;
     let focusStyleToggle = null;
     let aiRecognitionToggle = null;
     let aiBaseUrlInput = null;
@@ -501,6 +529,11 @@
           return true;
         } catch (_) {}
       }
+      if (copyTextWithExecCommand(text, document)) {
+        hideFallback();
+        if (copyOptions.flashTone !== null) pulseFlash(copyOptions.flashTone || "copy");
+        return true;
+      }
       showFallback(text);
       if (copyOptions.manualFlashTone !== null) pulseFlash(copyOptions.manualFlashTone || "manual");
       return false;
@@ -599,6 +632,10 @@
         : "默认关闭；开启后自动创建 place-fill-data 全量备份目录";
     }
 
+    function canChangeLocalAnnotationFileDirectory() {
+      return state.localAnnotationFileSupported && state.localAnnotationFileEnabled && !state.localAnnotationFilePermissionRequired;
+    }
+
     function renderLocalAnnotationFileToggleMarkup() {
       return [
         '<section class="ctdp-settings-row ctdp-settings-row-static">',
@@ -613,6 +650,7 @@
         "    </label>",
         "  </span>",
         '  <button class="ctdp-ai-action" type="button" data-role="reauthorize-local-annotation-file" hidden>恢复目录权限</button>',
+        '  <button class="ctdp-ai-action" type="button" data-role="change-local-annotation-file-directory"' + (canChangeLocalAnnotationFileDirectory() ? "" : " hidden") + '>更换目录</button>',
         "</section>"
       ].join("");
     }
@@ -625,6 +663,7 @@
       if (localAnnotationFileToggle) localAnnotationFileToggle.disabled = !state.localAnnotationFileSupported;
       if (localAnnotationFileNote) localAnnotationFileNote.textContent = getLocalAnnotationFileNoteText();
       if (localAnnotationFileAuthorizeButton) localAnnotationFileAuthorizeButton.hidden = !state.localAnnotationFilePermissionRequired;
+      if (localAnnotationFileChangeDirectoryButton) localAnnotationFileChangeDirectoryButton.hidden = !canChangeLocalAnnotationFileDirectory();
     }
 
     async function loadLocalAnnotationFileEnabled() {
@@ -1861,6 +1900,7 @@
       localAnnotationFileToggle = root.querySelector('[data-role="local-annotation-file-toggle"]');
       localAnnotationFileNote = root.querySelector('[data-role="local-annotation-file-note"]');
       localAnnotationFileAuthorizeButton = root.querySelector('[data-role="reauthorize-local-annotation-file"]');
+      localAnnotationFileChangeDirectoryButton = root.querySelector('[data-role="change-local-annotation-file-directory"]');
       focusStyleToggle = root.querySelector('[data-role="focus-style-toggle"]');
       aiRecognitionToggle = root.querySelector('[data-role="ai-recognition-toggle"]');
       aiBaseUrlInput = root.querySelector('[data-role="ai-base-url"]');
@@ -1940,6 +1980,15 @@
         if (role === "reauthorize-local-annotation-file") {
           setSettingsStatus("请在授权页选择“每次访问都允许”或“始终允许”", "warning");
           sendRuntimeMessage({ type: "open-local-annotation-permission" }).catch(function () {});
+          return;
+        }
+        if (role === "change-local-annotation-file-directory") {
+          setSettingsStatus("请在新打开的页面选择新目录", "warning");
+          sendRuntimeMessage({ type: "open-local-annotation-permission", mode: "change" }).then(function (response) {
+            if (!response || response.ok !== true) setSettingsStatus("无法打开目录更换页", "error");
+          }).catch(function () {
+            setSettingsStatus("无法打开目录更换页", "error");
+          });
           return;
         }
         if (role === "settings-back") {
@@ -2160,6 +2209,7 @@
     closeOtherSettingsSections,
     collectPageAutoFillTargets,
     collectPageFavoriteProfile,
+    copyTextWithExecCommand,
     createContentScriptPanelController,
     generateFallbackAutoFillValue,
     hasAutoFillTargetValue,

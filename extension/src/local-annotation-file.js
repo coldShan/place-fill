@@ -245,20 +245,29 @@
     return { enabled: false };
   }
 
+  async function activateDirectory(directoryHandle, env, preserveExisting) {
+    assertPersistentDirectoryPermissionSupported(env);
+    if ((await getPermissionState(directoryHandle)) !== "granted") throw new Error("未获得目录读写权限");
+    if (preserveExisting) {
+      const payload = await readExistingPayload(directoryHandle);
+      await restorePayload(payload, env);
+      if (payload.migratedFromLegacy) await writeStoredPayload(directoryHandle, env);
+    } else {
+      await writeStoredPayload(directoryHandle, env);
+    }
+    await writeDirectoryHandle(directoryHandle, env);
+    await storageSet({ [ENABLED_STORAGE_KEY]: true }, env);
+    return { directoryName: DIRECTORY_NAME, enabled: true, fileName: FILE_NAME, source: preserveExisting ? "file" : "storage" };
+  }
+
+  // 更换目录失败时保留原目录和开关状态，自动备份继续写入原目录
+  function changeDirectory(directoryHandle, env, preserveExisting) {
+    return activateDirectory(directoryHandle, env, preserveExisting);
+  }
+
   async function enable(directoryHandle, env, preserveExisting) {
     try {
-      assertPersistentDirectoryPermissionSupported(env);
-      if ((await getPermissionState(directoryHandle)) !== "granted") throw new Error("未获得目录读写权限");
-      if (preserveExisting) {
-        const payload = await readExistingPayload(directoryHandle);
-        await restorePayload(payload, env);
-        if (payload.migratedFromLegacy) await writeStoredPayload(directoryHandle, env);
-      } else {
-        await writeStoredPayload(directoryHandle, env);
-      }
-      await writeDirectoryHandle(directoryHandle, env);
-      await storageSet({ [ENABLED_STORAGE_KEY]: true }, env);
-      return { directoryName: DIRECTORY_NAME, enabled: true, fileName: FILE_NAME, source: preserveExisting ? "file" : "storage" };
+      return await activateDirectory(directoryHandle, env, preserveExisting);
     } catch (error) {
       await storageSet({ [ENABLED_STORAGE_KEY]: false }, env).catch(function () {});
       await removeDirectoryHandle(env).catch(function () {});
@@ -395,6 +404,7 @@
     OVERRIDES_STORAGE_KEY,
     STORAGE_KEYS: backupApi.STORAGE_KEYS,
     buildPayload,
+    changeDirectory,
     disable,
     enable,
     getEnabled,

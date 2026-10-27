@@ -16,6 +16,7 @@ const {
   closeOtherSettingsSections,
   collectPageAutoFillTargets,
   collectPageFavoriteProfile,
+  copyTextWithExecCommand,
   generateFallbackAutoFillValue,
   hasAutoFillTargetValue,
   isSensitiveFormControl,
@@ -731,6 +732,12 @@ test("data settings keep backup and restore visible while nesting annotation too
   assert.match(panelScript, /reauthorize-local-annotation-file/);
   assert.match(panelScript, /恢复目录权限/);
   assert.match(panelScript, /目录权限需要重新确认/);
+  assert.match(panelScript, /data-role="change-local-annotation-file-directory"' \+ \(canChangeLocalAnnotationFileDirectory\(\) \? "" : " hidden"\) \+ '>更换目录<\/button>/);
+  assert.match(panelScript, /localAnnotationFileChangeDirectoryButton\.hidden = !canChangeLocalAnnotationFileDirectory\(\)/);
+  assert.match(panelScript, /type: "open-local-annotation-permission", mode: "change"/);
+  assert.match(localAnnotationPermissionScript, /get\("mode"\) === "change"/);
+  assert.match(localAnnotationPermissionScript, /api\.changeDirectory\(directoryHandle, undefined, preserveExisting\)/);
+  assert.match(localAnnotationPermissionScript, /自动备份继续使用原目录/);
   assert.match(panelScript, /本地目录不可用，已关闭全量数据自动备份/);
   assert.match(localAnnotationPermissionScript, /id: "place-fill-user-data"/);
   assert.match(localAnnotationPermissionScript, /isPersistentDirectoryPermissionSupported\(\)/);
@@ -766,6 +773,59 @@ test("panel renders and copies every supported field category", () => {
 test("manual copy fallback uses accurate failure wording instead of browser support wording", () => {
   assert.match(panelScript, /自动复制失败时，按 <strong>Ctrl\/Cmd \+ C<\/strong> 手动复制/);
   assert.doesNotMatch(panelScript, /自动复制被阻止时/);
+});
+
+test("panel copy falls back to execCommand before showing the manual copy box", () => {
+  assert.match(panelScript, /catch \(_\) \{\}\s*\}\s*if \(copyTextWithExecCommand\(text, document\)\) \{\s*hideFallback\(\);/);
+});
+
+test("execCommand copy fallback copies via a temporary textarea and restores focus", () => {
+  function createFakeDocument(execResult) {
+    const appended = [];
+    const doc = {
+      copiedValue: null,
+      focusRestored: 0,
+      body: {
+        appendChild(node) { appended.push(node); node.parent = appended; }
+      },
+      createElement(tagName) {
+        return {
+          tagName,
+          value: "",
+          style: {},
+          attributes: {},
+          setAttribute(name, value) { this.attributes[name] = value; },
+          select() { doc.selected = this; },
+          remove() { appended.splice(appended.indexOf(this), 1); }
+        };
+      },
+      execCommand(command) {
+        if (execResult instanceof Error) throw execResult;
+        if (command === "copy") doc.copiedValue = doc.selected.value;
+        return execResult;
+      }
+    };
+    doc.activeElement = { focus() { doc.focusRestored += 1; } };
+    doc.appended = appended;
+    return doc;
+  }
+
+  const okDoc = createFakeDocument(true);
+  assert.equal(copyTextWithExecCommand("张三", okDoc), true);
+  assert.equal(okDoc.copiedValue, "张三");
+  assert.equal(okDoc.selected.attributes.readonly, "");
+  assert.equal(okDoc.appended.length, 0);
+  assert.equal(okDoc.focusRestored, 1);
+
+  const rejectedDoc = createFakeDocument(false);
+  assert.equal(copyTextWithExecCommand("张三", rejectedDoc), false);
+  assert.equal(rejectedDoc.appended.length, 0);
+
+  const throwingDoc = createFakeDocument(new Error("blocked"));
+  assert.equal(copyTextWithExecCommand("张三", throwingDoc), false);
+  assert.equal(throwingDoc.appended.length, 0);
+
+  assert.equal(copyTextWithExecCommand("张三", null), false);
 });
 
 test("smart fill menu supports right-click manual annotation and regenerates only the used field", () => {
