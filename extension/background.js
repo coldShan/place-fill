@@ -60,8 +60,21 @@ let tabScopesLoadPromise = null;
 // and the legacy migration all read-modify-write the same storage keys.
 let registryQueue = Promise.resolve();
 
+function isHostScopedUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return !!parsed.hostname || parsed.protocol === "file:";
+  } catch (_) {
+    return false;
+  }
+}
+
+// Hostless frames (about:blank, about:srcdoc, e.g. rich-text editors) belong to the page that
+// hosts them, so they use the tab's URL instead of mapping to the file scope.
 function resolveContextUrl(info, tab) {
-  return (info && (info.frameUrl || info.pageUrl)) || (tab && tab.url) || "";
+  const frameUrl = info && (info.frameUrl || info.pageUrl);
+  if (frameUrl && isHostScopedUrl(frameUrl)) return frameUrl;
+  return (tab && tab.url) || (info && info.pageUrl) || frameUrl || "";
 }
 
 function getFallbackScopeForUrl(url) {
@@ -74,12 +87,25 @@ function getFallbackScopeForUrl(url) {
   }
 }
 
+// An entry recorded for a previous page of the tab is stale once the top-level URL maps to a
+// different fallback scope. Without a known top URL the entry is trusted (tabs.onUpdated
+// "loading" drops it on navigation anyway).
+function getFreshTabScope(tabId, topUrl) {
+  const entry = tabId ? tabScopes[tabId] : null;
+  if (!entry || typeof entry.scope !== "string" || !entry.scope) return null;
+  if (topUrl) {
+    const currentFallback = getFallbackScopeForUrl(topUrl);
+    if (currentFallback && entry.fallbackScope !== currentFallback) return null;
+  }
+  return entry;
+}
+
 // The tab's recognized scope wins (it covers every frame of the tab); without one, the URL's own
 // fallback scope is what a content script would use before recognition finishes.
-function getScopeForTab(tabId, url) {
-  const entry = tabId ? tabScopes[tabId] : null;
-  if (entry && typeof entry.scope === "string" && entry.scope) return entry.scope;
-  return getFallbackScopeForUrl(url);
+function getScopeForTab(tabId, topUrl, contextUrl) {
+  const entry = getFreshTabScope(tabId, topUrl);
+  if (entry) return entry.scope;
+  return getFallbackScopeForUrl(contextUrl || topUrl);
 }
 
 function getSessionStorageArea() {
@@ -335,7 +361,7 @@ function clearBackupReminder() {
 function isSiteFeatureEnabledForTab(tabId, url) {
   if (!siteFeatureToggleApi) return Promise.resolve(true);
   return loadTabScopes().then(function () {
-    const scope = getScopeForTab(tabId, url);
+    const scope = getScopeForTab(tabId, url, url);
     if (!scope) return true;
     if (typeof siteFeatureToggleApi.readSiteFeatureEnabled !== "function") return isSiteFeatureEnabledForScope(scope);
     return siteFeatureToggleApi.readSiteFeatureEnabled({ scope }).catch(function () {
@@ -627,8 +653,8 @@ function updateRootMenuVisibility(visible) {
   });
 }
 
-function syncRootMenuVisibilityForTab(tabId, url) {
-  updateRootMenuVisibility(isSiteFeatureEnabledForScope(getScopeForTab(tabId, url)));
+function syncRootMenuVisibilityForTab(tabId, topUrl, contextUrl) {
+  updateRootMenuVisibility(isSiteFeatureEnabledForScope(getScopeForTab(tabId, topUrl, contextUrl)));
 }
 
 function syncRootMenuVisibilityForTabId(tabId) {
@@ -703,7 +729,7 @@ if (chrome.storage && chrome.storage.onChanged) {
 
 if (chrome.contextMenus && chrome.contextMenus.onShown) {
   chrome.contextMenus.onShown.addListener(function (info, tab) {
-    syncRootMenuVisibilityForTab(tab && tab.id, resolveContextUrl(info, tab));
+    syncRootMenuVisibilityForTab(tab && tab.id, (tab && tab.url) || (info && info.pageUrl), resolveContextUrl(info, tab));
   });
 }
 
@@ -717,6 +743,13 @@ if (chrome.tabs && chrome.tabs.onActivated) {
 if (chrome.tabs && chrome.tabs.onUpdated) {
   chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
     if (!changeInfo || (!Object.prototype.hasOwnProperty.call(changeInfo, "status") && !Object.prototype.hasOwnProperty.call(changeInfo, "url"))) return;
+    // A new document is loading: the previous page's scope no longer applies (same-document
+    // routing never reports "loading", so SPA navigation keeps it).
+    if (changeInfo.status === "loading") {
+      enqueueRegistryTask(function () {
+        return clearTabScope(tabId);
+      }).catch(function () {});
+    }
     syncRootMenuVisibilityForTab(tabId, (tab && tab.url) || changeInfo.url);
     if (changeInfo.status === "complete" && tab && tab.active) syncBackupReminderForTab(tabId);
   });
@@ -732,7 +765,7 @@ if (chrome.tabs && chrome.tabs.onRemoved) {
 
 chrome.contextMenus.onClicked.addListener(function (info, tab) {
   if (!info || !tab || !tab.id) return;
-  if (!isSiteFeatureEnabledForScope(getScopeForTab(tab.id, resolveContextUrl(info, tab)))) return;
+  if (!isSiteFeatureEnabledForScope(getScopeForTab(tab.id, tab.url || info.pageUrl, resolveContextUrl(info, tab)))) return;
   if (info.menuItemId === MENU_FAVORITE_ID) {
     sendTabMessage(tab.id, info, { type: "add-current-page-to-favorites" });
     return;
@@ -791,7 +824,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
       return;
     }
     loadTabScopes().then(function () {
-      sendResponse(tabScopes[tabId] || null);
+      sendResponse(getFreshTabScope(tabId, sender.tab.url));
     });
     return true;
   }

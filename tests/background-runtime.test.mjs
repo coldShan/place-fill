@@ -721,7 +721,7 @@ function createScopeHarness(options = {}) {
       get(tabId, callback) { callback(tabs[tabId] || { id: tabId, url: "https://example.com/form" }); },
       onActivated: createEvent(),
       onRemoved: { addListener(listener) { removedListeners.push(listener); } },
-      onUpdated: createEvent(),
+      onUpdated: capture("tabsUpdated"),
       query(_queryInfo, callback) { callback(options.activeTabs || []); },
       sendMessage(tabId, message, ...rest) {
         sentMessages.push({ tabId, message, options: rest.length > 1 ? rest[0] : undefined });
@@ -1060,4 +1060,56 @@ test("backup reminder visibility follows the tab scope toggle", async () => {
     { tab: { id: 2, url: "https://example.com/y" }, frameId: 0 }
   );
   assert.equal(disabledState.pending, false);
+});
+
+test("a tab scope from a previous page is ignored after navigating to another host", async () => {
+  const harness = createScopeHarness({
+    local: {
+      [SITE_KEY]: { "system:sys-a": true, "host:example.com": false },
+      [SYSTEMS_KEY]: [seedSystem("sys-a", "系统A", ["系统A"], [{ port: "5173" }])]
+    },
+    tabs: { 1: { id: 1, url: "https://example.com/y" } }
+  });
+  await harness.settle();
+  await harness.send({ type: "resolve-page-scope", info: pageInfo("http://localhost:5173/x", "系统A"), marker: null }, harness.topFrame(1));
+  const sameSite = { tab: { id: 1, url: "http://localhost:5173/other" }, frameId: 2 };
+  assert.equal((await harness.send({ type: "get-tab-scope" }, sameSite)).scope, "system:sys-a");
+  const navigated = { tab: { id: 1, url: "https://example.com/y" }, frameId: 2 };
+  assert.equal(await harness.send({ type: "get-tab-scope" }, navigated), null);
+
+  // The menu also falls back to the new page's own scope (off) instead of the stale system (on).
+  harness.menuUpdates.length = 0;
+  harness.listeners.contextMenusShown({ frameUrl: "https://example.com/y", pageUrl: "https://example.com/y" }, harness.tabs[1]);
+  assert.deepEqual(harness.menuUpdates.map(function (item) { return item.visible; }), [false, false]);
+});
+
+test("tabs.onUpdated loading drops the tab scope while complete keeps it", async () => {
+  const harness = createScopeHarness();
+  await harness.send({ type: "resolve-page-scope", info: pageInfo("https://example.com/a", "A"), marker: null }, harness.topFrame(6));
+  const iframeSender = { tab: { id: 6 }, frameId: 3 };
+  harness.listeners.tabsUpdated(6, { status: "complete" }, { id: 6, url: "https://example.com/a" });
+  await harness.settle();
+  assert.equal((await harness.send({ type: "get-tab-scope" }, iframeSender)).scope, "host:example.com");
+  harness.listeners.tabsUpdated(6, { status: "loading" }, { id: 6, url: "https://example.com/a" });
+  await harness.settle();
+  assert.equal(await harness.send({ type: "get-tab-scope" }, iframeSender), null);
+  assert.equal(Object.prototype.hasOwnProperty.call(harness.session["ctdp.tabScopes"] || {}, "6"), false);
+});
+
+test("hostless frames use the tab URL for the context menu and click guard", async () => {
+  const harness = createScopeHarness({
+    local: { [SITE_KEY]: { "host:example.com": true } },
+    tabs: { 1: { id: 1, url: "https://example.com/editor" } }
+  });
+  await harness.settle();
+  harness.menuUpdates.length = 0;
+  harness.listeners.contextMenusShown({ frameUrl: "about:blank", pageUrl: "https://example.com/editor" }, harness.tabs[1]);
+  assert.deepEqual(harness.menuUpdates.map(function (item) { return item.visible; }), [true, true]);
+  harness.sentMessages.length = 0;
+  harness.listeners.contextMenusClicked(
+    { menuItemId: "ctdp-manual-annotation:clear", frameUrl: "about:srcdoc", pageUrl: "https://example.com/editor", frameId: 4 },
+    harness.tabs[1]
+  );
+  assert.equal(harness.sentMessages.length, 1);
+  assert.equal(harness.sentMessages[0].message.type, "clear-smart-fill-override");
 });
