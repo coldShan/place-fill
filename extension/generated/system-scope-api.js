@@ -189,6 +189,7 @@ var ChromeTestDataSystemScopeBundle = (function() {
     }
   }
   const GENERIC_TITLES = ["vite app", "react app", "vue app", "document", "untitled"];
+  const FILE_SCOPE = "file:local";
   const SCOPE_PREFIXES = ["system:", "host:", "legacy:", "file:"];
   const IPV4_PATTERN = /^\d{1,3}(?:\.\d{1,3}){3}$/;
   const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1", "[::1]", "::1", "0.0.0.0"];
@@ -219,7 +220,7 @@ var ChromeTestDataSystemScopeBundle = (function() {
   function getFallbackScope(info) {
     const kind = classifyHost(info.hostname);
     if (kind === "none") {
-      return "file:";
+      return FILE_SCOPE;
     }
     const encoded = encodeHostname(info.hostname);
     if (kind === "local" && info.port) {
@@ -232,6 +233,7 @@ var ChromeTestDataSystemScopeBundle = (function() {
   }
   function parseScopeKey(scope) {
     const text2 = String(scope || "");
+    if (text2.startsWith("file://")) return null;
     for (const prefix of SCOPE_PREFIXES) {
       if (text2.startsWith(prefix)) {
         return { kind: prefix.slice(0, -1), value: text2.slice(prefix.length) };
@@ -413,6 +415,7 @@ var ChromeTestDataSystemScopeBundle = (function() {
   }
   const systemScope = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
+    FILE_SCOPE,
     GENERIC_TITLES,
     buildSystemScope,
     classifyHost,
@@ -759,7 +762,7 @@ var ChromeTestDataSystemScopeBundle = (function() {
     return getFallbackScope({ hostname, port: "" });
   }
   function migrateAnnotationKey(key) {
-    if (parseScopeKey(key) !== null && key.indexOf("file://") !== 0) return null;
+    if (parseScopeKey(key) !== null) return null;
     const separator = key.indexOf("::");
     if (separator <= 0) return null;
     const pageScope = key.slice(0, separator);
@@ -779,8 +782,9 @@ var ChromeTestDataSystemScopeBundle = (function() {
   function shouldReplace(challenger, incumbent, compareValue) {
     const order = compareValue(challenger.value, incumbent.value);
     if (order !== 0) return order > 0;
-    if (incumbent.existing) return false;
-    return challenger.pathless && !incumbent.pathless;
+    if (incumbent.existing !== challenger.existing) return challenger.existing;
+    if (incumbent.pathless !== challenger.pathless) return challenger.pathless;
+    return challenger.originalKey < incumbent.originalKey;
   }
   function timestampOf(value) {
     const updatedAt = asRecord(value).updatedAt;
@@ -794,11 +798,11 @@ var ChromeTestDataSystemScopeBundle = (function() {
     Object.keys(stored).forEach(function(key) {
       const target = migrateAnnotationKey(key);
       if (!target) {
-        kept[key] = { value: stored[key], existing: true, pathless: false };
+        kept[key] = { value: stored[key], existing: true, pathless: false, originalKey: key };
       } else {
         migrated.push({
           newKey: target.newKey,
-          candidate: { value: stored[key], existing: false, pathless: target.pathless }
+          candidate: { value: stored[key], existing: false, pathless: target.pathless, originalKey: key }
         });
       }
     });

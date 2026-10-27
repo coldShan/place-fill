@@ -74,7 +74,7 @@ test("getFallbackScope follows host kind rules", () => {
   assert.equal(getFallbackScope({ protocol: "http:", hostname: "localhost", port: "" }), "host:localhost");
   assert.equal(getFallbackScope({ protocol: "http:", hostname: "192.168.1.2", port: "8080" }), "host:192.168.1.2");
   assert.equal(getFallbackScope({ protocol: "https:", hostname: "Test.CRM.com", port: "8443" }), "host:test.crm.com");
-  assert.equal(getFallbackScope({ protocol: "file:", hostname: "", port: "" }), "file:");
+  assert.equal(getFallbackScope({ protocol: "file:", hostname: "", port: "" }), "file:local");
   assert.equal(getFallbackScope({ protocol: "http:", hostname: "[::1]", port: "3000" }), "host:v6---1:3000");
 });
 
@@ -83,14 +83,16 @@ test("scope key helpers parse and classify keys", () => {
   assert.deepEqual(parseScopeKey("system:abc"), { kind: "system", value: "abc" });
   assert.deepEqual(parseScopeKey("host:localhost:5173"), { kind: "host", value: "localhost:5173" });
   assert.deepEqual(parseScopeKey("legacy:example.com"), { kind: "legacy", value: "example.com" });
-  assert.deepEqual(parseScopeKey("file:"), { kind: "file", value: "" });
+  assert.deepEqual(parseScopeKey("file:local"), { kind: "file", value: "local" });
+  assert.equal(parseScopeKey("file:///Users/x/form.html"), null);
   assert.equal(parseScopeKey("example.com"), null);
   assert.equal(parseScopeKey(""), null);
   assert.equal(isLegacyScopeKey("example.com"), true);
   assert.equal(isLegacyScopeKey("example.com/admin"), true);
   assert.equal(isLegacyScopeKey("host:example.com"), false);
   assert.equal(isLegacyScopeKey("system:abc"), false);
-  assert.equal(isLegacyScopeKey("file:"), false);
+  assert.equal(isLegacyScopeKey("file:local"), false);
+  assert.equal(isLegacyScopeKey("file:///Users/x/form.html"), true);
   assert.equal(isLegacyScopeKey(""), false);
 });
 

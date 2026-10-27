@@ -53,6 +53,9 @@ export type ScopeDecision =
 
 export const GENERIC_TITLES: readonly string[] = ["vite app", "react app", "vue app", "document", "untitled"];
 
+/** Scope for pages without a hostname (file://); `file:local` keeps `scope::frame::fp` keys unambiguous. */
+export const FILE_SCOPE = "file:local";
+
 const SCOPE_PREFIXES = ["system:", "host:", "legacy:", "file:"] as const;
 const IPV4_PATTERN = /^\d{1,3}(?:\.\d{1,3}){3}$/;
 const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1", "[::1]", "::1", "0.0.0.0"];
@@ -87,7 +90,7 @@ export function encodeHostname(hostname: string): string {
 export function getFallbackScope(info: Pick<PageInfo, "protocol" | "hostname" | "port">): string {
   const kind = classifyHost(info.hostname);
   if (kind === "none") {
-    return "file:";
+    return FILE_SCOPE;
   }
   const encoded = encodeHostname(info.hostname);
   if (kind === "local" && info.port) {
@@ -102,6 +105,8 @@ export function buildSystemScope(id: string): string {
 
 export function parseScopeKey(scope: string): { kind: ScopeKind; value: string } | null {
   const text = String(scope || "");
+  // `file://…` is a legacy page origin, not a `file:` scope.
+  if (text.startsWith("file://")) return null;
   for (const prefix of SCOPE_PREFIXES) {
     if (text.startsWith(prefix)) {
       return { kind: prefix.slice(0, -1) as ScopeKind, value: text.slice(prefix.length) };

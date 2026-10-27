@@ -21,6 +21,7 @@ interface MigrationCandidate {
   value: unknown;
   existing: boolean;
   pathless: boolean;
+  originalKey: string;
 }
 
 /** Maps a legacy hostname key (favorites, history, feature switches) to its fallback scope. */
@@ -32,8 +33,7 @@ function hostnameToScope(rawHostname: string): string {
 
 /** Maps a legacy annotation key (`origin[/path]::frame::fingerprint`) to its fallback-scope key. */
 function migrateAnnotationKey(key: string): { newKey: string; pathless: boolean } | null {
-  // `file://…` page scopes start with the `file:` scope prefix, so they are still legacy.
-  if (parseScopeKey(key) !== null && key.indexOf("file://") !== 0) return null;
+  if (parseScopeKey(key) !== null) return null;
   const separator = key.indexOf("::");
   if (separator <= 0) return null;
   const pageScope = key.slice(0, separator);
@@ -58,8 +58,10 @@ function shouldReplace(
 ): boolean {
   const order = compareValue(challenger.value, incumbent.value);
   if (order !== 0) return order > 0;
-  if (incumbent.existing) return false;
-  return challenger.pathless && !incumbent.pathless;
+  if (incumbent.existing !== challenger.existing) return challenger.existing;
+  if (incumbent.pathless !== challenger.pathless) return challenger.pathless;
+  // Deterministic regardless of storage order: plain code-unit comparison of the original keys.
+  return challenger.originalKey < incumbent.originalKey;
 }
 
 function timestampOf(value: unknown): number {
@@ -80,11 +82,11 @@ async function migrateAnnotationMap(
   Object.keys(stored).forEach(function (key) {
     const target = migrateAnnotationKey(key);
     if (!target) {
-      kept[key] = { value: stored[key], existing: true, pathless: false };
+      kept[key] = { value: stored[key], existing: true, pathless: false, originalKey: key };
     } else {
       migrated.push({
         newKey: target.newKey,
-        candidate: { value: stored[key], existing: false, pathless: target.pathless }
+        candidate: { value: stored[key], existing: false, pathless: target.pathless, originalKey: key }
       });
     }
   });

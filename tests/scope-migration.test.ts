@@ -187,6 +187,67 @@ test("annotation conflicts keep the entry without a path, otherwise the first on
   assert.deepEqual(existing.storageArea.state[OVERRIDES_KEY], { "host:a.com::top::fp": "address" });
 });
 
+test("annotation conflict tiebreak is independent of storage order", async () => {
+  const reversed = createEnv({
+    [OVERRIDES_KEY]: {
+      "http://a.com/z::top::fp": "mobile",
+      "http://a.com/y::top::fp": "email",
+      "http://a.com/::top::fp2": "mobile",
+      "http://a.com::top::fp2": "email"
+    }
+  });
+  await migrateLegacyScopes(reversed.env);
+  // y < z; "http://a.com/::" vs "http://a.com::": "/" (0x2f) < ":" (0x3a), so the slash variant wins.
+  assert.deepEqual(reversed.storageArea.state[OVERRIDES_KEY], {
+    "host:a.com::top::fp": "email",
+    "host:a.com::top::fp2": "mobile"
+  });
+
+  const forward = createEnv({
+    [OVERRIDES_KEY]: {
+      "http://a.com::top::fp2": "email",
+      "http://a.com/::top::fp2": "mobile"
+    }
+  });
+  await migrateLegacyScopes(forward.env);
+  assert.deepEqual(forward.storageArea.state[OVERRIDES_KEY], { "host:a.com::top::fp2": "mobile" });
+});
+
+test("AI mapping updatedAt ties use the same deterministic tiebreak", async () => {
+  const mapping = (fieldKey: string) => ({
+    fieldKey,
+    confidence: 0.9,
+    localFieldKey: "",
+    updatedAt: "2026-01-01T00:00:00.000Z"
+  });
+  const { env, storageArea } = createEnv({
+    [AI_MAPPINGS_KEY]: {
+      "http://a.com/z::top::fp": mapping("mobile"),
+      "http://a.com/y::top::fp": mapping("email")
+    }
+  });
+  await migrateLegacyScopes(env);
+  assert.deepEqual(storageArea.state[AI_MAPPINGS_KEY], { "host:a.com::top::fp": mapping("email") });
+});
+
+test("migrates file:// annotation keys to the file:local scope", async () => {
+  const { env, storageArea } = createEnv({
+    [OVERRIDES_KEY]: {
+      "file:///Users/x/form.html::top::fp": "fullName",
+      "file://::top::fp2": "email"
+    }
+  });
+  const result = await migrateLegacyScopes(env);
+  assert.equal(result.changed, true);
+  assert.deepEqual(storageArea.state[OVERRIDES_KEY], {
+    "file:local::top::fp": "fullName",
+    "file:local::top::fp2": "email"
+  });
+  storageArea.setCalls.length = 0;
+  assert.deepEqual(await migrateLegacyScopes(env), { changed: false });
+  assert.equal(storageArea.setCalls.length, 0);
+});
+
 test("AI mapping conflicts keep the entry with the newer updatedAt", async () => {
   const mapping = (fieldKey: string, updatedAt: string) => ({ fieldKey, confidence: 0.9, localFieldKey: "", updatedAt });
   const { env, storageArea } = createEnv({
