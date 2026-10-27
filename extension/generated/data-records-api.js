@@ -343,6 +343,43 @@ var ChromeTestDataDataRecordsBundle = (function() {
     }
     return results;
   }
+  async function moveScopeRecords(fromScope, toScope, env) {
+    const from = normalizeScopeKey(fromScope);
+    const to = normalizeScopeKey(toScope);
+    if (!from || !to || from === to) return;
+    const now = env && typeof env.now === "function" ? env.now() : Date.now();
+    const random = env && typeof env.random === "function" ? env.random : Math.random;
+    const favoritesMap = await readFavoriteProfilesMap(env);
+    if (Object.prototype.hasOwnProperty.call(favoritesMap, from)) {
+      const merged = (favoritesMap[to] || []).slice();
+      const usedIds = collectIds(merged);
+      (favoritesMap[from] || []).forEach(function(entry) {
+        const exists = merged.some(function(current) {
+          return isSameProfile(current.profile, entry.profile);
+        });
+        if (exists) return;
+        merged.push(usedIds.has(entry.id) ? { ...entry, id: createUniqueId(now, random, usedIds) } : entry);
+        usedIds.add(entry.id);
+      });
+      favoritesMap[to] = merged;
+      delete favoritesMap[from];
+      await writeFavoriteProfilesMap(favoritesMap, env);
+    }
+    const generatedMap = await readGeneratedProfilesMap(env);
+    if (Object.prototype.hasOwnProperty.call(generatedMap, from)) {
+      const merged = (generatedMap[to] || []).slice();
+      const usedIds = collectIds(merged);
+      (generatedMap[from] || []).forEach(function(entry) {
+        merged.push(usedIds.has(entry.id) ? { ...entry, id: createUniqueId(now, random, usedIds) } : entry);
+        usedIds.add(entry.id);
+      });
+      generatedMap[to] = merged.sort(function(left, right) {
+        return Number(right.createdAt) - Number(left.createdAt);
+      }).slice(0, MAX_GENERATED_RECORDS);
+      delete generatedMap[from];
+      await writeGeneratedProfilesMap(generatedMap, env);
+    }
+  }
   async function importFavoriteProfiles(scope, inputs, env) {
     const normalizedScope = normalizeScopeKey(scope);
     if (!normalizedScope) throw new Error("Invalid scope");
@@ -394,6 +431,7 @@ var ChromeTestDataDataRecordsBundle = (function() {
     isSameProfile,
     listKnownScopes,
     listScopeSummaries,
+    moveScopeRecords,
     normalizeProfile,
     normalizeScopeKey,
     readFavoriteProfiles,

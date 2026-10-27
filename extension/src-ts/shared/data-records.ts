@@ -22,7 +22,7 @@ interface ChromeStorageAreaLike {
   set(value: Record<string, unknown>, callback?: () => void): void;
 }
 
-interface DataRecordsEnv {
+export interface DataRecordsEnv {
   now?: () => number;
   random?: () => number;
   storageArea?: ChromeStorageAreaLike | null;
@@ -431,6 +431,54 @@ export async function copyFavoriteToScopes(
     await writeFavoriteProfilesMap(favoritesMap, env);
   }
   return results;
+}
+
+/**
+ * Moves every favorite and history entry from `fromScope` into `toScope`, then removes `fromScope`.
+ * Favorites are deduplicated by profile (target entries win); history is merged newest first
+ * and truncated to MAX_GENERATED_RECORDS.
+ */
+export async function moveScopeRecords(fromScope: string, toScope: string, env?: DataRecordsEnv): Promise<void> {
+  const from = normalizeScopeKey(fromScope);
+  const to = normalizeScopeKey(toScope);
+  if (!from || !to || from === to) return;
+
+  const now = env && typeof env.now === "function" ? env.now() : Date.now();
+  const random = env && typeof env.random === "function" ? env.random : Math.random;
+
+  const favoritesMap = await readFavoriteProfilesMap(env);
+  if (Object.prototype.hasOwnProperty.call(favoritesMap, from)) {
+    const merged = (favoritesMap[to] || []).slice();
+    const usedIds = collectIds(merged);
+    (favoritesMap[from] || []).forEach(function (entry) {
+      const exists = merged.some(function (current) {
+        return isSameProfile(current.profile, entry.profile);
+      });
+      if (exists) return;
+      merged.push(usedIds.has(entry.id) ? { ...entry, id: createUniqueId(now, random, usedIds) } : entry);
+      usedIds.add(entry.id);
+    });
+    favoritesMap[to] = merged;
+    delete favoritesMap[from];
+    await writeFavoriteProfilesMap(favoritesMap, env);
+  }
+
+  const generatedMap = await readGeneratedProfilesMap(env);
+  if (Object.prototype.hasOwnProperty.call(generatedMap, from)) {
+    const merged = (generatedMap[to] || []).slice();
+    const usedIds = collectIds(merged);
+    (generatedMap[from] || []).forEach(function (entry) {
+      merged.push(usedIds.has(entry.id) ? { ...entry, id: createUniqueId(now, random, usedIds) } : entry);
+      usedIds.add(entry.id);
+    });
+    generatedMap[to] = merged
+      .sort(function (left, right) {
+        return Number(right.createdAt) - Number(left.createdAt);
+      })
+      .slice(0, MAX_GENERATED_RECORDS);
+    delete generatedMap[from];
+    await writeGeneratedProfilesMap(generatedMap, env);
+  }
 }
 
 export { FIELD_KEYS, formatProfileForCopy, normalizeProfile, type ProfileFieldMap };

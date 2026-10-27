@@ -10,6 +10,7 @@ import {
   hasFavoriteProfile,
   importFavoriteProfiles,
   listScopeSummaries,
+  moveScopeRecords,
   normalizeScopeKey,
   readFavoriteProfiles,
   readGeneratedProfiles,
@@ -336,4 +337,46 @@ test("importFavoriteProfiles keeps ids unique when timestamps and random values 
   await copyFavoriteToScopes(scope, existing.id, ["beta.example.com"], { storageArea, now: () => 3000, random: () => 0 });
   const betaIds = (await readFavoriteProfiles("beta.example.com", { storageArea })).map(function (entry) { return entry.id; });
   assert.equal(new Set(betaIds).size, 2);
+});
+
+test("moveScopeRecords merges favorites without duplicates, merges history newest first and removes the source", async () => {
+  const storageArea = createStorageArea({
+    "ctdp.favoriteProfiles.v1": {
+      "host:a.com": [
+        { createdAt: "1", id: "same", name: "来源重复", note: "", profile: buildProfile(1), updatedAt: "1" },
+        { createdAt: "2", id: "dup-id", name: "来源独有", note: "", profile: buildProfile(2), updatedAt: "2" }
+      ],
+      "system:t": [{ createdAt: "3", id: "dup-id", name: "目标", note: "", profile: buildProfile(1), updatedAt: "3" }]
+    },
+    "ctdp.generatedProfiles.v1": {
+      "host:a.com": Array.from({ length: 20 }, (_, index) => ({ createdAt: String(100 + index), id: "a" + index, profile: buildProfile(index) })),
+      "system:t": Array.from({ length: 20 }, (_, index) => ({ createdAt: String(200 + index), id: "t" + index, profile: buildProfile(index) }))
+    }
+  });
+  await moveScopeRecords("host:a.com", "system:t", { storageArea });
+
+  const favorites = await readFavoriteProfiles("system:t", { storageArea });
+  assert.equal(favorites.length, 2);
+  assert.equal(favorites[0]!.name, "目标");
+  assert.equal(favorites[1]!.name, "来源独有");
+  assert.notEqual(favorites[0]!.id, favorites[1]!.id);
+  assert.deepEqual(await readFavoriteProfiles("host:a.com", { storageArea }), []);
+
+  const history = await readGeneratedProfiles("system:t", { storageArea });
+  assert.equal(history.length, 30);
+  assert.equal(history[0]!.createdAt, "219");
+  const times = history.map((entry) => Number(entry.createdAt));
+  assert.deepEqual(times, times.slice().sort((x, y) => y - x));
+  assert.deepEqual(await readGeneratedProfiles("host:a.com", { storageArea }), []);
+});
+
+test("moveScopeRecords is a no-op for identical or invalid scopes", async () => {
+  const storageArea = createStorageArea({
+    "ctdp.favoriteProfiles.v1": {
+      "host:a.com": [{ createdAt: "1", id: "x", name: "n", note: "", profile: buildProfile(1), updatedAt: "1" }]
+    }
+  });
+  await moveScopeRecords("host:a.com", "host:a.com", { storageArea });
+  await moveScopeRecords("", "host:b.com", { storageArea });
+  assert.equal((await readFavoriteProfiles("host:a.com", { storageArea })).length, 1);
 });
