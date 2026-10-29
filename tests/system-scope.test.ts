@@ -286,7 +286,48 @@ test("decideScope 9: more conditions win, then longer keyword", () => {
   );
 });
 
-test("decideScope 9b: a keyword-less system only matches pages whose own title is generic or blank", () => {
+test("decideScope 9c: a keyword-less system with identifying params or a last path matches any title", () => {
+  const byQuery = system("QUERY", [], [env({ query: { app: "order" } })]);
+  const byPath = system("PATH", [], [env({ lastPath: "order" })]);
+  assert.deepEqual(
+    decideScope({ systems: [byQuery], info: page({ title: "订单中心", query: { app: "order" } }), marker: null, fallbackEnabled: false }),
+    { action: "use", systemId: "QUERY", anomaly: null }
+  );
+  assert.deepEqual(
+    decideScope({ systems: [byPath], info: page({ title: "订单中心", lastPath: "order" }), marker: null, fallbackEnabled: false }),
+    { action: "use", systemId: "PATH", anomaly: null }
+  );
+  // Without the identifying param the page is not claimed.
+  assert.deepEqual(
+    decideScope({ systems: [byQuery], info: page({ title: "订单中心", query: {} }), marker: null, fallbackEnabled: true }),
+    { action: "create" }
+  );
+  // A keyword hit on the same environment still outranks the keyword-less system.
+  const keyword = system("KEY", ["订单中心"], [env({ query: { app: "order" } })]);
+  assert.deepEqual(
+    decideScope({
+      systems: [byQuery, keyword],
+      info: page({ title: "订单中心", query: { app: "order" } }),
+      marker: null,
+      fallbackEnabled: false
+    }),
+    { action: "use", systemId: "KEY", anomaly: null }
+  );
+  // A keyword system on a host:port-only environment and a keyword-less one with params tie on score;
+  // the keyword hit breaks the tie.
+  const keywordHostOnly = system("KEYHOST", ["订单中心"], [env()]);
+  assert.deepEqual(
+    decideScope({
+      systems: [byQuery, keywordHostOnly],
+      info: page({ title: "订单中心", query: { app: "order" } }),
+      marker: null,
+      fallbackEnabled: false
+    }),
+    { action: "use", systemId: "KEYHOST", anomaly: null }
+  );
+});
+
+test("decideScope 9b: a keyword-less host:port-only system only matches pages whose own title is generic or blank", () => {
   const hostOnly = system("HOST", [], [env()]);
   assert.deepEqual(
     decideScope({ systems: [hostOnly], info: page({ title: "客户管理" }), marker: null, fallbackEnabled: true }),

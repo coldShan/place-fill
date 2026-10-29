@@ -244,13 +244,18 @@ function findLocalEnvironmentMatch(systems: SystemProfile[], info: PageInfo): Sy
   let bestKeywordLength = -1;
   for (const candidate of systems) {
     const keyword = titleMatchesSystem(candidate, info.title);
-    // Keyword systems need a title hit; keyword-less systems would otherwise capture every project
-    // on their port, so they only match pages whose own title is generic or blank.
-    if (usableKeywords(candidate).length > 0 ? !keyword : !isGenericTitle(info.title)) {
+    const hasKeywords = usableKeywords(candidate).length > 0;
+    // Keyword systems need a title hit.
+    if (hasKeywords && !keyword) {
       continue;
     }
     for (const environment of candidate.environments) {
       if (!environmentMatches(environment, info)) {
+        continue;
+      }
+      // A keyword-less host:port-only environment would capture every project on its port, so it only
+      // matches pages whose own title is generic or blank; identifying params or a last path are enough.
+      if (!hasKeywords && environmentConditionCount(environment) === 1 && !isGenericTitle(info.title)) {
         continue;
       }
       const score = environmentConditionCount(environment) + (keyword ? 1 : 0);

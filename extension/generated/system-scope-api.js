@@ -346,11 +346,15 @@ var ChromeTestDataSystemScopeBundle = (function() {
     let bestKeywordLength = -1;
     for (const candidate of systems) {
       const keyword = titleMatchesSystem(candidate, info.title);
-      if (usableKeywords(candidate).length > 0 ? !keyword : !isGenericTitle(info.title)) {
+      const hasKeywords = usableKeywords(candidate).length > 0;
+      if (hasKeywords && !keyword) {
         continue;
       }
       for (const environment of candidate.environments) {
         if (!environmentMatches(environment, info)) {
+          continue;
+        }
+        if (!hasKeywords && environmentConditionCount(environment) === 1 && !isGenericTitle(info.title)) {
           continue;
         }
         const score = environmentConditionCount(environment) + (keyword ? 1 : 0);
